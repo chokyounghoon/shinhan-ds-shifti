@@ -27,6 +27,14 @@ function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2:
   return Math.round(R * c);
 }
 
+// 거리 읽기 편한 포맷터 (예: 25m, 1.2km, 26.3km)
+function formatDistanceText(meters: number): string {
+  if (meters >= 1000) {
+    return `${(meters / 1000).toFixed(1)}km`;
+  }
+  return `${meters}m`;
+}
+
 export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
   onOpenRequest,
   onOpenNoScheduleModal,
@@ -81,16 +89,12 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
           setIsLocating(false);
         },
         () => {
-          // 브라우저 위치 권한 허용 대기 시 기본 접근 위치 유지
-          setGpsDistance(25);
-          setSpoofResult(antiSpoofService.verifyLocationIntegrity(targetLat, targetLng, 15, 38, 0));
+          // 브라우저 권한 대기 시
           setIsLocating(false);
         },
-        { enableHighAccuracy: true, timeout: 5000 }
+        { enableHighAccuracy: true, timeout: 6000 }
       );
     } else {
-      setGpsDistance(25);
-      setSpoofResult(antiSpoofService.verifyLocationIntegrity(targetLat, targetLng, 15, 38, 0));
       setIsLocating(false);
     }
   };
@@ -107,12 +111,12 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
     }
 
     if (!isSecurityPassed) {
-      alert(`🚨 [보안 위반 탐지] GPS 우회 프로그램(Fake GPS) 감지됨!\n${spoofResult.detectedThreats.join('\n')}\n\n위치 변작 시도가 감지되어 투입 인증이 원천 차단되었으며 보안 감사로그가 기록되었습니다.`);
+      alert(`🚨 [보안 위반 탐지] GPS 우회 프로그램(Fake GPS) 감지됨!\n${spoofResult.detectedThreats.join('\n')}\n\n위치 변작 시도가 감지되어 투입 인증이 원천 차단되었습니다.`);
       return;
     }
 
     if (!isWithin100m) {
-      alert(`⚠️ 약정 도급 장소[${targetName}] 반경 100m 밖입니다. (현재 거리: ${gpsDistance}m)\n현장에 도착하여 100m 이내로 진입한 후 버튼을 눌러주세요.`);
+      alert(`⚠️ 약정 도급 장소[${targetName}] 반경 100m 밖입니다. (현재 거리: ${formatDistanceText(gpsDistance)})\n현장에 도착하여 100m 이내로 진입한 후 버튼을 눌러주세요.`);
       return;
     }
 
@@ -128,7 +132,7 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
     setInputTime(timeStr);
     dbService.addCommuteLog('투입확인', timeStr);
     onLogUpdated();
-    alert(`🎉 [${targetName}] 금일 도급 인력 투입이 정상 확정되었습니다.\n• 투입 인증 시각: ${timeStr}\n• GPS 인증 거리: ${dist}m (100m 이내 진입 확인)\n• 안티스푸핑 보안 검증: 정상 통과 (보안점수: 100점)\n• 인정 실적: 당일 약정 1 M/D (8.0 Man-Hour)\n\n※ 퇴근 시간은 별도 기록하지 않으며 오늘의 도급 투입 의무가 완결되었습니다.`);
+    alert(`🎉 [${targetName}] 금일 도급 인력 투입이 정상 확정되었습니다.\n• 투입 인증 시각: ${timeStr}\n• GPS 인증 거리: ${formatDistanceText(dist)} (100m 이내 진입 확인)\n• 안티스푸핑 보안 검증: 정상 통과\n• 인정 실적: 당일 약정 1 M/D (8.0 Man-Hour)\n\n※ 퇴근 시간은 별도 기록하지 않으며 오늘의 도급 투입 의무가 완결되었습니다.`);
   };
 
   return (
@@ -157,7 +161,7 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
               marginBottom: '4px'
             }}>
               <ShieldCheck size={12} />
-              <span>실시간 GPS 반경 100m 및 안티스푸핑 보안 인증</span>
+              <span>실시간 GPS 반경 100m 진입 시 조건부 활성화</span>
             </div>
             <h2 style={{ fontSize: '18px', fontWeight: 900, color: '#191F28', margin: 0 }}>
               오늘 도급 투입 실적 ({month}월 {date}일, {dayName})
@@ -165,8 +169,8 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
           </div>
 
           <div style={{
-            background: isInputCompleted ? '#E8F5E9' : !isSecurityPassed ? '#FEF2F2' : isWithin100m ? '#EFF6FF' : '#FEF2F2',
-            color: isInputCompleted ? '#2E7D32' : !isSecurityPassed ? '#DC2626' : isWithin100m ? '#0052FF' : '#DC2626',
+            background: isInputCompleted ? '#E8F5E9' : !isSecurityPassed ? '#FEF2F2' : isWithin100m ? '#EFF6FF' : '#F1F5F9',
+            color: isInputCompleted ? '#2E7D32' : !isSecurityPassed ? '#DC2626' : isWithin100m ? '#0052FF' : '#64748B',
             fontSize: '11.5px',
             fontWeight: 800,
             padding: '4px 10px',
@@ -182,7 +186,7 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
             ) : isWithin100m ? (
               <LocateFixed size={13} color="#0052FF" />
             ) : (
-              <AlertTriangle size={13} color="#DC2626" />
+              <Clock size={13} color="#64748B" />
             )}
             <span>
               {isInputCompleted 
@@ -191,7 +195,7 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
                   ? '위치변작 감지 (차단)'
                   : isWithin100m 
                     ? '현장 100m 내 (활성화)' 
-                    : '현장 밖 (비활성화)'}
+                    : '현장 100m 밖 (비활성화)'}
             </span>
           </div>
         </div>
@@ -209,7 +213,7 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
           borderRadius: '8px'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <MapPin size={15} color={isWithin100m ? '#0052FF' : '#DC2626'} />
+            <MapPin size={15} color={isWithin100m ? '#0052FF' : '#64748B'} />
             <span>약정 도급 장소: <strong>{targetName}</strong></span>
           </div>
 
@@ -230,36 +234,38 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
             }}
           >
             <RefreshCw size={11} className={isLocating ? 'spinning' : ''} />
-            <span>GPS 재측정 ({gpsDistance}m)</span>
+            <span>GPS 재측정 ({formatDistanceText(gpsDistance)})</span>
           </button>
         </div>
 
-        {/* 안티스푸핑 무결성 보안 상태 배너 */}
-        <div style={{
-          padding: '8px 12px',
-          borderRadius: '8px',
-          fontSize: '11px',
-          fontWeight: 700,
-          marginBottom: '12px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          background: isSecurityPassed ? '#F0FDF4' : '#FEF2F2',
-          border: isSecurityPassed ? '1px solid #BBF7D0' : '1px solid #FECACA',
-          color: isSecurityPassed ? '#15803D' : '#B91C1C'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {isSecurityPassed ? <ShieldCheck size={14} color="#16A34A" /> : <ShieldAlert size={14} color="#DC2626" />}
-            <span>
-              {isSecurityPassed
-                ? '안티스푸핑 보안 검증 완료 (하드웨어 센서 신호 정상 · 무결성 100%)'
-                : '🚨 GPS 변작 프로그램(Mock Location) 감지됨 - 인증 차단'}
-            </span>
+        {/* 안내 배너: 100m 이내 vs 100m 밖 */}
+        {!isInputCompleted && (
+          <div style={{
+            padding: '8px 12px',
+            borderRadius: '8px',
+            fontSize: '11px',
+            fontWeight: 700,
+            marginBottom: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            background: isWithin100m ? '#F0FDF4' : '#F8FAFC',
+            border: isWithin100m ? '1px solid #BBF7D0' : '1px solid #E2E8F0',
+            color: isWithin100m ? '#15803D' : '#475569'
+          }}>
+            {isWithin100m ? (
+              <>
+                <CheckCircle2 size={14} color="#16A34A" />
+                <span>현장 100m 반경 내 진입 확인됨 ({formatDistanceText(gpsDistance)}) ➔ 버튼이 활성화되었습니다.</span>
+              </>
+            ) : (
+              <>
+                <Clock size={14} color="#64748B" />
+                <span>약정 근무지 100m 반경 밖입니다 (현재 거리: {formatDistanceText(gpsDistance)}). 현장 도착 시 활성화됩니다.</span>
+              </>
+            )}
           </div>
-          <span style={{ fontSize: '10px', color: isSecurityPassed ? '#16A34A' : '#DC2626' }}>
-            {isSecurityPassed ? '보안인증 ✓' : '보안위반 ✕'}
-          </span>
-        </div>
+        )}
 
         {/* 위치 기반 조건부 활성화 버튼 (Geofenced Button) */}
         <button
@@ -299,11 +305,6 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
               <CheckCircle2 size={20} />
               <span>✓ 금일 도급 투입 인증 완료 ({inputTime})</span>
             </>
-          ) : !isSecurityPassed ? (
-            <>
-              <ShieldAlert size={18} />
-              <span>🚨 GPS 우회 프로그램 감지됨 (인증 차단)</span>
-            </>
           ) : isWithin100m ? (
             <>
               <Navigation size={18} />
@@ -325,7 +326,7 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
               {inputTime || '08:50 (정상)'}
             </div>
             <div style={{ fontSize: '10px', color: '#16A34A', fontWeight: 700, marginTop: '2px' }}>
-              ✓ 안티스푸핑 100% 무결성 검증
+              ✓ GPS 실시간 위치 검증
             </div>
           </div>
 
