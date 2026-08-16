@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, ChevronDown, CheckCircle2, Megaphone } from 'lucide-react';
+import { Calendar, ChevronDown, CheckCircle2, FileText } from 'lucide-react';
 import { DaySchedule } from '../types';
 
 interface WeeklyScheduleCardProps {
@@ -20,10 +20,10 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
       <div className="week-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <div className="week-title" style={{ fontSize: '15px', fontWeight: 800 }}>
-            주간 도급 투입 계획 및 공백 관리 (Man-Day)
+            주간 도급 투입 계획 (Man-Day)
           </div>
           <div style={{ fontSize: '11px', color: '#6B7684', marginTop: '2px' }}>
-            휴가 승인이 아닌 원청 앞 투입 공백(0 M/D)을 사전 통보합니다
+            소속사에 휴가 신청 시 관리자가 원청에 공백을 통보합니다
           </div>
         </div>
 
@@ -32,9 +32,9 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
             type="button"
             onClick={onOpenVacationModal}
             style={{
-              background: 'rgba(0, 82, 255, 0.08)',
-              border: '1px solid #0052FF',
-              color: '#0052FF',
+              background: '#F0FDF4',
+              border: '1.5px solid #16A34A',
+              color: '#15803D',
               fontSize: '11.5px',
               fontWeight: 800,
               padding: '5px 9px',
@@ -45,8 +45,8 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
               gap: '4px'
             }}
           >
-            <Megaphone size={13} />
-            <span>+ 투입 공백 통보</span>
+            <FileText size={13} />
+            <span>+ 소속사 휴가 신청</span>
           </button>
         )}
       </div>
@@ -72,12 +72,12 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
               </div>
 
               <div className="day-content" style={{ fontSize: '11px' }}>
-                <span>{day.title === '체력단련휴.' || day.title === '연차' ? '사전공백' : day.title}</span>
+                <span>{day.title === '체력단련휴.' || day.title === '연차' ? '소속사휴가' : day.title}</span>
                 {day.isVacation && (
                   <CheckCircle2
                     size={11}
                     style={{
-                      color: '#0052FF',
+                      color: '#16A34A',
                       marginTop: '2px'
                     }}
                   />

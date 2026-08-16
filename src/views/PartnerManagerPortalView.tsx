@@ -697,6 +697,7 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
           // reload
         }}
         currentUser={currentUser}
+        isManagerMode={true}
         themeMode={themeMode}
       />
     </div>
