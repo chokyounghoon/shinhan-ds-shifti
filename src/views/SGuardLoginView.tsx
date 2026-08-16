@@ -1,24 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
-  ShieldCheck, 
-  User, 
+  Shield, 
+  Eye, 
+  EyeOff, 
+  Loader2, 
+  ChevronRight, 
   KeyRound, 
-  Smartphone, 
+  SmartphoneNfc, 
+  ArrowLeft, 
+  RotateCcw, 
   CheckCircle2, 
   AlertCircle, 
-  ArrowRight, 
-  RefreshCw, 
-  Building, 
-  Briefcase, 
-  UserCheck, 
-  Eye, 
-  EyeOff,
-  Lock,
-  Mail,
-  Phone,
-  Building2,
-  ChevronDown,
-  ArrowLeft
+  Mail, 
+  Lock, 
+  Building2, 
+  User, 
+  Send,
+  X
 } from 'lucide-react';
 import { dbService, predefinedUsers } from '../services/db';
 import { User as UserType } from '../types';
@@ -28,28 +26,209 @@ interface SGuardLoginViewProps {
   themeMode: 'ddangyo' | 'shinhan';
 }
 
-type LoginStep = 'STEP1_EMP_NO' | 'STEP2_PASSWORD' | 'STEP3_OTP' | 'SIGNUP' | 'RESET_PW' | 'RESET_PW_VERIFY';
+type AuthStep = 'ID' | 'OTP' | 'PASSWORD' | 'SIGNUP' | 'RESET_A' | 'RESET_B';
+
+/* ── 🔑 6자리 글로우 인터랙티브 OTP 박스 컴포넌트 (s_guard_AI 소스 그대로 이식) ── */
+const OtpBoxes = React.memo(({ 
+  value, 
+  onChange, 
+  disabled 
+}: { 
+  value: string; 
+  onChange: (val: string) => void; 
+  disabled?: boolean;
+}) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const digits = Array.from({ length: 6 }, (_, i) => value[i] ?? '');
+  const [activeIndex, setActiveIndex] = useState(value.length);
+
+  useEffect(() => {
+    setActiveIndex(value.length);
+  }, [value]);
+
+  useEffect(() => {
+    if (!disabled && value.length < 6) {
+      inputRef.current?.focus();
+    }
+  }, [disabled, value.length]);
+
+  const updateActiveIndexFromCaret = () => {
+    if (inputRef.current && !disabled) {
+      setActiveIndex(inputRef.current.selectionStart ?? value.length);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+    onChange(val);
+    setTimeout(updateActiveIndexFromCaret, 0);
+  };
+
+  const handleBoxClick = (i: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (disabled) return;
+    if (inputRef.current) {
+      inputRef.current.focus();
+      const targetIndex = Math.min(i, value.length);
+      if (targetIndex < value.length) {
+        inputRef.current.setSelectionRange(targetIndex, targetIndex + 1);
+      } else {
+        inputRef.current.setSelectionRange(value.length, value.length);
+      }
+      setActiveIndex(targetIndex);
+    }
+  };
+
+  return (
+    <div 
+      onClick={() => { inputRef.current?.focus(); setTimeout(updateActiveIndexFromCaret, 0); }}
+      style={{ position: 'relative', width: '100%', maxWidth: '280px', margin: '0 auto', height: 56, cursor: 'text' }}
+    >
+      {/* 실제 타이핑을 받는 투명 인풋 */}
+      <input
+        ref={inputRef}
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        autoComplete="one-time-code"
+        maxLength={6}
+        value={value}
+        onChange={handleChange}
+        onKeyUp={updateActiveIndexFromCaret}
+        onSelect={updateActiveIndexFromCaret}
+        disabled={disabled}
+        style={{
+          position: 'absolute', inset: 0, width: '100%', height: '100%',
+          opacity: 0.001,
+          color: 'transparent',
+          background: 'transparent',
+          caretColor: 'transparent',
+          border: 'none', outline: 'none',
+          padding: 0, margin: 0, zIndex: 10,
+          fontSize: 18,
+          pointerEvents: 'none'
+        }}
+      />
+
+      {/* 시각적 6자리 글로우 박스 레이어 */}
+      <div style={{
+        display: 'flex', gap: 8, justifyContent: 'center', width: '100%', height: '100%',
+        position: 'absolute', top: 0, left: 0
+      }}>
+        {[0, 1, 2, 3, 4, 5].map(i => {
+          const isFilled = digits[i] !== '';
+          const isCurrent = activeIndex === i && !disabled;
+          return (
+            <div
+              key={i}
+              onClick={(e) => handleBoxClick(i, e)}
+              style={{
+                width: 40, height: 56,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 24, fontWeight: 900,
+                color: '#00E5FF',
+                background: isFilled 
+                  ? (isCurrent ? 'rgba(0, 229, 255, 0.25)' : 'rgba(0, 229, 255, 0.12)') 
+                  : (isCurrent ? 'rgba(0, 229, 255, 0.08)' : 'rgba(255, 255, 255, 0.04)'),
+                border: isCurrent
+                  ? '2px solid #00E5FF'
+                  : isFilled
+                  ? '1.5px solid rgba(0, 229, 255, 0.6)'
+                  : '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: 10,
+                boxShadow: isCurrent ? '0 0 16px rgba(0, 229, 255, 0.5)' : 'none',
+                transition: 'all 0.12s ease',
+                flexShrink: 0,
+                cursor: disabled ? 'not-allowed' : 'pointer'
+              }}
+            >
+              {digits[i] ? (
+                <span style={{ 
+                  color: isCurrent ? '#FFFFFF' : '#00E5FF',
+                  display: 'inline-block',
+                  lineHeight: 1
+                }}>{digits[i]}</span>
+              ) : (isCurrent ? (
+                <span style={{ 
+                  width: 2, height: 24, background: '#00E5FF', borderRadius: 1,
+                  boxShadow: '0 0 8px #00E5FF'
+                }} />
+              ) : null)}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+});
+
+/* ── ⏱️ 타이머 컴포넌트 ── */
+const Timer = ({ timerKey, secs, onExpire }: { timerKey: number; secs: number; onExpire: () => void }) => {
+  const [left, setLeft] = useState(secs);
+  useEffect(() => {
+    setLeft(secs);
+    const t = setInterval(() => {
+      setLeft(p => {
+        if (p <= 1) {
+          clearInterval(t);
+          onExpire();
+          return 0;
+        }
+        return p - 1;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [timerKey, secs]);
+
+  const m = String(Math.floor(left / 60)).padStart(2, '0');
+  const s = String(left % 60).padStart(2, '0');
+  return (
+    <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 13, color: left < 60 ? '#FF5252' : '#00E5FF' }}>
+      유효시간 {m}:{s}
+    </span>
+  );
+};
+
+/* ── 🔒 비밀번호 강도 측정 컴포넌트 ── */
+const PwStrength = ({ pw }: { pw: string }) => {
+  if (!pw) return null;
+  const scores = [pw.length >= 8, /[A-Z]/.test(pw), /[0-9]/.test(pw), /[^A-Za-z0-9]/.test(pw)];
+  const n = scores.filter(Boolean).length;
+  const cols = ['#ef4444', '#f97316', '#eab308', '#22c55e'];
+  const labels = ['약함', '보통', '좋음', '강함'];
+  return (
+    <div style={{ marginTop: 6 }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
+        {scores.map((ok, i) => (
+          <div key={i} style={{ flex: 1, height: 3, borderRadius: 2, background: ok ? cols[n - 1] : 'rgba(255,255,255,0.08)', transition: 'all .3s' }} />
+        ))}
+      </div>
+      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
+        강도: <span style={{ fontWeight: 700, color: n < 2 ? '#ef4444' : n < 4 ? '#eab308' : '#22c55e' }}>{labels[n - 1] || labels[0]}</span>
+      </p>
+    </div>
+  );
+};
 
 export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
   onLoginSuccess,
   themeMode
 }) => {
-  const [currentStep, setCurrentStep] = useState<LoginStep>('STEP1_EMP_NO');
-  const [empNo, setEmpNo] = useState<string>('S18121020');
-  const [selectedUserPreset, setSelectedUserPreset] = useState<string>('usr-ds-pm');
-  const [password, setPassword] = useState<string>('••••••••');
-  const [showPassword, setShowPassword] = useState<boolean>(false);
-  const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
-  const [generatedOtp, setGeneratedOtp] = useState<string>('789012');
-  const [timerSeconds, setTimerSeconds] = useState<number>(178); // 02:58
-  const [isTimerRunning, setIsTimerRunning] = useState<boolean>(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [step, setStep] = useState<AuthStep>('ID');
+  const [empId, setEmpId] = useState('S18121020');
+  const [selectedUserPreset, setSelectedUserPreset] = useState('usr-ds-pm');
+  const [otp, setOtp] = useState('');
+  const [generatedOtp, setGeneratedOtp] = useState('789012');
+  const [password, setPassword] = useState('••••••••');
+  const [showPw, setShowPw] = useState(false);
+  const [maskedEmail, setMaskedEmail] = useState('kh***@gmail.com');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [timerKey, setTimerKey] = useState(Date.now());
 
-  // 회원가입 폼 상태 (Screenshot 2 일치)
+  // 회원가입 폼 상태 (지침 반영: 팀/파트, 직책 7단계, 퍼블릭 메일)
   const [signupForm, setSignupForm] = useState({
     company: '신한DS',
-    department: '부문 선택',
-    division: '해당없음',
     team: '카드개발팀',
     part: '카드IS (Part 1)',
     position: '사원',
@@ -64,95 +243,79 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
   });
 
   // 비밀번호 초기화 상태
-  const [resetEmpNo, setResetEmpNo] = useState('S18121020');
+  const [resetEmpId, setResetEmpId] = useState('S18121020');
   const [newResetPw, setNewResetPw] = useState('');
   const [confirmResetPw, setConfirmResetPw] = useState('');
 
-  // OTP 타이머
-  useEffect(() => {
-    let interval: any = null;
-    if (isTimerRunning && timerSeconds > 0) {
-      interval = setInterval(() => {
-        setTimerSeconds(sec => sec - 1);
-      }, 1000);
-    } else if (timerSeconds === 0) {
-      setIsTimerRunning(false);
-    }
-    return () => clearInterval(interval);
-  }, [isTimerRunning, timerSeconds]);
+  // Step 1: 사번 입력 -> OTP 발송
+  const handleInitAuth = async () => {
+    if (!empId.trim()) return setError('사번을 입력해 주세요.');
+    setLoading(true);
+    setError('');
 
-  const formatTimer = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    setTimeout(() => {
+      setLoading(false);
+      const newCode = Math.floor(100000 + Math.random() * 900000).toString();
+      setGeneratedOtp(newCode);
+      setOtp('');
+      setTimerKey(Date.now());
+
+      // 선택된 프리셋에 맞춘 퍼블릭 메일 설정
+      if (empId.includes('18121020')) {
+        setMaskedEmail('kh***@gmail.com');
+      } else if (empId.includes('20240012')) {
+        setMaskedEmail('kim***@naver.com');
+      } else {
+        setMaskedEmail('worker***@gmail.com');
+      }
+
+      setStep('OTP');
+    }, 400);
   };
 
-  const handleStep1Next = () => {
-    if (!empNo) {
-      setErrorMessage('사원번호를 입력해주세요.');
-      return;
-    }
-    setErrorMessage(null);
-    setCurrentStep('STEP2_PASSWORD');
+  // Step 2: OTP 인증
+  const handleVerifyOtp = async () => {
+    if (otp.length < 6) return setError('6자리 OTP 인증번호를 입력해 주세요.');
+    setLoading(true);
+    setError('');
+
+    setTimeout(() => {
+      setLoading(false);
+      if (otp !== generatedOtp && otp !== '789012' && otp !== '123456') {
+        setError(`OTP 코드가 일치하지 않습니다. (테스트 번호: ${generatedOtp})`);
+        return;
+      }
+      setStep('PASSWORD');
+    }, 400);
   };
 
-  const handleStep2Next = () => {
-    if (!password) {
-      setErrorMessage('비밀번호를 입력해주세요.');
-      return;
-    }
-    setErrorMessage(null);
-    const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedOtp(newOtp);
-    setOtpDigits(['', '', '', '', '', '']);
-    setTimerSeconds(178);
-    setIsTimerRunning(true);
-    setCurrentStep('STEP3_OTP');
+  // Step 3: 비밀번호 -> 최종 로그인
+  const handleLogin = async () => {
+    if (!password.trim()) return setError('비밀번호를 입력해 주세요.');
+    setLoading(true);
+    setError('');
+
+    setTimeout(() => {
+      setLoading(false);
+      const user = dbService.switchUserRole(selectedUserPreset);
+      onLoginSuccess(user);
+    }, 400);
   };
 
-  const handleOtpChange = (index: number, val: string) => {
-    if (val.length > 1) {
-      val = val[val.length - 1];
-    }
-    const newDigits = [...otpDigits];
-    newDigits[index] = val;
-    setOtpDigits(newDigits);
-
-    if (val && index < 5) {
-      const nextInput = document.getElementById(`otp-digit-${index + 1}`);
-      nextInput?.focus();
-    }
-  };
-
-  const handleFinalLogin = () => {
-    const inputOtp = otpDigits.join('');
-    if (inputOtp.length < 6) {
-      setErrorMessage('6자리 OTP 인증번호를 입력해주세요.');
-      return;
-    }
-
-    if (inputOtp !== generatedOtp && inputOtp !== '123456' && inputOtp !== '789012') {
-      setErrorMessage('OTP 인증번호가 일치하지 않습니다. (테스트용: ' + generatedOtp + ')');
-      return;
-    }
-
-    const user = dbService.switchUserRole(selectedUserPreset);
-    onLoginSuccess(user);
-  };
-
+  // 회원가입 제출
   const handleSignupSubmit = () => {
     if (!signupForm.agreeTerms) {
       alert('이용약관 및 개인정보 처리방침에 동의해주세요.');
       return;
     }
-    alert(`🎉 [${signupForm.name}] 계정이 성공적으로 생성되었습니다. 사번으로 로그인하세요.`);
-    setEmpNo(signupForm.empNo);
-    setCurrentStep('STEP1_EMP_NO');
+    alert(`🎉 [${signupForm.name}] 계정이 성공적으로 생성되었습니다. 사번(${signupForm.empNo})으로 로그인하세요.`);
+    setEmpId(signupForm.empNo);
+    setStep('ID');
   };
 
   return (
     <div style={{
-      background: '#070D18',
+      background: '#060A12',
       minHeight: '100vh',
       display: 'flex',
       flexDirection: 'column',
@@ -160,22 +323,36 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
       position: 'relative',
       overflowX: 'hidden'
     }}>
-      {/* 1. 상단 히어로 헤더 영역 (스크린샷 1, 3, 4, 5 일치) */}
+      {/* 1. 상단 히어로 헤더 (s_guard_AI 스타일 방사형 글로우 & S-GUARD 명칭 제거) */}
       <div style={{
-        background: 'radial-gradient(ellipse at top, #1E60FF 0%, #0036D9 55%, #070D18 100%)',
-        padding: '38px 20px 28px 20px',
+        background: 'radial-gradient(ellipse at top, #1E60FF 0%, #0036D9 55%, #060A12 100%)',
+        padding: '38px 20px 24px 20px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         textAlign: 'center',
         position: 'relative'
       }}>
-        {/* 시스템 대형 타이틀 (S-GUARD 명칭 제거하고 신한DS 통합 타이틀 적용) */}
+        <div style={{
+          width: '56px',
+          height: '56px',
+          borderRadius: '16px',
+          background: 'rgba(255, 255, 255, 0.1)',
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.4)',
+          marginBottom: '10px'
+        }}>
+          <Shield size={30} color="#FFFFFF" strokeWidth={2.2} />
+        </div>
+
         <h1 style={{
-          fontSize: '32px',
+          fontSize: '28px',
           fontWeight: 900,
-          letterSpacing: '2px',
-          margin: '0 0 6px 0',
+          letterSpacing: '1.5px',
+          margin: '0 0 4px 0',
           color: '#FFFFFF',
           textShadow: '0 4px 16px rgba(0, 82, 255, 0.5)'
         }}>
@@ -183,33 +360,31 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
         </h1>
 
         <p style={{
-          fontSize: '13px',
+          fontSize: '12.5px',
           fontStyle: 'italic',
           color: '#CFD8DC',
-          margin: '0 0 16px 0',
-          letterSpacing: '0.3px'
+          margin: '0 0 14px 0',
+          letterSpacing: '0.2px'
         }}>
           "Knowledge Today, Foresight Tomorrow"
         </p>
 
-        {/* 캡슐 알약 태그 (스크린샷 일치) */}
         <div style={{
           background: 'rgba(0, 82, 255, 0.35)',
           border: '1px solid rgba(0, 229, 255, 0.4)',
           borderRadius: '30px',
-          padding: '6px 16px',
-          fontSize: '11px',
+          padding: '4px 14px',
+          fontSize: '10.5px',
           fontWeight: 800,
           color: '#E1F5FE',
-          letterSpacing: '1px',
-          boxShadow: '0 0 14px rgba(0, 102, 255, 0.4)'
+          letterSpacing: '0.8px'
         }}>
           DETECTION ➔ DIAGNOSIS ➔ MITIGATION ➔ FORESIGHT
         </div>
       </div>
 
-      {/* 2. 단계별 프로그레스 인디케이터 (1 사번 확인 ➔ 2 비밀번호 ➔ 3 OTP 인증) */}
-      {!['SIGNUP', 'RESET_PW', 'RESET_PW_VERIFY'].includes(currentStep) && (
+      {/* 2. 스텝 인디케이터 (사번 확인 -> OTP 인증 -> 비밀번호) */}
+      {!['SIGNUP', 'RESET_A', 'RESET_B'].includes(step) && (
         <div style={{
           padding: '16px 24px 8px 24px',
           display: 'flex',
@@ -217,80 +392,55 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
           alignItems: 'center',
           gap: '12px'
         }}>
-          {/* Step 1: 사번 확인 */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-            <div style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '50%',
-              background: currentStep === 'STEP1_EMP_NO' ? '#0052FF' : '#0038A8',
-              color: '#FFFFFF',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '12px',
-              fontWeight: 800,
-              boxShadow: currentStep === 'STEP1_EMP_NO' ? '0 0 10px #0052FF' : 'none'
-            }}>
-              {currentStep !== 'STEP1_EMP_NO' ? '✓' : '1'}
-            </div>
-            <span style={{ fontSize: '10.5px', color: '#90A4AE', fontWeight: 600 }}>사번 확인</span>
-          </div>
+          {['사번 확인', 'OTP 인증', '비밀번호'].map((label, i) => {
+            const steps: AuthStep[] = ['ID', 'OTP', 'PASSWORD'];
+            const currentIdx = steps.indexOf(step);
+            const isDone = currentIdx > i;
+            const isCurrent = currentIdx === i;
 
-          <div style={{ width: '40px', height: '1.5px', background: currentStep !== 'STEP1_EMP_NO' ? '#0052FF' : 'rgba(255,255,255,0.15)', marginTop: '-14px' }} />
-
-          {/* Step 2: 비밀번호 */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-            <div style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '50%',
-              background: currentStep === 'STEP2_PASSWORD' ? '#0052FF' : (currentStep === 'STEP3_OTP' ? '#0038A8' : 'rgba(255,255,255,0.08)'),
-              color: '#FFFFFF',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '12px',
-              fontWeight: 800,
-              boxShadow: currentStep === 'STEP2_PASSWORD' ? '0 0 10px #0052FF' : 'none'
-            }}>
-              {currentStep === 'STEP3_OTP' ? '✓' : '2'}
-            </div>
-            <span style={{ fontSize: '10.5px', color: '#90A4AE', fontWeight: 600 }}>비밀번호</span>
-          </div>
-
-          <div style={{ width: '40px', height: '1.5px', background: currentStep === 'STEP3_OTP' ? '#0052FF' : 'rgba(255,255,255,0.15)', marginTop: '-14px' }} />
-
-          {/* Step 3: OTP 인증 */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-            <div style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '50%',
-              background: currentStep === 'STEP3_OTP' ? '#0052FF' : 'rgba(255,255,255,0.08)',
-              color: '#FFFFFF',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '12px',
-              fontWeight: 800,
-              boxShadow: currentStep === 'STEP3_OTP' ? '0 0 10px #0052FF' : 'none'
-            }}>
-              3
-            </div>
-            <span style={{ fontSize: '10.5px', color: '#90A4AE', fontWeight: 600 }}>OTP 인증</span>
-          </div>
+            return (
+              <React.Fragment key={label}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                  <div style={{
+                    width: '30px',
+                    height: '30px',
+                    borderRadius: '50%',
+                    background: isCurrent ? '#0052FF' : isDone ? '#0038A8' : 'rgba(255,255,255,0.06)',
+                    border: isCurrent ? '1.5px solid #00E5FF' : '1px solid rgba(255,255,255,0.15)',
+                    color: '#FFFFFF',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    boxShadow: isCurrent ? '0 0 12px rgba(0, 229, 255, 0.5)' : 'none'
+                  }}>
+                    {isDone ? '✓' : i + 1}
+                  </div>
+                  <span style={{ fontSize: '10.5px', color: isCurrent ? '#00E5FF' : '#90A4AE', fontWeight: 600 }}>
+                    {label}
+                  </span>
+                </div>
+                {i < 2 && (
+                  <div style={{
+                    width: '36px',
+                    height: '1.5px',
+                    background: isDone ? '#0052FF' : 'rgba(255,255,255,0.12)',
+                    marginTop: '-14px'
+                  }} />
+                )}
+              </React.Fragment>
+            );
+          })}
         </div>
       )}
 
-      {/* 3. 본문 뷰 분기 */}
+      {/* 3. 본문 폼 영역 */}
       <div style={{ flex: 1, padding: '16px 20px 24px 20px', display: 'flex', flexDirection: 'column' }}>
-        
-        {/* ========================================================================= */}
-        {/* 1) STEP 1: 사번 확인 (Screenshot 1 일치) */}
-        {/* ========================================================================= */}
-        {currentStep === 'STEP1_EMP_NO' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+        {/* ── [STEP 1: 사번 확인] ── */}
+        {step === 'ID' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
             {/* 빠른 역할 프리셋 선택기 */}
             <div>
               <label style={{ fontSize: '12px', fontWeight: 700, color: '#00E5FF', display: 'block', marginBottom: '8px' }}>
@@ -301,19 +451,19 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                   type="button"
                   onClick={() => {
                     setSelectedUserPreset('usr-ds-pm');
-                    setEmpNo('S18121020');
+                    setEmpId('S18121020');
                   }}
                   style={{
                     padding: '8px 4px',
                     borderRadius: '8px',
                     border: selectedUserPreset === 'usr-ds-pm' ? '1.5px solid #0052FF' : '1px solid rgba(255,255,255,0.1)',
-                    background: selectedUserPreset === 'usr-ds-pm' ? 'rgba(0,82,255,0.2)' : 'rgba(255,255,255,0.04)',
+                    background: selectedUserPreset === 'usr-ds-pm' ? 'rgba(0,82,255,0.25)' : 'rgba(255,255,255,0.04)',
                     color: '#FFFFFF',
                     textAlign: 'center',
                     cursor: 'pointer'
                   }}
                 >
-                  <div style={{ fontSize: '11px', fontWeight: 800 }}>신한DS PM</div>
+                  <div style={{ fontSize: '11px', fontWeight: 800 }}>DS PM (상담)</div>
                   <div style={{ fontSize: '9.5px', color: '#82B1FF' }}>S18121020</div>
                 </button>
 
@@ -321,19 +471,19 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                   type="button"
                   onClick={() => {
                     setSelectedUserPreset('usr-part-lead-1');
-                    setEmpNo('S20240012');
+                    setEmpId('S20240012');
                   }}
                   style={{
                     padding: '8px 4px',
                     borderRadius: '8px',
                     border: selectedUserPreset === 'usr-part-lead-1' ? '1.5px solid #FF9500' : '1px solid rgba(255,255,255,0.1)',
-                    background: selectedUserPreset === 'usr-part-lead-1' ? 'rgba(255,149,0,0.2)' : 'rgba(255,255,255,0.04)',
+                    background: selectedUserPreset === 'usr-part-lead-1' ? 'rgba(255,149,0,0.25)' : 'rgba(255,255,255,0.04)',
                     color: '#FFFFFF',
                     textAlign: 'center',
                     cursor: 'pointer'
                   }}
                 >
-                  <div style={{ fontSize: '11px', fontWeight: 800 }}>협력 파트장</div>
+                  <div style={{ fontSize: '11px', fontWeight: 800 }}>유브갓 관리자</div>
                   <div style={{ fontSize: '9.5px', color: '#FFB74D' }}>S20240012</div>
                 </button>
 
@@ -341,13 +491,13 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                   type="button"
                   onClick={() => {
                     setSelectedUserPreset('usr-worker-01');
-                    setEmpNo('S20260031');
+                    setEmpId('S20260031');
                   }}
                   style={{
                     padding: '8px 4px',
                     borderRadius: '8px',
                     border: selectedUserPreset === 'usr-worker-01' ? '1.5px solid #12B76A' : '1px solid rgba(255,255,255,0.1)',
-                    background: selectedUserPreset === 'usr-worker-01' ? 'rgba(18,183,106,0.2)' : 'rgba(255,255,255,0.04)',
+                    background: selectedUserPreset === 'usr-worker-01' ? 'rgba(18,183,106,0.25)' : 'rgba(255,255,255,0.04)',
                     color: '#FFFFFF',
                     textAlign: 'center',
                     cursor: 'pointer'
@@ -359,50 +509,51 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
               </div>
             </div>
 
-            {/* 사원번호 입력창 (스크린샷 일치) */}
+            {/* 사번 입력 필드 */}
             <div>
-              <label style={{ fontSize: '12px', fontWeight: 600, color: '#90A4AE', display: 'block', marginBottom: '8px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: '#90A4AE', display: 'block', marginBottom: '6px' }}>
                 사원번호 (S로 시작)
               </label>
               <div style={{
-                background: '#121D2C',
+                background: '#101B2B',
                 border: '1px solid rgba(255, 255, 255, 0.15)',
                 borderRadius: '12px',
                 display: 'flex',
                 alignItems: 'center',
-                padding: '0 16px',
-                height: '52px'
+                padding: '0 14px',
+                height: '50px'
               }}>
+                <SmartphoneNfc size={18} color="#90A4AE" style={{ marginRight: '10px' }} />
                 <input
                   type="text"
-                  value={empNo}
-                  onChange={e => setEmpNo(e.target.value)}
-                  placeholder="예: S18121020 또는 S20240001"
+                  value={empId}
+                  onChange={e => setEmpId(e.target.value)}
+                  placeholder="예: S18121020"
                   style={{
                     flex: 1,
                     background: 'transparent',
                     border: 'none',
                     outline: 'none',
                     color: '#FFFFFF',
-                    fontSize: '16px',
-                    fontWeight: 700,
-                    letterSpacing: '0.5px'
+                    fontSize: '15px',
+                    fontWeight: 700
                   }}
+                  onKeyDown={e => { if (e.key === 'Enter') handleInitAuth(); }}
                 />
-                <User size={20} color="#90A4AE" />
               </div>
             </div>
 
-            {errorMessage && (
+            {error && (
               <div style={{ color: '#FF5252', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <AlertCircle size={14} />
-                <span>{errorMessage}</span>
+                <span>{error}</span>
               </div>
             )}
 
-            {/* 로그인 버튼 (스크린샷 일치) */}
+            {/* CTA 버튼 */}
             <button
-              onClick={handleStep1Next}
+              onClick={handleInitAuth}
+              disabled={loading}
               style={{
                 width: '100%',
                 height: '50px',
@@ -410,9 +561,9 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                 background: '#0052FF',
                 border: 'none',
                 color: '#FFFFFF',
-                fontSize: '16px',
+                fontSize: '15.5px',
                 fontWeight: 800,
-                cursor: 'pointer',
+                cursor: loading ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -420,23 +571,19 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                 boxShadow: '0 4px 16px rgba(0, 82, 255, 0.4)'
               }}
             >
-              <span>로그인</span>
-              <span style={{ fontSize: '18px' }}>›</span>
+              {loading ? <Loader2 size={18} className="animate-spin" /> : (
+                <>
+                  <span>사번 확인 (OTP 발송)</span>
+                  <ChevronRight size={18} />
+                </>
+              )}
             </button>
 
-            {/* 하단 링크: 회원가입 | 비밀번호 찾기 (스크린샷 일치) */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              gap: '16px',
-              fontSize: '13px',
-              color: '#90A4AE',
-              paddingTop: '6px'
-            }}>
+            {/* 회원가입 / 비밀번호 찾기 */}
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', fontSize: '13px', color: '#90A4AE' }}>
               <button
                 type="button"
-                onClick={() => setCurrentStep('SIGNUP')}
+                onClick={() => setStep('SIGNUP')}
                 style={{ background: 'none', border: 'none', color: '#CFD8DC', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
               >
                 회원가입
@@ -444,15 +591,14 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
               <span style={{ color: 'rgba(255,255,255,0.2)' }}>|</span>
               <button
                 type="button"
-                onClick={() => setCurrentStep('RESET_PW')}
+                onClick={() => setStep('RESET_A')}
                 style={{ background: 'none', border: 'none', color: '#CFD8DC', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
               >
                 비밀번호 찾기
               </button>
             </div>
 
-            {/* SECURITY S-BRIDGE INTEGRATED 배지 (스크린샷 일치) */}
-            <div style={{ display: 'flex', justifyContent: 'center', paddingTop: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', paddingTop: '6px' }}>
               <div style={{
                 background: 'rgba(255, 255, 255, 0.04)',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -463,151 +609,23 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                 gap: '6px',
                 fontSize: '11px',
                 fontWeight: 700,
-                color: '#90A4AE',
-                letterSpacing: '0.5px'
+                color: '#90A4AE'
               }}>
                 <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#00E676' }} />
-                <span>SECURITY INTEGRATED</span>
+                <span>SECURITY S-BRIDGE INTEGRATED</span>
               </div>
-            </div>
-
-            {/* 하단 보안 수칙 안내 박스 (스크린샷 일치) */}
-            <div style={{
-              background: '#0B1524',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '10px',
-              padding: '12px 14px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              fontSize: '11.5px',
-              color: '#8293A6',
-              lineHeight: 1.45,
-              marginTop: '10px'
-            }}>
-              <Lock size={15} color="#8293A6" style={{ flexShrink: 0 }} />
-              <span>본 시스템은 신한임직원 및 협력사 전용입니다. 보안 수칙을 준수해 주세요.</span>
             </div>
           </div>
         )}
 
-        {/* ========================================================================= */}
-        {/* 2) STEP 2: 비밀번호 입력 */}
-        {/* ========================================================================= */}
-        {currentStep === 'STEP2_PASSWORD' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {/* ── [STEP 2: OTP 인증 (s_guard_AI OtpBoxes 이식)] ── */}
+        {step === 'OTP' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', textAlign: 'center' }}>
             <div style={{
-              background: 'rgba(255, 255, 255, 0.04)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '10px',
-              padding: '12px 14px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <span style={{ fontSize: '13px', color: '#90A4AE' }}>확인된 사번</span>
-              <span style={{ fontSize: '15px', fontWeight: 800, color: '#00E5FF' }}>{empNo}</span>
-            </div>
-
-            <div>
-              <label style={{ fontSize: '12px', fontWeight: 600, color: '#90A4AE', display: 'block', marginBottom: '8px' }}>
-                비밀번호
-              </label>
-              <div style={{
-                background: '#121D2C',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                borderRadius: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                padding: '0 16px',
-                height: '52px'
-              }}>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="비밀번호를 입력하세요"
-                  style={{
-                    flex: 1,
-                    background: 'transparent',
-                    border: 'none',
-                    outline: 'none',
-                    color: '#FFFFFF',
-                    fontSize: '15px',
-                    fontWeight: 700
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  style={{ background: 'none', border: 'none', color: '#90A4AE', cursor: 'pointer' }}
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                type="button"
-                onClick={() => setCurrentStep('STEP1_EMP_NO')}
-                style={{
-                  flex: 1,
-                  height: '50px',
-                  borderRadius: '12px',
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
-                  color: '#FFFFFF',
-                  fontSize: '14.5px',
-                  fontWeight: 700,
-                  cursor: 'pointer'
-                }}
-              >
-                이전
-              </button>
-
-              <button
-                type="button"
-                onClick={handleStep2Next}
-                style={{
-                  flex: 2,
-                  height: '50px',
-                  borderRadius: '12px',
-                  background: '#0052FF',
-                  border: 'none',
-                  color: '#FFFFFF',
-                  fontSize: '16px',
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  boxShadow: '0 4px 16px rgba(0, 82, 255, 0.4)'
-                }}
-              >
-                <span>다음 (OTP 인증)</span>
-                <span style={{ fontSize: '18px' }}>›</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* 3) STEP 3: OTP 최종 인증 (Screenshot 5 일치) */}
-        {/* ========================================================================= */}
-        {currentStep === 'STEP3_OTP' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', textAlign: 'center' }}>
-            <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#FFFFFF', margin: '4px 0 0 0' }}>
-              OTP 최종 인증
-            </h2>
-
-            {/* 이메일 발송 안내 박스 (스크린샷 일치) */}
-            <div style={{
-              background: '#0D1B2E',
-              border: '1px solid rgba(0, 229, 255, 0.2)',
+              background: 'rgba(0, 82, 255, 0.12)',
+              border: '1px solid rgba(0, 229, 255, 0.25)',
               borderRadius: '12px',
-              padding: '16px',
+              padding: '14px',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -615,52 +633,27 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#80D8FF', fontSize: '13.5px', fontWeight: 700 }}>
                 <Mail size={16} color="#00E5FF" />
-                <span>kh***@gmail.com</span>
+                <span>{maskedEmail}</span>
               </div>
               <p style={{ fontSize: '12px', color: '#90A4AE', margin: 0 }}>
-                위 이메일로 발송된 6자리 인증번호를 입력해 주세요.
+                위 퍼블릭 메일로 발송된 6자리 인증번호를 입력해 주세요.
               </p>
-              <div style={{ fontSize: '11px', color: '#00E5FF', marginTop: '4px', fontWeight: 700 }}>
+              <div style={{ fontSize: '11px', color: '#00E5FF', marginTop: '2px', fontWeight: 700 }}>
                 (테스트 번호: <strong>{generatedOtp}</strong>)
               </div>
             </div>
 
-            {/* 6자리 직사각형 글로우 OTP 입력 박스 (스크린샷 일치) */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '8px' }}>
-              {otpDigits.map((digit, idx) => (
-                <input
-                  key={idx}
-                  id={`otp-digit-${idx}`}
-                  type="text"
-                  maxLength={1}
-                  value={digit}
-                  onChange={e => handleOtpChange(idx, e.target.value)}
-                  style={{
-                    height: '58px',
-                    borderRadius: '10px',
-                    background: '#101B2B',
-                    border: digit ? '2px solid #00E5FF' : '1px solid rgba(0, 229, 255, 0.3)',
-                    boxShadow: digit ? '0 0 12px rgba(0, 229, 255, 0.4)' : 'none',
-                    textAlign: 'center',
-                    fontSize: '22px',
-                    fontWeight: 900,
-                    color: '#00E5FF',
-                    outline: 'none'
-                  }}
-                />
-              ))}
-            </div>
+            {/* 6자리 인터랙티브 OTP 박스 */}
+            <OtpBoxes value={otp} onChange={setOtp} />
 
-            {/* 유효시간 & 초기화 / 재발송 버튼 (스크린샷 일치) */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px' }}>
-              <span style={{ color: '#00E5FF', fontSize: '13px', fontWeight: 700 }}>
-                유효시간 {formatTimer(timerSeconds)}
-              </span>
+            {/* 타이머 & 재발송 */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 6px' }}>
+              <Timer timerKey={timerKey} secs={178} onExpire={() => setError('인증 유효시간이 만료되었습니다. 재발송을 요청해주세요.')} />
 
               <div style={{ display: 'flex', gap: '6px' }}>
                 <button
                   type="button"
-                  onClick={() => setOtpDigits(['', '', '', '', '', ''])}
+                  onClick={() => setOtp('')}
                   style={{
                     background: 'rgba(255, 255, 255, 0.06)',
                     border: '1px solid rgba(255, 255, 255, 0.12)',
@@ -675,18 +668,18 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                     gap: '4px'
                   }}
                 >
-                  <RefreshCw size={12} />
+                  <RotateCcw size={12} />
                   <span>초기화</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => {
-                    const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
-                    setGeneratedOtp(newOtp);
-                    setTimerSeconds(178);
-                    setIsTimerRunning(true);
-                    alert(`🔑 새 OTP 인증번호 [${newOtp}]가 재발송되었습니다.`);
+                    const newCode = Math.floor(100000 + Math.random() * 900000).toString();
+                    setGeneratedOtp(newCode);
+                    setTimerKey(Date.now());
+                    setOtp('');
+                    alert(`🔑 새 OTP 인증번호 [${newCode}]가 발송되었습니다.`);
                   }}
                   style={{
                     background: '#0D2B59',
@@ -702,160 +695,235 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                     gap: '4px'
                   }}
                 >
-                  <RefreshCw size={12} color="#00E5FF" />
+                  <RotateCcw size={12} color="#00E5FF" />
                   <span>재발송</span>
                 </button>
               </div>
             </div>
 
-            {/* 하단 보조 링크 */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12.5px', paddingTop: '4px' }}>
-              <button
-                type="button"
-                onClick={() => setCurrentStep('STEP2_PASSWORD')}
-                style={{ background: 'none', border: 'none', color: '#90A4AE', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-              >
-                <ArrowLeft size={14} />
-                <span>비밀번호 재입력</span>
-              </button>
+            {error && (
+              <div style={{ color: '#FF5252', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                <AlertCircle size={14} />
+                <span>{error}</span>
+              </div>
+            )}
 
-              <button
-                type="button"
-                onClick={() => setCurrentStep('RESET_PW')}
-                style={{ background: 'none', border: 'none', color: '#FF8A80', cursor: 'pointer', textDecoration: 'underline' }}
-              >
-                비밀번호 초기화
-              </button>
-            </div>
-
-            {/* 최종 로그인 버튼 (스크린샷 일치) */}
             <button
-              onClick={handleFinalLogin}
+              onClick={handleVerifyOtp}
+              disabled={loading || otp.length < 6}
               style={{
                 width: '100%',
-                height: '52px',
+                height: '50px',
                 borderRadius: '12px',
-                background: '#0047E0',
+                background: otp.length === 6 ? '#0052FF' : 'rgba(0, 82, 255, 0.4)',
                 border: 'none',
                 color: '#FFFFFF',
-                fontSize: '16px',
+                fontSize: '15.5px',
                 fontWeight: 800,
-                cursor: 'pointer',
+                cursor: otp.length === 6 ? 'pointer' : 'not-allowed',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                boxShadow: '0 4px 20px rgba(0, 71, 224, 0.45)',
-                marginTop: '10px'
+                boxShadow: otp.length === 6 ? '0 4px 20px rgba(0, 82, 255, 0.4)' : 'none'
               }}
             >
-              <span>로그인</span>
-              <span style={{ fontSize: '18px' }}>›</span>
+              {loading ? <Loader2 size={18} className="animate-spin" /> : (
+                <>
+                  <span>인증 완료</span>
+                  <ChevronRight size={18} />
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setStep('ID')}
+              style={{ background: 'none', border: 'none', color: '#90A4AE', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+            >
+              <ArrowLeft size={14} />
+              <span>사번 재입력</span>
             </button>
           </div>
         )}
 
-        {/* ========================================================================= */}
-        {/* 4) 회원가입 / 계정 생성 화면 (Screenshot 2 일치) */}
-        {/* ========================================================================= */}
-        {currentStep === 'SIGNUP' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ textAlign: 'center', marginBottom: '4px' }}>
-              <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#FFFFFF', margin: '0 0 4px 0' }}>
-                계정 생성
-              </h2>
-              <p style={{ fontSize: '12px', color: '#90A4AE', margin: 0 }}>
-                신한금융그룹 구성원 전용 도급 관제 시스템
-              </p>
+        {/* ── [STEP 3: 비밀번호 입력 & 로그인] ── */}
+        {step === 'PASSWORD' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '10px',
+              padding: '12px 14px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <span style={{ fontSize: '13px', color: '#90A4AE' }}>확인된 사번</span>
+              <span style={{ fontSize: '15px', fontWeight: 800, color: '#00E5FF' }}>{empId}</span>
+            </div>
+
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: '#90A4AE', display: 'block', marginBottom: '6px' }}>
+                비밀번호
+              </label>
+              <div style={{
+                background: '#101B2B',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0 14px',
+                height: '50px'
+              }}>
+                <KeyRound size={18} color="#90A4AE" style={{ marginRight: '10px' }} />
+                <input
+                  type={showPw ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="비밀번호"
+                  style={{
+                    flex: 1,
+                    background: 'transparent',
+                    border: 'none',
+                    outline: 'none',
+                    color: '#FFFFFF',
+                    fontSize: '15px',
+                    fontWeight: 700
+                  }}
+                  onKeyDown={e => { if (e.key === 'Enter') handleLogin(); }}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw(!showPw)}
+                  style={{ background: 'none', border: 'none', color: '#90A4AE', cursor: 'pointer' }}
+                >
+                  {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+              <PwStrength pw={password} />
+            </div>
+
+            {error && (
+              <div style={{ color: '#FF5252', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <AlertCircle size={14} />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <button
+              onClick={handleLogin}
+              disabled={loading}
+              style={{
+                width: '100%',
+                height: '50px',
+                borderRadius: '12px',
+                background: '#0052FF',
+                border: 'none',
+                color: '#FFFFFF',
+                fontSize: '16px',
+                fontWeight: 800,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 20px rgba(0, 82, 255, 0.45)'
+              }}
+            >
+              {loading ? <Loader2 size={18} className="animate-spin" /> : (
+                <>
+                  <span>로그인</span>
+                  <ChevronRight size={18} />
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setStep('OTP')}
+              style={{ background: 'none', border: 'none', color: '#90A4AE', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+            >
+              <ArrowLeft size={14} />
+              <span>이전 단계로</span>
+            </button>
+          </div>
+        )}
+
+        {/* ── [회원가입 / 계정 생성] ── */}
+        {step === 'SIGNUP' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ textAlign: 'center' }}>
+              <h2 style={{ fontSize: '20px', fontWeight: 800, margin: '0 0 4px 0' }}>계정 생성</h2>
+              <p style={{ fontSize: '12px', color: '#90A4AE', margin: 0 }}>신한금융그룹 구성원 전용 도급 관제 시스템</p>
             </div>
 
             {/* 회사소속 */}
             <div>
-              <label style={signupLabelStyle}>회사소속 *</label>
-              <div style={signupSelectBoxStyle}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
-                  <Building2 size={16} color="#90A4AE" />
-                  <select
-                    value={signupForm.company}
-                    onChange={e => setSignupForm({ ...signupForm, company: e.target.value })}
-                    style={signupSelectFieldStyle}
-                  >
-                    <option value="신한DS">신한DS</option>
-                    <option value="(주)협력아이티에스">(주)협력아이티에스</option>
-                  </select>
-                </div>
-                <ChevronDown size={16} color="#90A4AE" />
-              </div>
+              <label style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600, display: 'block', marginBottom: '4px' }}>회사소속 *</label>
+              <select
+                value={signupForm.company}
+                onChange={e => setSignupForm({ ...signupForm, company: e.target.value })}
+                style={selectStyle}
+              >
+                <option value="신한DS">신한DS</option>
+                <option value="유브갓">유브갓</option>
+                <option value="(주)협력아이티에스">(주)협력아이티에스</option>
+              </select>
             </div>
 
-            {/* 팀 & 파트 (부문->팀, 본부->파트 반영) */}
+            {/* 팀 & 파트 (2열 그리드) */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               <div>
-                <label style={signupLabelStyle}>팀 *</label>
-                <div style={signupSelectBoxStyle}>
-                  <select
-                    value={signupForm.department}
-                    onChange={e => setSignupForm({ ...signupForm, department: e.target.value })}
-                    style={signupSelectFieldStyle}
-                  >
-                    <option value="팀 선택">팀 선택</option>
-                    <option value="카드개발팀">카드개발팀</option>
-                    <option value="은행운영팀">은행운영팀</option>
-                    <option value="데이터플랫폼팀">데이터플랫폼팀</option>
-                    <option value="개발운영팀">개발운영팀</option>
-                  </select>
-                  <ChevronDown size={14} color="#90A4AE" />
-                </div>
+                <label style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600, display: 'block', marginBottom: '4px' }}>팀 *</label>
+                <select
+                  value={signupForm.team}
+                  onChange={e => setSignupForm({ ...signupForm, team: e.target.value })}
+                  style={selectStyle}
+                >
+                  <option value="카드개발팀">카드개발팀</option>
+                  <option value="상담운영팀">상담운영팀</option>
+                  <option value="은행운영팀">은행운영팀</option>
+                </select>
               </div>
 
               <div>
-                <label style={signupLabelStyle}>파트</label>
-                <div style={signupSelectBoxStyle}>
-                  <select
-                    value={signupForm.division}
-                    onChange={e => setSignupForm({ ...signupForm, division: e.target.value })}
-                    style={signupSelectFieldStyle}
-                  >
-                    <option value="파트 선택">파트 선택</option>
-                    <option value="카드IS (Part 1)">카드IS (Part 1)</option>
-                    <option value="코어뱅킹 (Part 2)">코어뱅킹 (Part 2)</option>
-                    <option value="데이터인프라 (Part 3)">데이터인프라 (Part 3)</option>
-                    <option value="상담파트">상담파트</option>
-                  </select>
-                  <ChevronDown size={14} color="#90A4AE" />
-                </div>
+                <label style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600, display: 'block', marginBottom: '4px' }}>파트 *</label>
+                <select
+                  value={signupForm.part}
+                  onChange={e => setSignupForm({ ...signupForm, part: e.target.value })}
+                  style={selectStyle}
+                >
+                  <option value="상담">상담</option>
+                  <option value="오토">오토</option>
+                  <option value="재무">재무</option>
+                  <option value="카드IS (Part 1)">카드IS (Part 1)</option>
+                </select>
               </div>
             </div>
 
-            {/* 직책 멀티 필 (사원, 대리, 과장, 차장, 부장, 이사, 대표이사) */}
+            {/* 직책 7단계 멀티 버튼 */}
             <div>
-              <label style={signupLabelStyle}>직책 *</label>
-              <div style={{
-                background: '#0F1A2A',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: '12px',
-                padding: '10px',
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gap: '6px'
-              }}>
-                {['사원', '대리', '과장', '차장', '부장', '이사', '대표이사'].map(p => (
+              <label style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600, display: 'block', marginBottom: '4px' }}>직책 *</label>
+              <div style={{ background: '#101B2B', padding: '8px', borderRadius: '10px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
+                {['사원', '대리', '과장', '차장', '부장', '이사', '대표이사'].map(pos => (
                   <button
-                    key={p}
+                    key={pos}
                     type="button"
-                    onClick={() => setSignupForm({ ...signupForm, position: p })}
+                    onClick={() => setSignupForm({ ...signupForm, position: pos })}
                     style={{
-                      padding: '8px 2px',
+                      padding: '6px 2px',
                       borderRadius: '6px',
                       border: 'none',
-                      background: signupForm.position === p ? '#0052FF' : 'rgba(255, 255, 255, 0.04)',
+                      background: signupForm.position === pos ? '#0052FF' : 'transparent',
                       color: '#FFFFFF',
-                      fontSize: '12px',
-                      fontWeight: signupForm.position === p ? 800 : 500,
+                      fontSize: '11.5px',
+                      fontWeight: signupForm.position === pos ? 800 : 500,
                       cursor: 'pointer'
                     }}
                   >
-                    {p}
+                    {pos}
                   </button>
                 ))}
               </div>
@@ -864,46 +932,39 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
             {/* 사번 & 이름 */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               <div>
-                <label style={signupLabelStyle}>사번 *</label>
-                <div style={signupInputBoxStyle}>
-                  <input
-                    type="text"
-                    value={signupForm.empNo}
-                    onChange={e => setSignupForm({ ...signupForm, empNo: e.target.value })}
-                    style={signupInputFieldStyle}
-                  />
-                </div>
+                <label style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600, display: 'block', marginBottom: '4px' }}>사번 (S로 시작) *</label>
+                <input
+                  type="text"
+                  value={signupForm.empNo}
+                  onChange={e => setSignupForm({ ...signupForm, empNo: e.target.value })}
+                  style={inputStyle}
+                />
               </div>
-
               <div>
-                <label style={signupLabelStyle}>이름 *</label>
-                <div style={signupInputBoxStyle}>
-                  <input
-                    type="text"
-                    value={signupForm.name}
-                    onChange={e => setSignupForm({ ...signupForm, name: e.target.value })}
-                    style={signupInputFieldStyle}
-                  />
-                </div>
+                <label style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600, display: 'block', marginBottom: '4px' }}>이름 *</label>
+                <input
+                  type="text"
+                  value={signupForm.name}
+                  onChange={e => setSignupForm({ ...signupForm, name: e.target.value })}
+                  style={inputStyle}
+                />
               </div>
             </div>
 
             {/* 이메일 주소 (OTP 인증용 퍼블릭 메일) */}
             <div>
-              <label style={signupLabelStyle}>이메일 주소 (OTP 인증용 퍼블릭 메일: 구글, 네이버 등) *</label>
-              <div style={signupInputBoxStyle}>
-                <Mail size={16} color="#90A4AE" />
-                <input
-                  type="email"
-                  value={signupForm.email}
-                  onChange={e => setSignupForm({ ...signupForm, email: e.target.value })}
-                  placeholder="예: hong.gildong@gmail.com 또는 name@naver.com"
-                  style={signupInputFieldStyle}
-                />
-              </div>
+              <label style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                이메일 주소 (OTP 인증용 퍼블릭 메일) *
+              </label>
+              <input
+                type="email"
+                value={signupForm.email}
+                onChange={e => setSignupForm({ ...signupForm, email: e.target.value })}
+                placeholder="예: hong.gildong@gmail.com"
+                style={inputStyle}
+              />
             </div>
 
-            {/* 약관 동의 */}
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11.5px', color: '#CFD8DC', cursor: 'pointer' }}>
               <input
                 type="checkbox"
@@ -911,16 +972,15 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                 onChange={e => setSignupForm({ ...signupForm, agreeTerms: e.target.checked })}
                 style={{ accentColor: '#0052FF' }}
               />
-              <span>📄 이용약관 및 📄 개인정보 처리방침에 동의합니다 *</span>
+              <span>이용약관 및 개인정보 처리방침에 동의합니다 *</span>
             </label>
 
-            {/* 계정 생성 완료 버튼 */}
             <button
               type="button"
               onClick={handleSignupSubmit}
               style={{
                 width: '100%',
-                height: '48px',
+                height: '46px',
                 borderRadius: '10px',
                 background: '#0052FF',
                 border: 'none',
@@ -935,7 +995,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
 
             <button
               type="button"
-              onClick={() => setCurrentStep('STEP1_EMP_NO')}
+              onClick={() => setStep('ID')}
               style={{ background: 'none', border: 'none', color: '#90A4AE', fontSize: '13px', cursor: 'pointer', textAlign: 'center' }}
             >
               ← 로그인 화면으로 돌아가기
@@ -943,63 +1003,34 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
           </div>
         )}
 
-        {/* ========================================================================= */}
-        {/* 5) 비밀번호 초기화 (Screenshot 3 & 4 일치) */}
-        {/* ========================================================================= */}
-        {currentStep === 'RESET_PW' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        {/* ── [비밀번호 초기화] ── */}
+        {step === 'RESET_A' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div>
-              <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#FFFFFF', margin: '0 0 6px 0' }}>
-                비밀번호 초기화
-              </h2>
-              <p style={{ fontSize: '12.5px', color: '#90A4AE', margin: 0 }}>
-                가입 시 등록된 메일로 임시 비밀번호를 발송합니다.
-              </p>
+              <h2 style={{ fontSize: '20px', fontWeight: 800, margin: '0 0 4px 0' }}>비밀번호 초기화</h2>
+              <p style={{ fontSize: '12.5px', color: '#90A4AE', margin: 0 }}>등록된 퍼블릭 메일로 임시 OTP 인증코드를 발송합니다.</p>
             </div>
 
-            <div style={signupInputBoxStyle}>
-              <input
-                type="text"
-                value={resetEmpNo}
-                onChange={e => setResetEmpNo(e.target.value)}
-                placeholder="사원번호"
-                style={signupInputFieldStyle}
-              />
-            </div>
+            <input
+              type="text"
+              value={resetEmpId}
+              onChange={e => setResetEmpId(e.target.value)}
+              placeholder="사원번호 (예: S18121020)"
+              style={inputStyle}
+            />
 
-            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
               <button
                 type="button"
-                onClick={() => setCurrentStep('STEP1_EMP_NO')}
-                style={{
-                  flex: 1,
-                  height: '48px',
-                  borderRadius: '10px',
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  border: 'none',
-                  color: '#FFFFFF',
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  cursor: 'pointer'
-                }}
+                onClick={() => setStep('ID')}
+                style={{ flex: 1, height: '46px', borderRadius: '10px', background: 'rgba(255,255,255,0.08)', border: 'none', color: '#FFFFFF', fontWeight: 700, cursor: 'pointer' }}
               >
                 취소
               </button>
-
               <button
                 type="button"
-                onClick={() => setCurrentStep('RESET_PW_VERIFY')}
-                style={{
-                  flex: 2,
-                  height: '48px',
-                  borderRadius: '10px',
-                  background: '#00C853',
-                  border: 'none',
-                  color: '#FFFFFF',
-                  fontSize: '14.5px',
-                  fontWeight: 800,
-                  cursor: 'pointer'
-                }}
+                onClick={() => setStep('RESET_B')}
+                style={{ flex: 2, height: '46px', borderRadius: '10px', background: '#00C853', border: 'none', color: '#000000', fontWeight: 800, cursor: 'pointer' }}
               >
                 인증코드 발송
               </button>
@@ -1007,69 +1038,45 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
           </div>
         )}
 
-        {currentStep === 'RESET_PW_VERIFY' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {step === 'RESET_B' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div style={{ textAlign: 'center' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', margin: '0 0 4px 0' }}>
-                본인 확인 및 비밀번호 재설정
-              </h2>
-              <div style={{ fontSize: '12.5px', color: '#80D8FF' }}>
-                ✉ kh********@gmail.com
-              </div>
+              <h2 style={{ fontSize: '18px', fontWeight: 800, margin: '0 0 4px 0' }}>본인 확인 및 비밀번호 재설정</h2>
+              <div style={{ fontSize: '12.5px', color: '#80D8FF' }}>✉ kh********@gmail.com</div>
             </div>
 
-            {/* 6자리 OTP */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '6px' }}>
-              {['7', '8', '9', '0', '1', '2'].map((d, i) => (
-                <div key={i} style={{ height: '48px', borderRadius: '8px', background: '#101B2B', border: '1px solid #00E5FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 800, color: '#00E5FF' }}>
-                  {d}
-                </div>
-              ))}
-            </div>
+            <input
+              type="password"
+              placeholder="새 비밀번호 (8자 이상)"
+              value={newResetPw}
+              onChange={e => setNewResetPw(e.target.value)}
+              style={inputStyle}
+            />
 
-            <div>
-              <label style={signupLabelStyle}>새 비밀번호 설정 (8자 이상)</label>
-              <div style={signupInputBoxStyle}>
-                <input
-                  type="password"
-                  value={newResetPw}
-                  onChange={e => setNewResetPw(e.target.value)}
-                  placeholder="새 비밀번호"
-                  style={signupInputFieldStyle}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label style={signupLabelStyle}>비밀번호 확인</label>
-              <div style={signupInputBoxStyle}>
-                <input
-                  type="password"
-                  value={confirmResetPw}
-                  onChange={e => setConfirmResetPw(e.target.value)}
-                  placeholder="비밀번호 확인"
-                  style={signupInputFieldStyle}
-                />
-              </div>
-            </div>
+            <input
+              type="password"
+              placeholder="새 비밀번호 확인"
+              value={confirmResetPw}
+              onChange={e => setConfirmResetPw(e.target.value)}
+              style={inputStyle}
+            />
 
             <button
               type="button"
               onClick={() => {
-                alert('🔒 비밀번호 재설정이 완료되었습니다. 새 비밀번호로 로그인하세요.');
-                setCurrentStep('STEP1_EMP_NO');
+                alert('🔒 비밀번호가 안전하게 변경되었습니다. 새 비밀번호로 로그인하세요.');
+                setStep('ID');
               }}
               style={{
                 width: '100%',
-                height: '48px',
+                height: '46px',
                 borderRadius: '10px',
-                background: '#192841',
-                border: '1px solid #0052FF',
+                background: '#0052FF',
+                border: 'none',
                 color: '#FFFFFF',
                 fontSize: '14.5px',
                 fontWeight: 800,
-                cursor: 'pointer',
-                marginTop: '10px'
+                cursor: 'pointer'
               }}
             >
               비밀번호 변경 및 완료
@@ -1078,9 +1085,9 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
         )}
       </div>
 
-      {/* 4. 최하단 신한DS 브랜딩 푸터 (스크린샷 일치) */}
+      {/* 4. 최하단 푸터 */}
       <div style={{
-        padding: '16px 20px 24px 20px',
+        padding: '16px 20px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -1089,9 +1096,6 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
         borderTop: '1px solid rgba(255, 255, 255, 0.05)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: '#90A4AE' }}>
-          <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: '#0052FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: '#FFFFFF', fontWeight: 900 }}>
-            S
-          </div>
           <span>신한DS</span>
         </div>
         <div style={{ fontSize: '10.5px', color: 'rgba(255,255,255,0.3)' }}>
@@ -1102,53 +1106,28 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
   );
 };
 
-const signupLabelStyle: React.CSSProperties = {
-  fontSize: '12px',
-  fontWeight: 600,
-  color: '#90A4AE',
-  display: 'block',
-  marginBottom: '6px'
-};
-
-const signupInputBoxStyle: React.CSSProperties = {
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  height: '46px',
   background: '#101B2B',
   border: '1px solid rgba(255, 255, 255, 0.12)',
   borderRadius: '10px',
-  display: 'flex',
-  alignItems: 'center',
-  padding: '0 12px',
-  height: '46px'
-};
-
-const signupInputFieldStyle: React.CSSProperties = {
-  flex: 1,
-  background: 'transparent',
-  border: 'none',
-  outline: 'none',
   color: '#FFFFFF',
   fontSize: '14px',
-  fontWeight: 600
+  padding: '0 12px',
+  outline: 'none',
+  boxSizing: 'border-box'
 };
 
-const signupSelectBoxStyle: React.CSSProperties = {
+const selectStyle: React.CSSProperties = {
+  width: '100%',
+  height: '46px',
   background: '#101B2B',
   border: '1px solid rgba(255, 255, 255, 0.12)',
   borderRadius: '10px',
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  padding: '0 10px',
-  height: '46px'
-};
-
-const signupSelectFieldStyle: React.CSSProperties = {
-  background: 'transparent',
-  border: 'none',
-  outline: 'none',
   color: '#FFFFFF',
   fontSize: '13.5px',
-  fontWeight: 600,
-  width: '100%',
-  cursor: 'pointer',
-  appearance: 'none'
+  padding: '0 10px',
+  outline: 'none',
+  cursor: 'pointer'
 };
