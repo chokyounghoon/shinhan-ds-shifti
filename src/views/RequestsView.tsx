@@ -200,7 +200,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
             </div>
 
             <div style={{ fontSize: '15px', fontWeight: 600, color: '#8B95A1' }}>
-              승인이 필요한 요청이 없습니다
+              대기 중인 공백 통보 및 소명서가 없습니다
             </div>
           </div>
         ) : (
@@ -218,17 +218,17 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                   <span style={{ fontSize: '14px', fontWeight: 800, color: '#191F28' }}>
-                    {req.requestType === 'VACATION' ? '휴가' : req.requestType === 'OVERTIME' ? '연장근무' : '근무일정'}
+                    {req.requestType === 'VACATION' ? '투입 공백 사전 통보' : req.requestType === 'OVERTIME' ? '연장 투입' : '근무 일정'}
                   </span>
                   <span style={{
                     fontSize: '11px',
                     padding: '2px 8px',
                     borderRadius: '12px',
                     fontWeight: 700,
-                    background: req.status === 'APPROVED' ? '#E6F9F0' : req.status === 'REJECTED' ? '#FFEBEB' : '#FFF0ED',
-                    color: req.status === 'APPROVED' ? '#00A859' : req.status === 'REJECTED' ? '#FF3B30' : '#FF462D'
+                    background: req.status === 'APPROVED' ? '#E6F9F0' : req.status === 'REJECTED' ? '#FFEBEB' : '#EFF6FF',
+                    color: req.status === 'APPROVED' ? '#00A859' : req.status === 'REJECTED' ? '#FF3B30' : '#0052FF'
                   }}>
-                    {req.status === 'APPROVED' ? '승인완료' : req.status === 'REJECTED' ? '반려' : '대기중'}
+                    {req.status === 'APPROVED' ? '통보 확인됨' : req.status === 'REJECTED' ? '공정 제외' : '검수 대기'}
                   </span>
                 </div>
                 <div style={{ fontSize: '13px', color: '#4E5968' }}>

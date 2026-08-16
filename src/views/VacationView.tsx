@@ -299,7 +299,7 @@ export const VacationView: React.FC<VacationViewProps> = ({
       }}>
         {isFabOpen && (
           <>
-            {/* 휴가 생성 요청 */}
+            {/* 투입 공백 사전 통보 */}
             <div
               onClick={() => handleFabAction('create')}
               style={{
@@ -311,7 +311,7 @@ export const VacationView: React.FC<VacationViewProps> = ({
               }}
             >
               <span style={{ fontSize: '14.5px', fontWeight: 700, color: '#191F28' }}>
-                휴가 생성 요청
+                투입 공백 사전 통보
               </span>
               <div style={{
                 width: '46px',
@@ -328,7 +328,7 @@ export const VacationView: React.FC<VacationViewProps> = ({
               </div>
             </div>
 
-            {/* 휴가 수정 요청 */}
+            {/* 공백 일정 수정 통보 */}
             <div
               onClick={() => handleFabAction('edit')}
               style={{
@@ -340,7 +340,7 @@ export const VacationView: React.FC<VacationViewProps> = ({
               }}
             >
               <span style={{ fontSize: '14.5px', fontWeight: 700, color: '#191F28' }}>
-                휴가 수정 요청
+                공백 일정 수정 통보
               </span>
               <div style={{
                 width: '46px',
@@ -357,7 +357,7 @@ export const VacationView: React.FC<VacationViewProps> = ({
               </div>
             </div>
 
-            {/* 휴가 삭제 요청 */}
+            {/* 공백 통보 철회/취소 */}
             <div
               onClick={() => handleFabAction('delete')}
               style={{
@@ -369,7 +369,7 @@ export const VacationView: React.FC<VacationViewProps> = ({
               }}
             >
               <span style={{ fontSize: '14.5px', fontWeight: 700, color: '#191F28' }}>
-                휴가 삭제 요청
+                공백 통보 철회/취소
               </span>
               <div style={{
                 width: '46px',

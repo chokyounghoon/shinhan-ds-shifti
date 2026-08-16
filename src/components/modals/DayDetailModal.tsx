@@ -56,8 +56,8 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({
           </div>
 
           <div style={{ borderTop: '1px solid #E5E8EB', paddingTop: '10px', fontSize: '12px', color: '#4E5968', lineHeight: 1.6 }}>
-            <div>• 근무 장소: 신한DS 데이터센터 상주실</div>
-            <div>• 결재 상태: <strong style={{ color: '#12B76A' }}>승인 완료 (신한DS PM 결재)</strong></div>
+            <div>• 약정 장소: 파인에비뉴(카드) 도급 상주실</div>
+            <div>• 공백 상태: <strong style={{ color: '#0052FF' }}>소속사 자체 승인 및 신한DS PM 공정 공백 확인 완료</strong></div>
           </div>
         </div>
 
