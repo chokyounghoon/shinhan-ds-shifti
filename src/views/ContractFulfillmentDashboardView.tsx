@@ -259,29 +259,14 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
           </span>
         </div>
 
-        {/* 파트명 & 전담 협력사 */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-          <div>
-            <div style={{ fontSize: '12px', color: '#80D8FF', fontWeight: 700 }}>
-              전담 관제 파트 (120인 규모 도급 인력)
-            </div>
-            <h1 style={{ fontSize: '24px', fontWeight: 900, color: '#FFFFFF', margin: '2px 0 0 0', letterSpacing: '-0.5px' }}>
-              파트명({activePart})
-            </h1>
+        {/* 파트명 (협력사 상단 독립 박스 제거) */}
+        <div>
+          <div style={{ fontSize: '12px', color: '#80D8FF', fontWeight: 700 }}>
+            전담 관제 파트 (120인 규모 도급 인력)
           </div>
-
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.05)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
-            padding: '6px 12px',
-            borderRadius: '8px',
-            textAlign: 'right'
-          }}>
-            <div style={{ fontSize: '10px', color: '#90A4AE' }}>도급 수행 협력사</div>
-            <div style={{ fontSize: '13px', fontWeight: 800, color: '#00E5FF' }}>
-              {summary.partnerCompany}
-            </div>
-          </div>
+          <h1 style={{ fontSize: '24px', fontWeight: 900, color: '#FFFFFF', margin: '2px 0 0 0', letterSpacing: '-0.5px' }}>
+            파트명({activePart})
+          </h1>
         </div>
 
         {/* 10개 파트 스위처 (10인 PM 파트 격리 탭) */}
@@ -407,6 +392,9 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                       <span style={{ fontSize: '14px', fontWeight: 800, color: '#FFFFFF' }}>
                         {exRec.workerName}
                       </span>
+                      <span style={{ fontSize: '10.5px', color: '#00E5FF', background: 'rgba(0,229,255,0.1)', padding: '1px 5px', borderRadius: '4px' }}>
+                        {exRec.partnerCompany}
+                      </span>
                       <span style={{ fontSize: '11px', color: '#FF8A80', background: 'rgba(255,82,82,0.15)', padding: '1px 6px', borderRadius: '4px' }}>
                         {exRec.varianceMinutes}분 편차
                       </span>
@@ -457,7 +445,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
           </div>
         )}
 
-        {/* 4. 오늘 투입 인원 리스트 헤더 & 전체 선택 & 신규 투입 등록 */}
+        {/* 4. 오늘 투입 인원 리스트 헤더 & 전체 선택 (수동 투입등록 버튼 제거) */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
@@ -485,29 +473,12 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsAddWorkerModalOpen(true)}
-            style={{
-              background: 'rgba(0, 229, 255, 0.15)',
-              border: '1px solid rgba(0, 229, 255, 0.4)',
-              color: '#00E5FF',
-              fontSize: '11.5px',
-              fontWeight: 800,
-              borderRadius: '6px',
-              padding: '5px 10px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            <PlusCircle size={13} />
-            <span>+ 투입 등록</span>
-          </button>
+          <span style={{ fontSize: '11px', color: '#90A4AE' }}>
+            ※ 근로자 출근(투입) 시 자동 등록
+          </span>
         </div>
 
-        {/* 5. 도급 인원 리스트 (체크박스 및 상태 배지) */}
+        {/* 5. 도급 인원 리스트 (투입 인력 옆에 업체명 함께 표시) */}
         {records.length === 0 ? (
           <div style={{
             background: '#101B2E',
@@ -520,13 +491,10 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
             alignItems: 'center',
             gap: '10px'
           }}>
-            <UserPlus size={36} color="#90A4AE" />
+            <Users size={36} color="#90A4AE" />
             <div style={{ fontSize: '15px', fontWeight: 800, color: '#FFFFFF' }}>
-              [{activePart}] 등록된 일일 투입 실적이 없습니다
+              [{activePart}] 배정된 도급 인력 목록을 불러오는 중입니다
             </div>
-            <p style={{ fontSize: '12px', color: '#90A4AE', margin: 0, maxWidth: '280px', lineHeight: 1.4 }}>
-              실제 DB에 도급 인력 투입 실적을 등록하려면 상단의 <strong>[+ 투입 등록]</strong> 버튼을 눌러주세요.
-            </p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -565,14 +533,22 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                     )}
                   </button>
 
-                  {/* 인원 정보 */}
+                  {/* 인원 정보 & 인력 옆에 업체명 함께 표시 */}
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ fontSize: '15px', fontWeight: 800, color: '#FFFFFF' }}>
+                        <span style={{ fontSize: '15px', fontWeight: 900, color: '#FFFFFF' }}>
                           {record.workerName}
                         </span>
-                        <span style={{ fontSize: '11px', color: '#90A4AE' }}>
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          color: '#00E5FF',
+                          background: 'rgba(0, 229, 255, 0.12)',
+                          border: '1px solid rgba(0, 229, 255, 0.3)',
+                          padding: '1px 6px',
+                          borderRadius: '4px'
+                        }}>
                           {record.partnerCompany}
                         </span>
                       </div>

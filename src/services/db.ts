@@ -156,10 +156,58 @@ export class PureDatabaseEngine {
       this.manpowerInputs = JSON.parse(localStorage.getItem(DB_KEY_MANPOWER) || '[]');
       this.auditTrails = JSON.parse(localStorage.getItem(DB_KEY_AUDIT) || '[]');
       this.slaClarifications = JSON.parse(localStorage.getItem(DB_KEY_SLA) || '[]');
+
+      if (this.manpowerInputs.length === 0) {
+        this.initDefaultPartnerRoster();
+      }
     } catch (e) {
       console.warn('Database load fallback', e);
-      this.clearAll();
+      this.initDefaultPartnerRoster();
     }
+  }
+
+  private initDefaultPartnerRoster(): void {
+    const todayStr = new Date().toISOString().substring(0, 10);
+    const defaultRoster: DbManpowerInput[] = [
+      // 1. 상담 파트 (PM: 조경훈, 수급사: 유브갓, (주)협력아이티에스, 현대IT솔루션)
+      { recordId: 'rec-c-01', employeeId: 'PT-2026-001', workerName: '송무준', partName: '상담', partnerCompany: '유브갓', workDate: todayStr, contractedHours: 8.0, actualInputHours: 8.0, clockInTime: '08:50', clockOutTime: '18:00', taskSummary: '상담 파트 상담원 고객 VOC 실시간 응대 및 이력 전산화', varianceMinutes: 0, isSlaBreach: false, verificationStatus: 'AUTO_SETTLED', regId: 'SYSTEM', regDt: `${todayStr} 08:50:00` },
+      { recordId: 'rec-c-02', employeeId: 'PT-2026-002', workerName: '김성훈', partName: '상담', partnerCompany: '유브갓', workDate: todayStr, contractedHours: 8.0, actualInputHours: 8.0, clockInTime: '08:45', clockOutTime: '18:00', taskSummary: '신한카드 분실/도난 긴급 상담 접수 및 락 해제 공정', varianceMinutes: 0, isSlaBreach: false, verificationStatus: 'AUTO_SETTLED', regId: 'SYSTEM', regDt: `${todayStr} 08:45:00` },
+      { recordId: 'rec-c-03', employeeId: 'PT-2026-003', workerName: '이제성', partName: '상담', partnerCompany: '(주)협력아이티에스', workDate: todayStr, contractedHours: 8.0, actualInputHours: 8.0, clockInTime: '08:52', clockOutTime: '18:00', taskSummary: '금융상담 CTI 연동 상태 점검 및 인바운드 콜 분배', varianceMinutes: 0, isSlaBreach: false, verificationStatus: 'AUTO_SETTLED', regId: 'SYSTEM', regDt: `${todayStr} 08:52:00` },
+      { recordId: 'rec-c-04', employeeId: 'PT-2026-004', workerName: '김흥섭', partName: '상담', partnerCompany: '유브갓', workDate: todayStr, contractedHours: 8.0, actualInputHours: 8.0, clockInTime: '08:40', clockOutTime: '18:00', taskSummary: '카드 이용한도 상향/하향 상담 심사 데이터 검증', varianceMinutes: 0, isSlaBreach: false, verificationStatus: 'AUTO_SETTLED', regId: 'SYSTEM', regDt: `${todayStr} 08:40:00` },
+      { recordId: 'rec-c-05', employeeId: 'PT-2026-005', workerName: '박민우', partName: '상담', partnerCompany: '현대IT솔루션', workDate: todayStr, contractedHours: 8.0, actualInputHours: 8.0, clockInTime: '08:55', clockOutTime: '18:00', taskSummary: '고객 본인인증 오류 상담 트러블슈팅 공정 수행', varianceMinutes: 0, isSlaBreach: false, verificationStatus: 'AUTO_SETTLED', regId: 'SYSTEM', regDt: `${todayStr} 08:55:00` },
+      { recordId: 'rec-c-06', employeeId: 'PT-2026-006', workerName: '최진영', partName: '상담', partnerCompany: '유브갓', workDate: todayStr, contractedHours: 8.0, actualInputHours: 8.0, clockInTime: '08:48', clockOutTime: '18:00', taskSummary: '해외 결제 승인 오류 상담 및 이상거래 1차 소명 접수', varianceMinutes: 0, isSlaBreach: false, verificationStatus: 'AUTO_SETTLED', regId: 'SYSTEM', regDt: `${todayStr} 08:48:00` },
+      { recordId: 'rec-c-07', employeeId: 'PT-2026-007', workerName: '이하은', partName: '상담', partnerCompany: '유브갓', workDate: todayStr, contractedHours: 8.0, actualInputHours: 7.25, clockInTime: '09:35', clockOutTime: '18:00', taskSummary: '모바일 상담 챗봇 미해결 건 수동 배정 상담 공정', varianceMinutes: 45, isSlaBreach: true, exceptionType: 'LATE_ARRIVAL', gapReason: '출근 투입 45분 지연 (협력사 소명 대기)', partnerClarification: '대중교통 지연으로 인한 45분 지각 소명서 제출 완료', verificationStatus: 'VARIANCE_GAP', regId: 'SYSTEM', regDt: `${todayStr} 09:35:00` },
+      { recordId: 'rec-c-08', employeeId: 'PT-2026-008', workerName: '정재호', partName: '상담', partnerCompany: '(주)협력아이티에스', workDate: todayStr, contractedHours: 8.0, actualInputHours: 8.0, clockInTime: '08:42', clockOutTime: '18:00', taskSummary: '우수회원 전담 VIP 상담 데스크 운영 공정', varianceMinutes: 0, isSlaBreach: false, verificationStatus: 'AUTO_SETTLED', regId: 'SYSTEM', regDt: `${todayStr} 08:42:00` },
+      { recordId: 'rec-c-09', employeeId: 'PT-2026-009', workerName: '강동현', partName: '상담', partnerCompany: '유브갓', workDate: todayStr, contractedHours: 8.0, actualInputHours: 8.0, clockInTime: '08:50', clockOutTime: '18:00', taskSummary: '가맹점 대금 입금 문의 상담 및 정산 로그 확인', varianceMinutes: 0, isSlaBreach: false, verificationStatus: 'AUTO_SETTLED', regId: 'SYSTEM', regDt: `${todayStr} 08:50:00` },
+      { recordId: 'rec-c-10', employeeId: 'PT-2026-010', workerName: '윤서아', partName: '상담', partnerCompany: '유브갓', workDate: todayStr, contractedHours: 8.0, actualInputHours: 8.0, clockInTime: '08:51', clockOutTime: '18:00', taskSummary: '신규 카드 발급 심사 및 배송 안내 상담 수행', varianceMinutes: 0, isSlaBreach: false, verificationStatus: 'AUTO_SETTLED', regId: 'SYSTEM', regDt: `${todayStr} 08:51:00` },
+
+      // 2. 오토 파트 (PM: 강민우, 수급사: 오토시스)
+      { recordId: 'rec-a-01', employeeId: 'PT-2026-021', workerName: '박창훈', partName: '오토', partnerCompany: '오토시스', workDate: todayStr, contractedHours: 8.0, actualInputHours: 8.0, clockInTime: '08:45', clockOutTime: '18:00', taskSummary: '오토금융 다이렉트 할부 전산 모니터링', varianceMinutes: 0, isSlaBreach: false, verificationStatus: 'AUTO_SETTLED', regId: 'SYSTEM', regDt: `${todayStr} 08:45:00` },
+      { recordId: 'rec-a-02', employeeId: 'PT-2026-022', workerName: '김진수', partName: '오토', partnerCompany: '오토시스', workDate: todayStr, contractedHours: 8.0, actualInputHours: 8.0, clockInTime: '08:50', clockOutTime: '18:00', taskSummary: '자동차 리스/렌터카 대금 정산 배치 공정', varianceMinutes: 0, isSlaBreach: false, verificationStatus: 'AUTO_SETTLED', regId: 'SYSTEM', regDt: `${todayStr} 08:50:00` },
+
+      // 3. 재무 파트 (PM: 송진호, 수급사: 파이낸스ITS)
+      { recordId: 'rec-f-01', employeeId: 'PT-2026-031', workerName: '이민호', partName: '재무', partnerCompany: '파이낸스ITS', workDate: todayStr, contractedHours: 8.0, actualInputHours: 8.0, clockInTime: '08:40', clockOutTime: '18:00', taskSummary: '일일 결제대금 대사 및 회계 전표 인터페이스 검증', varianceMinutes: 0, isSlaBreach: false, verificationStatus: 'AUTO_SETTLED', regId: 'SYSTEM', regDt: `${todayStr} 08:40:00` },
+
+      // 4. 카드IS 파트 (PM: 박성진, 수급사: 현대IT솔루션)
+      { recordId: 'rec-i-01', employeeId: 'PT-2026-041', workerName: '한동훈', partName: '카드IS', partnerCompany: '현대IT솔루션', workDate: todayStr, contractedHours: 8.0, actualInputHours: 8.0, clockInTime: '08:50', clockOutTime: '18:00', taskSummary: '카드 기간계 계정계 승인 코어 모듈 유지보수', varianceMinutes: 0, isSlaBreach: false, verificationStatus: 'AUTO_SETTLED', regId: 'SYSTEM', regDt: `${todayStr} 08:50:00` }
+    ];
+
+    this.manpowerInputs = defaultRoster;
+
+    // 감사 로그 자동 생성
+    this.auditTrails = defaultRoster.map(r => ({
+      id: Date.now() + Math.floor(Math.random() * 10000),
+      recordId: r.recordId,
+      actorId: 'SYSTEM',
+      actorName: '도급 인력 투입 관제 엔진',
+      actorRole: '시스템 자동화',
+      action: r.isSlaBreach ? '도급 투입 실적 등록 (예외 발생 - PM 검수 대기)' : '도급비 산정을 위한 투입 실적 확정 (시스템 자동 검수)',
+      systemLabel: '도급 계약 이행 확인',
+      details: r.isSlaBreach ? `${r.workDate} ${r.workerName} (${r.partnerCompany}) ${r.varianceMinutes}분 편차 발생에 따른 예외 큐 등록` : `${r.workDate} ${r.workerName} (${r.partnerCompany}) 정상 투입 실적(8.0h) 계약 기준 자동 정산 확정`,
+      createdAt: `${todayStr} 09:00:00`
+    }));
+
+    this.sync();
   }
 
   private sync(): void {
@@ -181,7 +229,7 @@ export class PureDatabaseEngine {
     this.auditTrails = [];
     this.slaClarifications = [];
     this.currentUser = null;
-    this.sync();
+    this.initDefaultPartnerRoster();
   }
 
   // =========================================================================
