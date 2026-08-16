@@ -9,7 +9,9 @@ import {
   Mail, 
   ChevronDown,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  Check,
+  Briefcase
 } from 'lucide-react';
 import { User as UserType } from '../types';
 import { dbService } from '../services/db';
@@ -32,6 +34,12 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
   const [phone, setPhone] = useState(user.phone || '010-4732-8880');
   const [email, setEmail] = useState(user.email || 'moojun.song@naver.com');
   const [company, setCompany] = useState(user.companyName || user.partnerCompany || '유브갓');
+  
+  // 업체별 현장관리인 여부 체크 상태
+  const [isPartnerManager, setIsPartnerManager] = useState<boolean>(
+    user.role === 'PARTNER_PART_LEADER' || (user as any).role === 'PARTNER_MANAGER'
+  );
+
   const [team, setTeam] = useState(user.deptName || '상담팀');
   const [part, setPart] = useState(user.partName || '상담');
   const [position, setPosition] = useState('과장');
@@ -67,21 +75,28 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
       return;
     }
 
+    const assignedRole = isPartnerManager ? 'PARTNER_PART_LEADER' : company === '신한DS' ? 'DS_PRINCIPAL_PM' : 'PARTNER_WORKER';
+    const assignedTeam = isPartnerManager ? '영업총괄팀' : team;
+    const assignedPart = isPartnerManager ? '전사총괄' : part;
+    const roleTitle = isPartnerManager ? `${company} 현장관리인 (영업대표)` : '도급 인력';
+
     const updated = dbService.updateUser({
-      name: `${name} (${company === '신한DS' ? 'DS PM' : position})`,
+      name: `${name} (${isPartnerManager ? '관리인' : position})`,
       phone: phone,
       email: email,
       companyName: company,
       partnerCompany: company,
-      deptName: team,
-      partName: part
+      deptName: assignedTeam,
+      partName: assignedPart,
+      role: assignedRole,
+      roleTitle: roleTitle
     });
 
     if (onUserUpdated) {
       onUserUpdated(updated);
     }
 
-    alert(`🎉 S-GUARD 회원 정보가 실제 DB(users)에 안전하게 저장되었습니다.\n• 이름: ${name}\n• 외부메일: ${email}\n• 소속: ${company} (${team} / ${part} 파트)\n• 직책: ${position}`);
+    alert(`🎉 S-GUARD 회원 정보가 실제 DB(users)에 안전하게 저장되었습니다.\n• 이름: ${name}\n• 현장관리인 여부: ${isPartnerManager ? 'YES (업체 관리자/영업대표)' : 'NO (일반 도급 인력)'}\n• 외부메일: ${email}\n• 소속: ${company} (${isPartnerManager ? '전사 총괄' : `${assignedTeam} / ${assignedPart} 파트`})\n• 직책: ${position}`);
     onClose();
   };
 
@@ -162,29 +177,30 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
           overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
-          gap: '18px'
+          gap: '16px'
         }}>
-          {/* 프로필 서브 카드 (동적 아바타 + 마스킹된 이름 + 외부 이메일) */}
+          {/* 프로필 서브 카드 */}
           <div style={{
             background: 'rgba(255, 255, 255, 0.04)',
             border: '1px solid rgba(255, 255, 255, 0.08)',
             borderRadius: '14px',
-            padding: '16px',
+            padding: '14px 16px',
             display: 'flex',
             alignItems: 'center',
-            gap: '16px'
+            gap: '14px'
           }}>
-            {/* 프로필 아바타 (실시간 이름 첫 글자 연동) */}
             <div style={{
-              width: '56px',
-              height: '56px',
+              width: '52px',
+              height: '52px',
               borderRadius: '50%',
-              background: 'linear-gradient(135deg, #0052FF 0%, #00D4FF 100%)',
+              background: isPartnerManager 
+                ? 'linear-gradient(135deg, #0284C7 0%, #0052FF 100%)'
+                : 'linear-gradient(135deg, #0052FF 0%, #00D4FF 100%)',
               border: '2.5px solid #00E5FF',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '22px',
+              fontSize: '20px',
               fontWeight: 900,
               color: '#FFFFFF',
               boxShadow: '0 4px 12px rgba(0, 229, 255, 0.3)',
@@ -209,10 +225,17 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
             </div>
 
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', marginBottom: '2px' }}>
-                {maskedName}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                <span style={{ fontSize: '17px', fontWeight: 800, color: '#FFFFFF' }}>
+                  {maskedName}
+                </span>
+                {isPartnerManager && (
+                  <span style={{ fontSize: '10.5px', fontWeight: 800, color: '#00E5FF', background: 'rgba(0, 229, 255, 0.15)', padding: '1px 6px', borderRadius: '4px' }}>
+                    현장관리인 (영업대표)
+                  </span>
+                )}
               </div>
-              <div style={{ fontSize: '13px', color: '#90A4AE', letterSpacing: '0.2px', wordBreak: 'break-all' }}>
+              <div style={{ fontSize: '12.5px', color: '#90A4AE', letterSpacing: '0.2px', wordBreak: 'break-all' }}>
                 {maskedEmail}
               </div>
             </div>
@@ -226,12 +249,12 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
                 type="button"
                 onClick={() => setDeviceType('Android')}
                 style={{
-                  height: '44px',
+                  height: '42px',
                   borderRadius: '10px',
                   border: 'none',
                   background: deviceType === 'Android' ? '#0052FF' : 'rgba(255, 255, 255, 0.06)',
                   color: '#FFFFFF',
-                  fontSize: '14.5px',
+                  fontSize: '14px',
                   fontWeight: deviceType === 'Android' ? 800 : 600,
                   cursor: 'pointer',
                   boxShadow: deviceType === 'Android' ? '0 4px 12px rgba(0, 82, 255, 0.4)' : 'none',
@@ -245,12 +268,12 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
                 type="button"
                 onClick={() => setDeviceType('iOS')}
                 style={{
-                  height: '44px',
+                  height: '42px',
                   borderRadius: '10px',
                   border: 'none',
                   background: deviceType === 'iOS' ? '#0052FF' : 'rgba(255, 255, 255, 0.06)',
                   color: '#FFFFFF',
-                  fontSize: '14.5px',
+                  fontSize: '14px',
                   fontWeight: deviceType === 'iOS' ? 800 : 600,
                   cursor: 'pointer',
                   boxShadow: deviceType === 'iOS' ? '0 4px 12px rgba(0, 82, 255, 0.4)' : 'none',
@@ -330,53 +353,132 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
             </div>
           </div>
 
-          {/* 팀 & 파트 (2열 그리드) */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          {/* ⭐ 업체별 현장관리인(영업대표) 여부 체크박스 카드 */}
+          <div 
+            onClick={() => setIsPartnerManager(!isPartnerManager)}
+            style={{
+              background: isPartnerManager ? 'rgba(0, 229, 255, 0.1)' : 'rgba(255, 255, 255, 0.04)',
+              border: isPartnerManager ? '1.5px solid #00E5FF' : '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: '12px',
+              padding: '12px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              boxShadow: isPartnerManager ? '0 0 16px rgba(0, 229, 255, 0.2)' : 'none'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '22px',
+                height: '22px',
+                borderRadius: '6px',
+                background: isPartnerManager ? '#00E5FF' : 'rgba(255, 255, 255, 0.1)',
+                border: isPartnerManager ? 'none' : '1.5px solid #90A4AE',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#0F172A',
+                flexShrink: 0
+              }}>
+                {isPartnerManager && <Check size={16} strokeWidth={3.5} />}
+              </div>
+              <div>
+                <div style={{ fontSize: '13.5px', fontWeight: 800, color: isPartnerManager ? '#00E5FF' : '#FFFFFF' }}>
+                  업체별 현장관리인 (영업대표/총괄)
+                </div>
+                <div style={{ fontSize: '11px', color: '#90A4AE', marginTop: '1px' }}>
+                  {isPartnerManager 
+                    ? '✓ 체크됨: 자사 전체 인력 총괄 권한 (팀·파트 선택 잠금)' 
+                    : '체크 시 자사 전체 인력 관제 권한 부여 (팀·파트 선택 불가)'}
+                </div>
+              </div>
+            </div>
+            <Briefcase size={18} color={isPartnerManager ? '#00E5FF' : '#64748B'} />
+          </div>
+
+          {/* 팀 & 파트 (2열 그리드 - 현장관리인 체크 시 비활성화 잠금) */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', opacity: isPartnerManager ? 0.45 : 1 }}>
             <div>
-              <label style={fieldLabelStyle}>팀</label>
-              <div style={selectContainerStyle}>
+              <label style={fieldLabelStyle}>
+                팀 {isPartnerManager && <span style={{ color: '#FF8A80', fontSize: '10.5px' }}>(관리자 선택불가)</span>}
+              </label>
+              <div style={{
+                ...selectContainerStyle,
+                background: isPartnerManager ? '#0D1522' : '#192841',
+                cursor: isPartnerManager ? 'not-allowed' : 'pointer'
+              }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                  <Building2 size={16} color="#90A4AE" style={{ flexShrink: 0 }} />
+                  <Building2 size={16} color={isPartnerManager ? '#64748B' : '#90A4AE'} style={{ flexShrink: 0 }} />
                   <select
-                    value={team}
+                    disabled={isPartnerManager}
+                    value={isPartnerManager ? '전사 총괄' : team}
                     onChange={e => setTeam(e.target.value)}
-                    style={selectFieldStyle}
+                    style={{
+                      ...selectFieldStyle,
+                      cursor: isPartnerManager ? 'not-allowed' : 'pointer',
+                      color: isPartnerManager ? '#64748B' : '#FFFFFF'
+                    }}
                   >
-                    <option value="상담팀" style={optionStyle}>상담팀</option>
-                    <option value="오토팀" style={optionStyle}>오토팀</option>
-                    <option value="재무팀" style={optionStyle}>재무팀</option>
-                    <option value="카드개발팀" style={optionStyle}>카드개발팀</option>
-                    <option value="결제개발팀" style={optionStyle}>결제개발팀</option>
-                    <option value="데이터인프라팀" style={optionStyle}>데이터인프라팀</option>
+                    {isPartnerManager ? (
+                      <option value="전사 총괄" style={optionStyle}>전사 총괄 (선택 불가)</option>
+                    ) : (
+                      <>
+                        <option value="상담팀" style={optionStyle}>상담팀</option>
+                        <option value="오토팀" style={optionStyle}>오토팀</option>
+                        <option value="재무팀" style={optionStyle}>재무팀</option>
+                        <option value="카드개발팀" style={optionStyle}>카드개발팀</option>
+                        <option value="결제개발팀" style={optionStyle}>결제개발팀</option>
+                        <option value="데이터인프라팀" style={optionStyle}>데이터인프라팀</option>
+                      </>
+                    )}
                   </select>
                 </div>
-                <ChevronDown size={15} color="#90A4AE" style={{ flexShrink: 0 }} />
+                <ChevronDown size={15} color={isPartnerManager ? '#475569' : '#90A4AE'} style={{ flexShrink: 0 }} />
               </div>
             </div>
 
             <div>
-              <label style={fieldLabelStyle}>파트</label>
-              <div style={selectContainerStyle}>
+              <label style={fieldLabelStyle}>
+                파트 {isPartnerManager && <span style={{ color: '#FF8A80', fontSize: '10.5px' }}>(관리자 선택불가)</span>}
+              </label>
+              <div style={{
+                ...selectContainerStyle,
+                background: isPartnerManager ? '#0D1522' : '#192841',
+                cursor: isPartnerManager ? 'not-allowed' : 'pointer'
+              }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                  <Building2 size={16} color="#90A4AE" style={{ flexShrink: 0 }} />
+                  <Building2 size={16} color={isPartnerManager ? '#64748B' : '#90A4AE'} style={{ flexShrink: 0 }} />
                   <select
-                    value={part}
+                    disabled={isPartnerManager}
+                    value={isPartnerManager ? '전 파트 총괄' : part}
                     onChange={e => setPart(e.target.value)}
-                    style={selectFieldStyle}
+                    style={{
+                      ...selectFieldStyle,
+                      cursor: isPartnerManager ? 'not-allowed' : 'pointer',
+                      color: isPartnerManager ? '#64748B' : '#FFFFFF'
+                    }}
                   >
-                    <option value="상담" style={optionStyle}>상담</option>
-                    <option value="오토" style={optionStyle}>오토</option>
-                    <option value="재무" style={optionStyle}>재무</option>
-                    <option value="카드IS" style={optionStyle}>카드IS</option>
-                    <option value="결제망" style={optionStyle}>결제망</option>
-                    <option value="데이터" style={optionStyle}>데이터</option>
-                    <option value="FDS" style={optionStyle}>FDS</option>
-                    <option value="CRM" style={optionStyle}>CRM</option>
-                    <option value="모바일" style={optionStyle}>모바일</option>
-                    <option value="인프라" style={optionStyle}>인프라</option>
+                    {isPartnerManager ? (
+                      <option value="전 파트 총괄" style={optionStyle}>전 파트 총괄 (선택 불가)</option>
+                    ) : (
+                      <>
+                        <option value="상담" style={optionStyle}>상담</option>
+                        <option value="오토" style={optionStyle}>오토</option>
+                        <option value="재무" style={optionStyle}>재무</option>
+                        <option value="카드IS" style={optionStyle}>카드IS</option>
+                        <option value="결제망" style={optionStyle}>결제망</option>
+                        <option value="데이터" style={optionStyle}>데이터</option>
+                        <option value="FDS" style={optionStyle}>FDS</option>
+                        <option value="CRM" style={optionStyle}>CRM</option>
+                        <option value="모바일" style={optionStyle}>모바일</option>
+                        <option value="인프라" style={optionStyle}>인프라</option>
+                      </>
+                    )}
                   </select>
                 </div>
-                <ChevronDown size={15} color="#90A4AE" style={{ flexShrink: 0 }} />
+                <ChevronDown size={15} color={isPartnerManager ? '#475569' : '#90A4AE'} style={{ flexShrink: 0 }} />
               </div>
             </div>
           </div>
@@ -417,7 +519,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
           </div>
 
           {/* 비밀번호 변경하기 토글 링크 */}
-          <div style={{ paddingTop: '6px' }}>
+          <div style={{ paddingTop: '4px' }}>
             <button
               type="button"
               onClick={() => setIsChangingPassword(!isChangingPassword)}
@@ -425,7 +527,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
                 background: 'none',
                 border: 'none',
                 color: '#00E5FF',
-                fontSize: '13.5px',
+                fontSize: '13px',
                 fontWeight: 700,
                 display: 'flex',
                 alignItems: 'center',
@@ -434,7 +536,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
                 padding: 0
               }}
             >
-              <Lock size={15} color="#00E5FF" />
+              <Lock size={14} color="#00E5FF" />
               <span>비밀번호 변경하기</span>
             </button>
           </div>
@@ -493,7 +595,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
 
         {/* 3. 하단 액션 버튼 바 */}
         <div style={{
-          padding: '16px 22px',
+          padding: '14px 22px',
           borderTop: '1px solid rgba(255, 255, 255, 0.08)',
           display: 'flex',
           gap: '10px',
