@@ -19,6 +19,7 @@ import { AccountSettingsView } from './views/AccountSettingsView';
 import { ProfileEditView } from './views/ProfileEditView';
 import { PartnerManagerPortalView } from './views/PartnerManagerPortalView';
 import { PrincipalInspectionPortalView } from './views/PrincipalInspectionPortalView';
+import { ContractFulfillmentDashboardView } from './views/ContractFulfillmentDashboardView';
 import { WorkLocationSelectView, defaultWorkLocations, WorkLocation } from './views/WorkLocationSelectView';
 import { WorkLocationDetailView } from './views/WorkLocationDetailView';
 import { OrganizationManageView, defaultOrgUnits, OrgUnit } from './views/OrganizationManageView';
@@ -77,8 +78,8 @@ export function App() {
   const [templatesList, setTemplatesList] = useState<ScheduleTemplateItem[]>(defaultScheduleTemplates);
   const [hasScheduleToday, setHasScheduleToday] = useState(false);
 
-  // Tab & Page Navigation
-  const [currentPage, setCurrentPage] = useState<PageView>('home');
+  // Tab & Page Navigation (기본값: DS 총괄 관리인 포털)
+  const [currentPage, setCurrentPage] = useState<PageView>('principal_portal');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isRequestActionSheetOpen, setIsRequestActionSheetOpen] = useState(false);
   const [isNoScheduleModalOpen, setIsNoScheduleModalOpen] = useState(false);
@@ -97,10 +98,10 @@ export function App() {
     const newUser = dbService.switchUserRole(userId);
     setCurrentUser(newUser);
 
-    if (newUser.role === 'PARTNER_SITE_MANAGER') {
-      setCurrentPage('partner_portal');
-    } else if (newUser.role === 'PRINCIPAL_INSPECTOR') {
+    if (newUser.role === 'DS_PRINCIPAL_PM' || newUser.role === 'PRINCIPAL_INSPECTOR') {
       setCurrentPage('principal_portal');
+    } else if (newUser.role === 'PARTNER_PART_LEADER' || newUser.role === 'PARTNER_SITE_MANAGER') {
+      setCurrentPage('partner_portal');
     } else {
       setCurrentPage('home');
     }
@@ -146,14 +147,30 @@ export function App() {
           <Header
             onOpenDrawer={() => setIsDrawerOpen(true)}
             onOpenMessages={() => setCurrentPage('request')}
-            onOpenNotifications={() => alert('신규 공지: 2026 하계 집중휴가 및 땡겨요 협력사 근태 규정이 업데이트되었습니다.')}
+            onOpenNotifications={() => alert('신규 공지: 2026년 8월 30인 도급 공정 검수 및 SLA 기준이 업데이트되었습니다.')}
             themeMode={themeMode}
           />
         )}
 
         {/* 본문 탭 및 역할별 뷰 영역 */}
         <main className="main-content" style={!isTabActive ? { padding: hideHeaderPages.includes(currentPage) ? 0 : '14px' } : undefined}>
-          {/* 1. 협력사 직원 기본 홈 화면 */}
+          {/* 1. 신한DS 총괄 PM 도급 계약 이행 및 30인 공정 검수 대시보드 (User 뷰) */}
+          {currentPage === 'principal_portal' && (
+            <ContractFulfillmentDashboardView
+              currentUser={currentUser}
+              themeMode={themeMode}
+            />
+          )}
+
+          {/* 2. 협력사 파트장(현장대리인) 포털 */}
+          {currentPage === 'partner_portal' && (
+            <PartnerManagerPortalView
+              themeMode={themeMode}
+              onRequestUpdated={refreshData}
+            />
+          )}
+
+          {/* 3. 협력사 근로자 기본 홈 화면 */}
           {currentPage === 'home' && (
             <>
               {/* 상단 리포트 & 누락기록 퀵 카드 */}
@@ -187,7 +204,7 @@ export function App() {
             </>
           )}
 
-          {/* 2. 하단 탭 서브 화면들 */}
+          {/* 4. 하단 탭 서브 화면들 */}
           {currentPage === 'request' && (
             <RequestsView
               requests={requests}
@@ -231,7 +248,7 @@ export function App() {
             />
           )}
 
-          {/* 3. 휴가 항목 선택 화면 (스크린샷 2 일치) */}
+          {/* 5. 휴가 항목 선택 화면 */}
           {currentPage === 'vacation_type_select' && (
             <VacationTypeSelectView
               onBack={() => setCurrentPage('vacation')}
@@ -244,7 +261,7 @@ export function App() {
             />
           )}
 
-          {/* 4. 근무일정 생성 요청 화면 */}
+          {/* 6. 근무일정 생성 요청 화면 */}
           {currentPage === 'create_schedule_request' && (
             <CreateScheduleRequestView
               onBack={() => setCurrentPage('request')}
@@ -257,7 +274,7 @@ export function App() {
             />
           )}
 
-          {/* 5. 근무일정 수정 요청 화면 */}
+          {/* 7. 근무일정 수정 요청 화면 */}
           {currentPage === 'edit_schedule_request' && (
             <EditScheduleRequestView
               onBack={() => setCurrentPage('request')}
@@ -269,7 +286,7 @@ export function App() {
             />
           )}
 
-          {/* 6. 내 템플릿 추가 화면 */}
+          {/* 8. 내 템플릿 추가 화면 */}
           {currentPage === 'add_schedule_template' && (
             <AddScheduleTemplateView
               onBack={() => setCurrentPage('schedule_templates')}
@@ -280,7 +297,7 @@ export function App() {
             />
           )}
 
-          {/* 7. 내 계정 설정 및 프로필 편집 */}
+          {/* 9. 내 계정 설정 및 프로필 편집 */}
           {currentPage === 'account_settings' && (
             <AccountSettingsView
               onBack={() => setCurrentPage('home')}
@@ -298,7 +315,7 @@ export function App() {
             />
           )}
 
-          {/* 8. 리포트 테이블 화면 */}
+          {/* 10. 리포트 테이블 화면 */}
           {currentPage === 'attendance_report' && (
             <AttendanceReportView
               onBack={() => setCurrentPage('home')}
@@ -306,7 +323,7 @@ export function App() {
             />
           )}
 
-          {/* 9. 출근/퇴근 누락 기록 화면 */}
+          {/* 11. 출근/퇴근 누락 기록 화면 */}
           {currentPage === 'missed_punch_records' && (
             <MissedPunchRecordsView
               onBack={() => setCurrentPage('home')}
@@ -314,7 +331,7 @@ export function App() {
             />
           )}
 
-          {/* 10. 현재 근무 상황 상세 화면 */}
+          {/* 12. 현재 근무 상황 상세 화면 */}
           {currentPage === 'current_status_detail' && (
             <CurrentWorkStatusDetailView
               onBack={() => setCurrentPage('home')}
@@ -322,7 +339,7 @@ export function App() {
             />
           )}
 
-          {/* 11. 출퇴근 장소 목록 관리 */}
+          {/* 13. 출퇴근 장소 목록 관리 */}
           {currentPage === 'work_locations' && (
             <WorkLocationSelectView
               onBack={() => setCurrentPage('home')}
@@ -336,7 +353,7 @@ export function App() {
             />
           )}
 
-          {/* 12. 출퇴근 장소 상세 화면 (지도 & 지오펜스 100m) */}
+          {/* 14. 출퇴근 장소 상세 화면 (지도 & 지오펜스 100m) */}
           {currentPage === 'location_detail' && (
             <WorkLocationDetailView
               location={inspectingLocation}
@@ -345,7 +362,7 @@ export function App() {
             />
           )}
 
-          {/* 13. 조직 관리 화면 */}
+          {/* 15. 조직 관리 화면 */}
           {currentPage === 'organizations' && (
             <OrganizationManageView
               onBack={() => setCurrentPage('home')}
@@ -362,7 +379,7 @@ export function App() {
             />
           )}
 
-          {/* 14. 조직 상세 및 출퇴근 장소 화면 */}
+          {/* 16. 조직 상세 및 출퇴근 장소 화면 */}
           {currentPage === 'org_detail' && (
             <OrganizationDetailView
               orgUnit={selectedOrgUnit}
@@ -375,7 +392,7 @@ export function App() {
             />
           )}
 
-          {/* 15. 직원 관리 화면 */}
+          {/* 17. 직원 관리 화면 */}
           {currentPage === 'employees' && (
             <EmployeeManageView
               onBack={() => setCurrentPage('home')}
@@ -384,27 +401,12 @@ export function App() {
             />
           )}
 
-          {/* 16. 근무일정 템플릿 관리 화면 */}
+          {/* 18. 근무일정 템플릿 관리 화면 */}
           {currentPage === 'schedule_templates' && (
             <ScheduleTemplateManageView
               onBack={() => setCurrentPage('home')}
               onOpenAddTemplate={() => setCurrentPage('add_schedule_template')}
               templatesList={templatesList}
-              themeMode={themeMode}
-            />
-          )}
-
-          {/* 17. 협력사 현장대리인 전용 관리 포털 */}
-          {currentPage === 'partner_portal' && (
-            <PartnerManagerPortalView
-              themeMode={themeMode}
-              onRequestUpdated={refreshData}
-            />
-          )}
-
-          {/* 18. 원청(신한DS) 도급 검수 대시보드 */}
-          {currentPage === 'principal_portal' && (
-            <PrincipalInspectionPortalView
               themeMode={themeMode}
             />
           )}
