@@ -13,17 +13,20 @@ import {
   Square, 
   FileCheck, 
   History, 
-  HelpCircle,
-  TrendingUp,
-  X,
-  MessageSquare,
-  AlertCircle,
-  Check,
-  PlusCircle,
-  UserPlus
+  TrendingUp, 
+  X, 
+  PlusCircle, 
+  UserPlus, 
+  Download, 
+  Printer, 
+  ShieldAlert, 
+  FileSpreadsheet, 
+  Check, 
+  Slash,
+  AlertCircle
 } from 'lucide-react';
-import { dbService } from '../services/db';
-import { User, ManpowerInputRecord, PartFulfillmentSummary } from '../types';
+import { dbService, PM_PART_LIST } from '../services/db';
+import { User, ManpowerInputRecord, PartFulfillmentSummary, LegalDefenseReport } from '../types';
 
 interface ContractFulfillmentDashboardViewProps {
   currentUser: User;
@@ -36,22 +39,26 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
 }) => {
   const [activePart, setActivePart] = useState<string>(currentUser.partName || '상담');
   const [records, setRecords] = useState<ManpowerInputRecord[]>([]);
+  const [exceptionRecords, setExceptionRecords] = useState<ManpowerInputRecord[]>([]);
   const [summary, setSummary] = useState<PartFulfillmentSummary>(dbService.getPartSummary('상담'));
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
   
   // 모달 상태
-  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-  const [isClarificationModalOpen, setIsClarificationModalOpen] = useState(false);
   const [isAddWorkerModalOpen, setIsAddWorkerModalOpen] = useState(false);
-  const [selectedGapRecord, setSelectedGapRecord] = useState<ManpowerInputRecord | null>(null);
-  const [clarificationMessage, setClarificationMessage] = useState('');
+  const [isExceptionModalOpen, setIsExceptionModalOpen] = useState(false);
+  const [selectedExceptionRecord, setSelectedExceptionRecord] = useState<ManpowerInputRecord | null>(null);
+  const [exceptionMemo, setExceptionMemo] = useState('');
+  
+  const [isDefenseReportModalOpen, setIsDefenseReportModalOpen] = useState(false);
+  const [defenseReport, setDefenseReport] = useState<LegalDefenseReport | null>(null);
+
   const [selectedAuditRecord, setSelectedAuditRecord] = useState<ManpowerInputRecord | null>(null);
 
-  // 신규 투입 인력 등록 폼 (실제 DB INSERT용)
+  // 신규 투입 인력 등록 폼 (실제 DB INSERT)
   const [newWorkerForm, setNewWorkerForm] = useState({
     workerName: '',
     employeeId: '',
-    partnerCompany: activePart === '상담' ? '유브갓' : activePart === '오토' ? '오토시스' : '파이낸스ITS',
+    partnerCompany: PM_PART_LIST.find(p => p.partName === activePart)?.partnerCompany || '유브갓',
     workDate: new Date().toISOString().substring(0, 10),
     clockInTime: '08:50',
     clockOutTime: '18:00',
@@ -65,21 +72,25 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
 
   const loadData = () => {
     const partRecords = dbService.getManpowerRecordsByPart(activePart);
+    const exceptions = dbService.getExceptionRecordsByPart(activePart);
+    const sum = dbService.getPartSummary(activePart);
+
     setRecords(partRecords);
-    setSummary(dbService.getPartSummary(activePart));
-    
-    // 검수 대기(PARTNER_CONFIRMED) 상태인 레코드들을 기본 선택
+    setExceptionRecords(exceptions);
+    setSummary(sum);
+
     const pendingIds = partRecords
-      .filter(r => r.verificationStatus === 'PARTNER_CONFIRMED')
+      .filter(r => r.verificationStatus === 'PARTNER_CONFIRMED' || r.verificationStatus === 'VARIANCE_GAP')
       .map(r => r.id);
     setSelectedRecordIds(pendingIds);
   };
 
   useEffect(() => {
     loadData();
+    const currentPartInfo = PM_PART_LIST.find(p => p.partName === activePart);
     setNewWorkerForm(prev => ({
       ...prev,
-      partnerCompany: activePart === '상담' ? '유브갓' : activePart === '오토' ? '오토시스' : '파이낸스ITS'
+      partnerCompany: currentPartInfo?.partnerCompany || '유브갓'
     }));
   }, [activePart]);
 
@@ -99,20 +110,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
     }
   };
 
-  // DS PM 최종 정산 확정 핸들러 (실제 DB UPDATE)
-  const handleExecuteSettlement = () => {
-    if (selectedRecordIds.length === 0) {
-      alert('검수 확정할 인원을 1명 이상 선택해주세요.');
-      return;
-    }
-
-    dbService.settlePrincipalVerification(selectedRecordIds, currentUser.name);
-    setIsConfirmModalOpen(false);
-    loadData();
-    alert(`✅ 선택된 ${selectedRecordIds.length}명의 일일 투입 공수 검수가 완료되어 [도급 정산 확정] 처리되었습니다.`);
-  };
-
-  // 신규 투입 인력 실제 DB INSERT
+  // 신규 투입 인력 DB INSERT
   const handleAddWorkerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newWorkerForm.workerName.trim() || !newWorkerForm.employeeId.trim()) {
@@ -131,20 +129,20 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
       actualInputHours: Number(newWorkerForm.actualHours),
       clockInTime: newWorkerForm.clockInTime,
       clockOutTime: newWorkerForm.clockOutTime,
-      taskSummary: newWorkerForm.taskSummary || `${activePart} 파트 일일 도급 업무 수행`,
+      taskSummary: newWorkerForm.taskSummary || `${activePart} 파트 도급 공정 수행`,
       varianceMinutes: Number(newWorkerForm.varianceMinutes),
       isSlaBreach: Boolean(newWorkerForm.isSlaBreach),
       gapReason: newWorkerForm.gapReason || undefined,
-      verificationStatus: 'PARTNER_CONFIRMED'
+      verificationStatus: newWorkerForm.isSlaBreach ? 'VARIANCE_GAP' : 'AUTO_SETTLED'
     });
 
     if (res.success) {
-      alert(`🎉 [${newWorkerForm.workerName}] 투입 실적이 실제 DB(manpower_inputs)에 등록되었습니다.`);
+      alert(`🎉 [${newWorkerForm.workerName}] 투입 실적이 DB(manpower_inputs)에 등록되었습니다.`);
       setIsAddWorkerModalOpen(false);
       setNewWorkerForm({
         workerName: '',
         employeeId: '',
-        partnerCompany: activePart === '상담' ? '유브갓' : activePart === '오토' ? '오토시스' : '파이낸스ITS',
+        partnerCompany: PM_PART_LIST.find(p => p.partName === activePart)?.partnerCompany || '유브갓',
         workDate: new Date().toISOString().substring(0, 10),
         clockInTime: '08:50',
         clockOutTime: '18:00',
@@ -159,49 +157,60 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
     }
   };
 
-  // 소명 요구 / 개선 요청 모달 열기
-  const handleOpenClarification = (record: ManpowerInputRecord) => {
-    setSelectedGapRecord(record);
-    setClarificationMessage(
-      `[공식 개선 요청] 귀사(${record.partnerCompany}) 소속 ${record.workerName} 상담원의 ${record.workDate}일자 투입 공백(편차 ${record.varianceMinutes}분)에 대하여 SLA 계약 기준에 따른 원인 분석 및 재발 방지 개선 대책서 제출을 요청합니다.`
-    );
-    setIsClarificationModalOpen(true);
+  // 예외 관리 모달 열기
+  const handleOpenExceptionModal = (record: ManpowerInputRecord) => {
+    setSelectedExceptionRecord(record);
+    setExceptionMemo('');
+    setIsExceptionModalOpen(true);
   };
 
-  // 소명 요구 메시지 전송 (실제 DB INSERT)
-  const handleSendClarification = () => {
-    if (!selectedGapRecord || !clarificationMessage.trim()) return;
-
-    dbService.sendClarificationRequest(selectedGapRecord.id, clarificationMessage);
-    setIsClarificationModalOpen(false);
+  // 예외 조치 1: [계약상 투입 제외] (도급비 감액 확정)
+  const handleExecuteExclude = () => {
+    if (!selectedExceptionRecord) return;
+    dbService.resolveExceptionExclude(selectedExceptionRecord.id, exceptionMemo || '도급 계약 SLA 기준 미달에 따른 공수 차감');
+    setIsExceptionModalOpen(false);
     loadData();
-    alert(`📨 협력업체(${selectedGapRecord.partnerCompany}) 관리자 앞 개선 요청(소명 요구) 공문이 공식 발송되어 DB에 저장되었습니다.`);
+    alert(`⚖️ [${selectedExceptionRecord.workerName}] 건이 [계약상 투입 제외] 처리되어 도급비 정산 감액 자료에 반영되었습니다. (감사로그 자동 기록 완료)`);
   };
 
-  const gapRecords = records.filter(r => r.isSlaBreach);
+  // 예외 조치 2: [공정 지연 사유 확정] (소명 인정 / 정산 유지)
+  const handleExecuteAcceptDelay = () => {
+    if (!selectedExceptionRecord) return;
+    dbService.resolveExceptionAccept(selectedExceptionRecord.id, exceptionMemo || '협력업체 1차 소명 사유 검토 완료');
+    setIsExceptionModalOpen(false);
+    loadData();
+    alert(`✅ [${selectedExceptionRecord.workerName}] 건이 [공정 지연 사유 확정] 처리되어 정상 투입 실적으로 인정되었습니다. (감사로그 자동 기록 완료)`);
+  };
+
+  // 법적 방어 리포트 생성 및 모달 열기
+  const handleOpenDefenseReport = () => {
+    const rep = dbService.generateLegalDefenseReport(activePart);
+    setDefenseReport(rep);
+    setIsDefenseReportModalOpen(true);
+  };
 
   return (
     <div style={{
-      background: '#0A111E',
+      background: '#060B14',
       minHeight: '100vh',
       color: '#FFFFFF',
       display: 'flex',
       flexDirection: 'column',
       paddingBottom: '100px'
     }}>
-      {/* 1. 상단: 파트 전담 PM 헤더 & 파트명(상담) 명확히 표시 */}
+      {/* 1. 상단 Header: 10인 PM 체제 & 파트 전담 격리 헤더 */}
       <div style={{
-        background: 'linear-gradient(180deg, #10233F 0%, #0A111E 100%)',
-        padding: '20px 18px 16px 18px',
-        borderBottom: '1px solid rgba(0, 229, 255, 0.15)'
+        background: 'linear-gradient(180deg, #0F1E36 0%, #060B14 100%)',
+        padding: '18px 18px 14px 18px',
+        borderBottom: '1px solid rgba(0, 229, 255, 0.18)'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
           <div style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: '6px',
             background: 'rgba(0, 229, 255, 0.12)',
-            border: '1px solid rgba(0, 229, 255, 0.3)',
+            border: '1px solid rgba(0, 229, 255, 0.35)',
             padding: '3px 10px',
             borderRadius: '16px',
             fontSize: '11px',
@@ -209,7 +218,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
             color: '#00E5FF'
           }}>
             <ShieldCheck size={13} color="#00E5FF" />
-            <span>신한DS 현장관리인 전담 대시보드</span>
+            <span>10인 PM 체제 도급 관리 시스템</span>
           </div>
 
           <span style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600 }}>
@@ -217,20 +226,19 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
           </span>
         </div>
 
-        {/* 메인 파트명 명시 */}
+        {/* 파트명 & 전담 협력사 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
           <div>
-            <div style={{ fontSize: '13px', color: '#90A4AE', fontWeight: 600 }}>
-              전담 관제 파트
+            <div style={{ fontSize: '12px', color: '#80D8FF', fontWeight: 700 }}>
+              전담 관제 파트 (120인 규모 도급 인력)
             </div>
-            <h1 style={{ fontSize: '26px', fontWeight: 900, color: '#FFFFFF', margin: '2px 0 0 0', letterSpacing: '-0.5px' }}>
+            <h1 style={{ fontSize: '24px', fontWeight: 900, color: '#FFFFFF', margin: '2px 0 0 0', letterSpacing: '-0.5px' }}>
               파트명({activePart})
             </h1>
           </div>
 
-          {/* 담당 협력사 뱃지 */}
           <div style={{
-            background: 'rgba(255, 255, 255, 0.06)',
+            background: 'rgba(255, 255, 255, 0.05)',
             border: '1px solid rgba(255, 255, 255, 0.12)',
             padding: '6px 12px',
             borderRadius: '8px',
@@ -243,120 +251,118 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
           </div>
         </div>
 
-        {/* 3개 파트 스위처 (파트별 데이터 격리 테스트용 탭) */}
+        {/* 10개 파트 스위처 (10인 PM 파트 격리 탭) */}
         <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
+          display: 'flex',
           gap: '6px',
-          marginTop: '14px',
-          background: 'rgba(0,0,0,0.3)',
-          padding: '4px',
-          borderRadius: '10px'
+          overflowX: 'auto',
+          padding: '10px 0 4px 0',
+          scrollbarWidth: 'none'
         }}>
-          {['상담', '오토', '재무'].map(pName => (
+          {PM_PART_LIST.map(p => (
             <button
-              key={pName}
+              key={p.partId}
               type="button"
-              onClick={() => setActivePart(pName)}
+              onClick={() => setActivePart(p.partName)}
               style={{
-                padding: '8px 4px',
+                flexShrink: 0,
+                padding: '6px 10px',
                 borderRadius: '8px',
-                border: 'none',
-                background: activePart === pName ? '#0052FF' : 'transparent',
-                color: activePart === pName ? '#FFFFFF' : '#90A4AE',
-                fontSize: '12px',
-                fontWeight: activePart === pName ? 800 : 600,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
+                border: activePart === p.partName ? '1.5px solid #00E5FF' : '1px solid rgba(255, 255, 255, 0.08)',
+                background: activePart === p.partName ? '#0052FF' : 'rgba(255, 255, 255, 0.04)',
+                color: activePart === p.partName ? '#FFFFFF' : '#90A4AE',
+                fontSize: '11.5px',
+                fontWeight: activePart === p.partName ? 800 : 600,
+                cursor: 'pointer'
               }}
             >
-              {pName} 파트
+              {p.partName} {p.partName === '상담' && <span style={{ color: '#80D8FF' }}>★</span>}
             </button>
           ))}
         </div>
       </div>
 
-      {/* 2. 중앙: 파트별 가동률(%) & 투입 통계 카드 */}
       <div style={{ padding: '16px 16px 8px 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+        {/* 2. 가동률 & 관리 통계 카드 */}
         <div style={{
-          background: '#111E33',
+          background: '#101B2E',
           border: '1px solid rgba(0, 229, 255, 0.2)',
           borderRadius: '16px',
           padding: '16px 18px',
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center',
-          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)'
+          alignItems: 'center'
         }}>
           <div>
             <div style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 700 }}>
-              {activePart} 파트 실시간 가동률
+              [{activePart}] 일일 투입 공수 달성률
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '2px' }}>
-              <span style={{ fontSize: '32px', fontWeight: 900, color: summary.fulfillmentRate >= 100 ? '#00E676' : summary.fulfillmentRate > 0 ? '#FF9100' : '#90A4AE' }}>
+              <span style={{ fontSize: '30px', fontWeight: 900, color: summary.fulfillmentRate >= 100 ? '#00E676' : summary.fulfillmentRate > 0 ? '#FF9100' : '#90A4AE' }}>
                 {summary.fulfillmentRate.toFixed(1)}%
               </span>
-              <span style={{ fontSize: '12.5px', color: '#90A4AE' }}>
+              <span style={{ fontSize: '12px', color: '#90A4AE' }}>
                 (약정 {summary.targetHeadcount}명 / 실투입 {summary.activeHeadcount}명)
               </span>
             </div>
-            <div style={{ fontSize: '11px', color: '#80D8FF', marginTop: '4px' }}>
-              약정 공수 {summary.targetManHours}h 중 {summary.actualManHours}h 달성
+            <div style={{ fontSize: '11px', color: '#80D8FF', marginTop: '3px' }}>
+              정상 투입 {summary.activeHeadcount}명 자동 정산 완료 · 예외 발생 {summary.exceptionCount}명
             </div>
           </div>
 
-          {/* 가동률 원형 링 게이지 */}
-          <div style={{
-            width: '64px',
-            height: '64px',
-            borderRadius: '50%',
-            background: `conic-gradient(${summary.fulfillmentRate >= 100 ? '#00E676' : '#FF9100'} ${summary.fulfillmentRate * 3.6}deg, rgba(255,255,255,0.08) 0deg)`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 0 16px rgba(0, 229, 255, 0.2)'
-          }}>
-            <div style={{
-              width: '50px',
-              height: '50px',
-              borderRadius: '50%',
-              background: '#111E33',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '12px',
+          <button
+            type="button"
+            onClick={handleOpenDefenseReport}
+            style={{
+              background: 'rgba(0, 82, 255, 0.2)',
+              border: '1.5px solid #0052FF',
+              borderRadius: '10px',
+              padding: '10px 12px',
+              color: '#80D8FF',
+              fontSize: '11.5px',
               fontWeight: 800,
-              color: '#FFFFFF'
-            }}>
-              {summary.activeHeadcount}/{summary.targetHeadcount}
-            </div>
-          </div>
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '4px',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(0, 82, 255, 0.25)'
+            }}
+          >
+            <FileSpreadsheet size={18} color="#00E5FF" />
+            <span>법적 방어 리포트</span>
+          </button>
         </div>
 
-        {/* 3. 위반 사례 리포트: '파트 내 투입 공백 발생 인원' */}
-        {gapRecords.length > 0 && (
+        {/* 3. [Exception Management] 예외 관리 집중 알림 센터 (120명 관리 최적화) */}
+        {exceptionRecords.length > 0 && (
           <div style={{
             background: 'rgba(255, 109, 0, 0.08)',
-            border: '1px solid rgba(255, 145, 0, 0.3)',
+            border: '1.5px solid #FF9100',
             borderRadius: '14px',
             padding: '14px 16px'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#FF9100', fontSize: '13px', fontWeight: 800 }}>
-                <AlertTriangle size={16} />
-                <span>파트 내 투입 공백 발생 인원 ({gapRecords.length}명)</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#FF9100', fontSize: '13.5px', fontWeight: 800 }}>
+                <AlertTriangle size={17} />
+                <span>예외 관리 집중 큐 ({exceptionRecords.length}건 발생)</span>
               </div>
-              <span style={{ fontSize: '10.5px', color: '#FFB74D' }}>클릭 시 개선/소명 요청</span>
+              <span style={{ fontSize: '10.5px', color: '#FFB74D' }}>PM 사유 확인 및 최종 검수 필요</span>
             </div>
 
+            <p style={{ fontSize: '11px', color: '#CFD8DC', margin: '0 0 10px 0', lineHeight: 1.4 }}>
+              ※ 정상 투입 인원은 시스템이 자동 검수 확정하였으며, 아래 <strong>지각/누락/공백 발생 인원만 사유 확인 후 최종 검수</strong>를 진행하세요.
+            </p>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {gapRecords.map(gapRec => (
+              {exceptionRecords.map(exRec => (
                 <div
-                  key={gapRec.id}
-                  onClick={() => handleOpenClarification(gapRec)}
+                  key={exRec.id}
+                  onClick={() => handleOpenExceptionModal(exRec)}
                   style={{
-                    background: '#192538',
-                    border: '1px solid rgba(255, 145, 0, 0.25)',
+                    background: '#19263B',
+                    border: '1px solid rgba(255, 145, 0, 0.3)',
                     borderRadius: '10px',
                     padding: '10px 12px',
                     display: 'flex',
@@ -368,14 +374,14 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ fontSize: '14px', fontWeight: 800, color: '#FFFFFF' }}>
-                        {gapRec.workerName}
+                        {exRec.workerName}
                       </span>
                       <span style={{ fontSize: '11px', color: '#FF8A80', background: 'rgba(255,82,82,0.15)', padding: '1px 6px', borderRadius: '4px' }}>
-                        {gapRec.varianceMinutes}분 편차
+                        {exRec.varianceMinutes}분 편차
                       </span>
                     </div>
                     <div style={{ fontSize: '11.5px', color: '#90A4AE', marginTop: '2px' }}>
-                      {gapRec.gapReason || '출근 시간 지연'} · {gapRec.partnerClarification || '협력사 1차 소명 대기중'}
+                      {exRec.gapReason || '출근 시간 지연'} · {exRec.clockInTime} ~ {exRec.clockOutTime}
                     </div>
                   </div>
 
@@ -385,18 +391,14 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                       background: '#FF6D00',
                       border: 'none',
                       color: '#FFFFFF',
-                      fontSize: '11px',
+                      fontSize: '11.5px',
                       fontWeight: 800,
-                      padding: '6px 10px',
+                      padding: '6px 12px',
                       borderRadius: '6px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
+                      cursor: 'pointer'
                     }}
                   >
-                    <Send size={11} />
-                    <span>소명요구</span>
+                    사유 확인 ›
                   </button>
                 </div>
               ))}
@@ -404,75 +406,43 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
           </div>
         )}
 
-        {/* 4. 오늘 투입 인원 리스트 헤더 & 신규 투입 등록 버튼 */}
+        {/* 4. 오늘 투입 인원 리스트 헤더 & 신규 투입 등록 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
-              오늘 투입 인원 리스트 ({records.length}명)
+              오늘 도급 투입 인원 리스트 ({records.length}명)
             </h2>
             <span style={{ fontSize: '11px', color: '#00E5FF', background: 'rgba(0,229,255,0.1)', padding: '2px 6px', borderRadius: '4px' }}>
-              {activePart} 파트 전용
+              {activePart} 파트 격리
             </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button
-              type="button"
-              onClick={() => setIsAddWorkerModalOpen(true)}
-              style={{
-                background: 'rgba(0, 229, 255, 0.15)',
-                border: '1px solid rgba(0, 229, 255, 0.4)',
-                color: '#00E5FF',
-                fontSize: '11.5px',
-                fontWeight: 800,
-                borderRadius: '6px',
-                padding: '4px 8px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              <PlusCircle size={13} />
-              <span>투입 등록</span>
-            </button>
-
-            {records.length > 0 && (
-              <button
-                type="button"
-                onClick={handleSelectAll}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#80D8FF',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  cursor: 'pointer'
-                }}
-              >
-                {selectedRecordIds.length === records.length ? (
-                  <>
-                    <CheckSquare size={14} color="#00E5FF" />
-                    <span>선택 해제</span>
-                  </>
-                ) : (
-                  <>
-                    <Square size={14} color="#90A4AE" />
-                    <span>전체 선택</span>
-                  </>
-                )}
-              </button>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={() => setIsAddWorkerModalOpen(true)}
+            style={{
+              background: 'rgba(0, 229, 255, 0.15)',
+              border: '1px solid rgba(0, 229, 255, 0.4)',
+              color: '#00E5FF',
+              fontSize: '11.5px',
+              fontWeight: 800,
+              borderRadius: '6px',
+              padding: '5px 10px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            <PlusCircle size={13} />
+            <span>+ 투입 등록</span>
+          </button>
         </div>
 
-        {/* 5. 투입 인원 목록 카드 리스트 (DB Zero State 지원) */}
+        {/* 5. 도급 인원 리스트 (자동 검수 vs 예외 검수 상태 배지) */}
         {records.length === 0 ? (
           <div style={{
-            background: '#111E33',
+            background: '#101B2E',
             border: '1px dashed rgba(255, 255, 255, 0.15)',
             borderRadius: '14px',
             padding: '36px 20px',
@@ -484,130 +454,113 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
           }}>
             <UserPlus size={36} color="#90A4AE" />
             <div style={{ fontSize: '15px', fontWeight: 800, color: '#FFFFFF' }}>
-              등록된 일일 투입 인력이 없습니다
+              [{activePart}] 등록된 일일 투입 실적이 없습니다
             </div>
             <p style={{ fontSize: '12px', color: '#90A4AE', margin: 0, maxWidth: '280px', lineHeight: 1.4 }}>
-              실제 DB에 도급 인력 투입 실적을 등록하려면 상단의 <strong>[투입 등록]</strong> 버튼을 눌러주세요.
+              실제 DB에 도급 인력 투입 실적을 등록하려면 상단의 <strong>[+ 투입 등록]</strong> 버튼을 눌러주세요.
             </p>
-            <button
-              type="button"
-              onClick={() => setIsAddWorkerModalOpen(true)}
-              style={{
-                marginTop: '6px',
-                background: '#0052FF',
-                border: 'none',
-                color: '#FFFFFF',
-                fontSize: '13px',
-                fontWeight: 800,
-                padding: '8px 16px',
-                borderRadius: '8px',
-                cursor: 'pointer'
-              }}
-            >
-              + {activePart} 파트 인력 실적 등록
-            </button>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {records.map((record) => {
-              const isSelected = selectedRecordIds.includes(record.id);
-              const isPending = record.verificationStatus === 'PARTNER_CONFIRMED';
-              const isSettled = record.verificationStatus === 'SETTLED';
+              const isAuto = record.verificationStatus === 'AUTO_SETTLED';
+              const isExcluded = record.verificationStatus === 'EXCLUDED_FROM_BILLING';
+              const isAccepted = record.verificationStatus === 'DELAY_REASON_ACCEPTED';
+              const isPendingException = record.verificationStatus === 'VARIANCE_GAP';
 
               return (
                 <div
                   key={record.id}
                   style={{
-                    background: isSelected ? '#12243D' : '#0F1A2C',
-                    border: isSelected ? '1px solid #00E5FF' : '1px solid rgba(255, 255, 255, 0.08)',
+                    background: '#0F1A2C',
+                    border: isPendingException ? '1px solid #FF9100' : '1px solid rgba(255, 255, 255, 0.08)',
                     borderRadius: '12px',
                     padding: '12px 14px',
                     display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    transition: 'all 0.15s ease'
+                    flexDirection: 'column',
+                    gap: '6px'
                   }}
                 >
-                  {/* 체크박스 */}
-                  <button
-                    type="button"
-                    onClick={() => handleToggleSelect(record.id)}
-                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                  >
-                    {isSelected ? (
-                      <CheckSquare size={20} color="#00E5FF" />
-                    ) : (
-                      <Square size={20} color="#90A4AE" />
-                    )}
-                  </button>
-
-                  {/* 인원 정보 */}
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ fontSize: '15px', fontWeight: 800, color: '#FFFFFF' }}>
-                          {record.workerName}
-                        </span>
-                        <span style={{ fontSize: '11px', color: '#90A4AE' }}>
-                          {record.partnerCompany}
-                        </span>
-                      </div>
-
-                      {/* 상태 배지 */}
-                      {isSettled ? (
-                        <span style={{
-                          fontSize: '11px',
-                          fontWeight: 800,
-                          color: '#00E676',
-                          background: 'rgba(0, 230, 118, 0.15)',
-                          border: '1px solid rgba(0, 230, 118, 0.3)',
-                          padding: '2px 8px',
-                          borderRadius: '12px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '3px'
-                        }}>
-                          <Check size={12} strokeWidth={3} />
-                          <span>정산 확정</span>
-                        </span>
-                      ) : isPending ? (
-                        <span style={{
-                          fontSize: '11px',
-                          fontWeight: 800,
-                          color: '#00E5FF',
-                          background: 'rgba(0, 229, 255, 0.15)',
-                          border: '1px solid rgba(0, 229, 255, 0.3)',
-                          padding: '2px 8px',
-                          borderRadius: '12px'
-                        }}>
-                          검수 대기 (1차 확인완료)
-                        </span>
-                      ) : (
-                        <span style={{
-                          fontSize: '11px',
-                          color: '#FFB74D',
-                          background: 'rgba(255, 183, 77, 0.12)',
-                          padding: '2px 8px',
-                          borderRadius: '12px'
-                        }}>
-                          미검증 (협력사 확인전)
-                        </span>
-                      )}
-                    </div>
-
-                    <div style={{ fontSize: '12.5px', color: '#CFD8DC', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ color: '#80D8FF', fontWeight: 700 }}>
-                        🕒 {record.clockInTime} ~ {record.clockOutTime}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '15px', fontWeight: 800, color: '#FFFFFF' }}>
+                        {record.workerName}
                       </span>
-                      <span>실투입: <strong>{record.actualInputHours}h</strong> / 약정 {record.contractedHours}h</span>
+                      <span style={{ fontSize: '11px', color: '#90A4AE' }}>
+                        {record.partnerCompany}
+                      </span>
                     </div>
 
-                    <div style={{ fontSize: '11.5px', color: '#90A4AE', marginTop: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      작업내역: {record.taskSummary}
-                    </div>
+                    {/* 상태 라벨 (HR 승인이 아닌 도급 계약 이행 확인 기준) */}
+                    {isAuto ? (
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: 800,
+                        color: '#00E676',
+                        background: 'rgba(0, 230, 118, 0.15)',
+                        border: '1px solid rgba(0, 230, 118, 0.3)',
+                        padding: '2px 8px',
+                        borderRadius: '12px'
+                      }}>
+                        ✓ 자동 검수 완료 (정산 확정)
+                      </span>
+                    ) : isExcluded ? (
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: 800,
+                        color: '#FF5252',
+                        background: 'rgba(255, 82, 82, 0.15)',
+                        border: '1px solid rgba(255, 82, 82, 0.3)',
+                        padding: '2px 8px',
+                        borderRadius: '12px'
+                      }}>
+                        ✕ 계약상 투입 제외 (감액 확정)
+                      </span>
+                    ) : isAccepted ? (
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: 800,
+                        color: '#00E5FF',
+                        background: 'rgba(0, 229, 255, 0.15)',
+                        border: '1px solid rgba(0, 229, 255, 0.3)',
+                        padding: '2px 8px',
+                        borderRadius: '12px'
+                      }}>
+                        ✓ 공정 지연 사유 확정 (정산 반영)
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenExceptionModal(record)}
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          color: '#FF9100',
+                          background: 'rgba(255, 145, 0, 0.2)',
+                          border: '1px solid #FF9100',
+                          padding: '3px 8px',
+                          borderRadius: '12px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ⚠ 예외 검수 대기 (사유 확인)
+                      </button>
+                    )}
+                  </div>
 
-                    {/* 감사 이력 조회 버튼 */}
-                    {record.auditTrails && record.auditTrails.length > 0 && (
+                  <div style={{ fontSize: '12.5px', color: '#CFD8DC', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: '#80D8FF', fontWeight: 700 }}>
+                      🕒 {record.clockInTime} ~ {record.clockOutTime}
+                    </span>
+                    <span>실투입: <strong>{record.actualInputHours}h</strong> / 약정 {record.contractedHours}h</span>
+                  </div>
+
+                  <div style={{ fontSize: '11.5px', color: '#90A4AE' }}>
+                    공정내역: {record.taskSummary}
+                  </div>
+
+                  {record.auditTrails && record.auditTrails.length > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '2px' }}>
                       <button
                         type="button"
                         onClick={() => setSelectedAuditRecord(record)}
@@ -617,8 +570,6 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                           color: '#82B1FF',
                           fontSize: '11px',
                           fontWeight: 600,
-                          padding: 0,
-                          marginTop: '4px',
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
@@ -626,10 +577,10 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                         }}
                       >
                         <History size={12} />
-                        <span>검수 이력 ({record.auditTrails.length}건)</span>
+                        <span>도급 검수 로그 ({record.auditTrails.length}건)</span>
                       </button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -637,58 +588,285 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
         )}
       </div>
 
-      {/* 6. 하단 Action Zone: [일일 투입 공수 검수] 버튼 */}
-      <div style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        maxWidth: '430px',
-        margin: '0 auto',
-        background: 'rgba(10, 17, 30, 0.95)',
-        backdropFilter: 'blur(10px)',
-        borderTop: '1px solid rgba(0, 229, 255, 0.2)',
-        padding: '12px 18px 24px 18px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '6px',
-        zIndex: 90
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px', color: '#90A4AE' }}>
-          <span>선택된 검수 대상: <strong style={{ color: '#00E5FF' }}>{selectedRecordIds.length}명</strong></span>
-          <span style={{ color: '#80D8FF' }}>※ HR 승인이 아닌 도급 검수 확정</span>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setIsConfirmModalOpen(true)}
-          disabled={selectedRecordIds.length === 0}
-          style={{
+      {/* ========================================================================= */}
+      {/* 팝업 1: [Exception Management] 사유 확인 & 예외 검수 모달 */}
+      {/* ========================================================================= */}
+      {isExceptionModalOpen && selectedExceptionRecord && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.8)',
+          backdropFilter: 'blur(6px)',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px'
+        }}>
+          <div style={{
             width: '100%',
-            height: '50px',
-            borderRadius: '12px',
-            background: selectedRecordIds.length > 0 
-              ? 'linear-gradient(90deg, #0052FF 0%, #00D4FF 100%)' 
-              : 'rgba(255, 255, 255, 0.1)',
-            border: 'none',
-            color: selectedRecordIds.length > 0 ? '#FFFFFF' : '#90A4AE',
-            fontSize: '16px',
-            fontWeight: 900,
-            cursor: selectedRecordIds.length > 0 ? 'pointer' : 'not-allowed',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            boxShadow: selectedRecordIds.length > 0 ? '0 4px 20px rgba(0, 82, 255, 0.4)' : 'none'
-          }}
-        >
-          <FileCheck size={20} color={selectedRecordIds.length > 0 ? '#FFFFFF' : '#90A4AE'} />
-          <span>일일 투입 공수 검수</span>
-        </button>
-      </div>
+            maxWidth: '420px',
+            background: '#132035',
+            border: '1.5px solid #FF9100',
+            borderRadius: '18px',
+            padding: '22px 20px',
+            color: '#FFFFFF',
+            boxShadow: '0 16px 40px rgba(0, 0, 0, 0.6)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#FF9100', fontSize: '16px', fontWeight: 800 }}>
+                <AlertTriangle size={18} />
+                <span>예외 사항 사유 확인 및 도급 검수</span>
+              </div>
+              <button onClick={() => setIsExceptionModalOpen(false)} style={{ background: 'none', border: 'none', color: '#90A4AE', cursor: 'pointer' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ background: 'rgba(255, 255, 255, 0.04)', padding: '12px', borderRadius: '10px', fontSize: '12.5px', marginBottom: '14px', lineHeight: 1.5 }}>
+              <div>수급인: <strong>{selectedExceptionRecord.partnerCompany}</strong></div>
+              <div>투입 인원: <strong>{selectedExceptionRecord.workerName} ({selectedExceptionRecord.partName} 파트)</strong></div>
+              <div>발생 편차: <strong style={{ color: '#FF8A80' }}>{selectedExceptionRecord.varianceMinutes}분 공백</strong> (투입: {selectedExceptionRecord.clockInTime} ~ {selectedExceptionRecord.clockOutTime})</div>
+              <div style={{ marginTop: '4px', color: '#FFB74D' }}>소명 내용: {selectedExceptionRecord.partnerClarification || selectedExceptionRecord.gapReason || '출근 시간 지연'}</div>
+            </div>
+
+            <label style={{ fontSize: '12px', fontWeight: 700, color: '#CFD8DC', display: 'block', marginBottom: '6px' }}>
+              DS 현장관리인 검수 의견 (선택)
+            </label>
+            <input
+              type="text"
+              placeholder="검수 사유 및 계약상 조치 내용 입력"
+              value={exceptionMemo}
+              onChange={e => setExceptionMemo(e.target.value)}
+              style={{
+                width: '100%',
+                height: '40px',
+                background: '#0D1726',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '8px',
+                padding: '0 10px',
+                color: '#FFFFFF',
+                fontSize: '12.5px',
+                outline: 'none',
+                boxSizing: 'border-box',
+                marginBottom: '16px'
+              }}
+            />
+
+            {/* 이중 액션 버튼: [계약상 투입 제외] vs [공정 지연 사유 확정] */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={handleExecuteExclude}
+                style={{
+                  height: '46px',
+                  borderRadius: '10px',
+                  background: 'rgba(255, 82, 82, 0.2)',
+                  border: '1.5px solid #FF5252',
+                  color: '#FF8A80',
+                  fontSize: '13px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Slash size={14} />
+                <span>계약상 투입 제외</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExecuteAcceptDelay}
+                style={{
+                  height: '46px',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(90deg, #00C853 0%, #00E676 100%)',
+                  border: 'none',
+                  color: '#0A192F',
+                  fontSize: '13px',
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Check size={16} strokeWidth={3} />
+                <span>공정 지연 사유 확정</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
-      {/* 팝업: 신규 투입 인력 등록 모달 (실제 DB INSERT) */}
+      {/* 팝업 2: [법적 방어 리포트] 노동청 조사 대비 공식 증빙 뷰어 */}
+      {/* ========================================================================= */}
+      {isDefenseReportModalOpen && defenseReport && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.85)',
+          backdropFilter: 'blur(8px)',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px'
+        }}>
+          <div style={{
+            width: '100%',
+            maxWidth: '520px',
+            background: '#FFFFFF',
+            borderRadius: '16px',
+            padding: '24px 22px',
+            color: '#1A202C',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            boxShadow: '0 24px 48px rgba(0, 0, 0, 0.7)'
+          }}>
+            {/* 리포트 헤더 */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #0052FF', paddingBottom: '12px', marginBottom: '14px' }}>
+              <div>
+                <div style={{ fontSize: '11px', color: '#0052FF', fontWeight: 800 }}>
+                  [공식 증빙] 노란봉투법/파견법 대응 도급 검수 리포트
+                </div>
+                <h2 style={{ fontSize: '20px', fontWeight: 900, color: '#0D1B2A', margin: '2px 0 0 0' }}>
+                  도급 계약 이행 및 인력 투입 검수 확인서
+                </h2>
+              </div>
+              <button onClick={() => setIsDefenseReportModalOpen(false)} style={{ background: 'none', border: 'none', color: '#718096', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* 리포트 메타 정보 테이블 */}
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: '14px' }}>
+              <tbody>
+                <tr style={{ background: '#F7FAFC', borderBottom: '1px solid #E2E8F0' }}>
+                  <td style={{ padding: '6px 8px', fontWeight: 700, color: '#4A5568', width: '25%' }}>도급 대상 파트</td>
+                  <td style={{ padding: '6px 8px', color: '#1A202C' }}>{defenseReport.partName} 파트 ({defenseReport.totalWorkersCount}명 규모)</td>
+                  <td style={{ padding: '6px 8px', fontWeight: 700, color: '#4A5568', width: '25%' }}>수급 사업자</td>
+                  <td style={{ padding: '6px 8px', color: '#1A202C' }}>{defenseReport.partnerCompany}</td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
+                  <td style={{ padding: '6px 8px', fontWeight: 700, color: '#4A5568' }}>검수 기간</td>
+                  <td style={{ padding: '6px 8px', color: '#1A202C' }}>{defenseReport.periodRange}</td>
+                  <td style={{ padding: '6px 8px', fontWeight: 700, color: '#4A5568' }}>현장 검수인 (PM)</td>
+                  <td style={{ padding: '6px 8px', color: '#1A202C' }}>{defenseReport.principalPmName}</td>
+                </tr>
+                <tr style={{ background: '#F7FAFC', borderBottom: '1px solid #E2E8F0' }}>
+                  <td style={{ padding: '6px 8px', fontWeight: 700, color: '#4A5568' }}>약정/실투입 공수</td>
+                  <td style={{ padding: '6px 8px', color: '#0052FF', fontWeight: 800 }}>{defenseReport.totalTargetManHours}h / {defenseReport.totalDeliveredManHours}h ({defenseReport.overallFulfillmentRate.toFixed(1)}%)</td>
+                  <td style={{ padding: '6px 8px', fontWeight: 700, color: '#4A5568' }}>도급비 감액 산정</td>
+                  <td style={{ padding: '6px 8px', color: '#E53E3E', fontWeight: 800 }}>-₩{defenseReport.billingDeductionTotal.toLocaleString()}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* 핵심 법적 방어 선언문 */}
+            <div style={{
+              background: '#EBF8FF',
+              border: '1px solid #BEE3F8',
+              borderRadius: '8px',
+              padding: '10px 12px',
+              fontSize: '11px',
+              color: '#2B6CB0',
+              lineHeight: 1.5,
+              marginBottom: '16px'
+            }}>
+              {defenseReport.legalStatement}
+            </div>
+
+            {/* 인원별 검수 내역 요약 목록 */}
+            <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid #E2E8F0', borderRadius: '8px', marginBottom: '16px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px' }}>
+                <thead>
+                  <tr style={{ background: '#EDF2F7', borderBottom: '1px solid #CBD5E0', textAlign: 'left' }}>
+                    <th style={{ padding: '6px 8px' }}>근로자</th>
+                    <th style={{ padding: '6px 8px' }}>투입시간</th>
+                    <th style={{ padding: '6px 8px' }}>공수</th>
+                    <th style={{ padding: '6px 8px' }}>검수 상태</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {defenseReport.records.map(r => (
+                    <tr key={r.id} style={{ borderBottom: '1px solid #EDF2F7' }}>
+                      <td style={{ padding: '6px 8px', fontWeight: 700 }}>{r.workerName}</td>
+                      <td style={{ padding: '6px 8px', color: '#718096' }}>{r.clockInTime} ~ {r.clockOutTime}</td>
+                      <td style={{ padding: '6px 8px' }}>{r.actualInputHours}h</td>
+                      <td style={{ padding: '6px 8px', fontWeight: 800, color: r.verificationStatus === 'AUTO_SETTLED' ? '#38A169' : r.verificationStatus === 'EXCLUDED_FROM_BILLING' ? '#E53E3E' : '#3182CE' }}>
+                        {r.verificationStatus === 'AUTO_SETTLED' ? '자동 검수 확정' : r.verificationStatus === 'EXCLUDED_FROM_BILLING' ? '계약상 제외' : '지연사유 확정'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 버튼 */}
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  window.print();
+                }}
+                style={{
+                  flex: 1,
+                  height: '42px',
+                  borderRadius: '8px',
+                  background: '#2D3748',
+                  border: 'none',
+                  color: '#FFFFFF',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Printer size={15} />
+                <span>공식 문서 인쇄</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  alert('📄 노동청 조사 대비 공식 도급 검수 리포트가 PDF로 내보내기 되었습니다.');
+                  setIsDefenseReportModalOpen(false);
+                }}
+                style={{
+                  flex: 1,
+                  height: '42px',
+                  borderRadius: '8px',
+                  background: '#0052FF',
+                  border: 'none',
+                  color: '#FFFFFF',
+                  fontSize: '13px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Download size={15} />
+                <span>PDF 다운로드</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 팝업 3: 신규 투입 등록 모달 */}
       {/* ========================================================================= */}
       {isAddWorkerModalOpen && (
         <div style={{
@@ -709,14 +887,12 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
             border: '1.5px solid #00E5FF',
             borderRadius: '18px',
             padding: '20px',
-            color: '#FFFFFF',
-            maxHeight: '90vh',
-            overflowY: 'auto'
+            color: '#FFFFFF'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#00E5FF', fontSize: '16px', fontWeight: 800 }}>
                 <UserPlus size={18} />
-                <span>[{activePart}] 신규 투입 실적 등록 (DB)</span>
+                <span>[{activePart}] 도급 투입 실적 등록</span>
               </div>
               <button onClick={() => setIsAddWorkerModalOpen(false)} style={{ background: 'none', border: 'none', color: '#90A4AE', cursor: 'pointer' }}>
                 <X size={18} />
@@ -770,10 +946,10 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
               </div>
 
               <div>
-                <label style={{ fontSize: '11.5px', color: '#90A4AE', display: 'block', marginBottom: '3px' }}>수행 작업 내역</label>
+                <label style={{ fontSize: '11.5px', color: '#90A4AE', display: 'block', marginBottom: '3px' }}>도급 작업 내역</label>
                 <input
                   type="text"
-                  placeholder="예: 카드 분실 재발급 및 이상금융거래 상담"
+                  placeholder="예: 카드 결제망 이상금융거래 모니터링"
                   value={newWorkerForm.taskSummary}
                   onChange={e => setNewWorkerForm({ ...newWorkerForm, taskSummary: e.target.value })}
                   style={formInputStyle}
@@ -784,30 +960,11 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                 <input
                   type="checkbox"
                   checked={newWorkerForm.isSlaBreach}
-                  onChange={e => setNewWorkerForm({ ...newWorkerForm, isSlaBreach: e.target.checked, varianceMinutes: e.target.checked ? 50 : 0 })}
+                  onChange={e => setNewWorkerForm({ ...newWorkerForm, isSlaBreach: e.target.checked, varianceMinutes: e.target.checked ? 45 : 0 })}
                   style={{ accentColor: '#FF9100' }}
                 />
-                <span>투입 공백(SLA 편차) 발생 인원으로 등록</span>
+                <span>지각/공백(예외 사항) 발생 건으로 등록</span>
               </label>
-
-              {newWorkerForm.isSlaBreach && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '8px' }}>
-                  <input
-                    type="number"
-                    placeholder="편차(분)"
-                    value={newWorkerForm.varianceMinutes}
-                    onChange={e => setNewWorkerForm({ ...newWorkerForm, varianceMinutes: Number(e.target.value) })}
-                    style={formInputStyle}
-                  />
-                  <input
-                    type="text"
-                    placeholder="공백 사유 (예: VPN 장애)"
-                    value={newWorkerForm.gapReason}
-                    onChange={e => setNewWorkerForm({ ...newWorkerForm, gapReason: e.target.value })}
-                    style={formInputStyle}
-                  />
-                </div>
-              )}
 
               <button
                 type="submit"
@@ -824,7 +981,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                   marginTop: '10px'
                 }}
               >
-                실제 DB(manpower_inputs)에 등록 ›
+                도급 투입 실적 DB 등록 ›
               </button>
             </form>
           </div>
@@ -832,225 +989,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
       )}
 
       {/* ========================================================================= */}
-      {/* 팝업: [일일 투입 공수 검수] 최종 정산 확정 팝업 */}
-      {/* ========================================================================= */}
-      {isConfirmModalOpen && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(6px)',
-          zIndex: 1000,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '20px'
-        }}>
-          <div style={{
-            width: '100%',
-            maxWidth: '380px',
-            background: '#132035',
-            border: '1.5px solid #00E5FF',
-            borderRadius: '18px',
-            padding: '22px 20px',
-            color: '#FFFFFF',
-            boxShadow: '0 16px 40px rgba(0, 0, 0, 0.6), 0 0 24px rgba(0, 229, 255, 0.25)'
-          }}>
-            <div style={{
-              width: '48px',
-              height: '48px',
-              borderRadius: '50%',
-              background: 'rgba(0, 229, 255, 0.15)',
-              border: '1.5px solid #00E5FF',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 14px auto'
-            }}>
-              <FileCheck size={26} color="#00E5FF" />
-            </div>
-
-            <h3 style={{ fontSize: '18px', fontWeight: 900, textAlign: 'center', margin: '0 0 10px 0', color: '#FFFFFF' }}>
-              도급 투입 공수 정산 검수
-            </h3>
-
-            <p style={{
-              fontSize: '14px',
-              lineHeight: 1.55,
-              color: '#E0E6ED',
-              textAlign: 'center',
-              margin: '0 0 14px 0',
-              fontWeight: 700
-            }}>
-              "선택한 인원들의 오늘자 투입 실적을 도급 정산 자료로 최종 확정하시겠습니까?"
-            </p>
-
-            <div style={{
-              background: 'rgba(0, 82, 255, 0.15)',
-              border: '1px solid rgba(0, 229, 255, 0.3)',
-              borderRadius: '8px',
-              padding: '10px 12px',
-              fontSize: '11px',
-              color: '#80D8FF',
-              lineHeight: 1.4,
-              marginBottom: '18px'
-            }}>
-              ⚖️ <strong>법적 고지</strong>: 본 절차는 파견법 및 노란봉투법 리스크 방지를 위해 <strong>원청의 인사관리상 근태 승인이 아니며</strong>, 도급 계약에 따른 투입 공수 정산 및 SLA 검수 절차입니다.
-            </div>
-
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                type="button"
-                onClick={() => setIsConfirmModalOpen(false)}
-                style={{
-                  flex: 1,
-                  height: '46px',
-                  borderRadius: '10px',
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
-                  color: '#FFFFFF',
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  cursor: 'pointer'
-                }}
-              >
-                취소
-              </button>
-
-              <button
-                type="button"
-                onClick={handleExecuteSettlement}
-                style={{
-                  flex: 2,
-                  height: '46px',
-                  borderRadius: '10px',
-                  background: 'linear-gradient(90deg, #00C853 0%, #00E676 100%)',
-                  border: 'none',
-                  color: '#0D1B2A',
-                  fontSize: '15px',
-                  fontWeight: 900,
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 16px rgba(0, 230, 118, 0.35)'
-                }}
-              >
-                도급 정산 확정
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* 팝업: 협력업체 관리자 대상 [개선 요청(소명 요구)] 발송 모달 */}
-      {/* ========================================================================= */}
-      {isClarificationModalOpen && selectedGapRecord && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(6px)',
-          zIndex: 1000,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '20px'
-        }}>
-          <div style={{
-            width: '100%',
-            maxWidth: '400px',
-            background: '#132035',
-            border: '1.5px solid #FF9100',
-            borderRadius: '18px',
-            padding: '22px 20px',
-            color: '#FFFFFF',
-            boxShadow: '0 16px 40px rgba(0, 0, 0, 0.6), 0 0 24px rgba(255, 145, 0, 0.25)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#FF9100', fontSize: '16px', fontWeight: 800 }}>
-                <Send size={18} />
-                <span>협력업체 개선 요청 (소명 요구)</span>
-              </div>
-              <button onClick={() => setIsClarificationModalOpen(false)} style={{ background: 'none', border: 'none', color: '#90A4AE', cursor: 'pointer' }}>
-                <X size={18} />
-              </button>
-            </div>
-
-            <div style={{ background: 'rgba(255, 255, 255, 0.04)', padding: '10px 12px', borderRadius: '8px', fontSize: '12px', marginBottom: '12px' }}>
-              <div>수신: <strong>{selectedGapRecord.partnerCompany} 관리자 앞</strong></div>
-              <div>대상자: <strong>{selectedGapRecord.workerName} ({selectedGapRecord.partName} 파트)</strong></div>
-              <div style={{ color: '#FF8A80' }}>발생 편차: <strong>{selectedGapRecord.varianceMinutes}분 투입 공백</strong></div>
-            </div>
-
-            <label style={{ fontSize: '12px', fontWeight: 700, color: '#CFD8DC', display: 'block', marginBottom: '6px' }}>
-              공식 요청 공문 내용 (DB 저장)
-            </label>
-            <textarea
-              value={clarificationMessage}
-              onChange={e => setClarificationMessage(e.target.value)}
-              rows={4}
-              style={{
-                width: '100%',
-                background: '#0D1726',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                borderRadius: '8px',
-                padding: '10px',
-                color: '#FFFFFF',
-                fontSize: '12.5px',
-                outline: 'none',
-                resize: 'none',
-                lineHeight: 1.45,
-                boxSizing: 'border-box'
-              }}
-            />
-
-            <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
-              <button
-                type="button"
-                onClick={() => setIsClarificationModalOpen(false)}
-                style={{
-                  flex: 1,
-                  height: '44px',
-                  borderRadius: '10px',
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  border: 'none',
-                  color: '#FFFFFF',
-                  fontSize: '13.5px',
-                  fontWeight: 700,
-                  cursor: 'pointer'
-                }}
-              >
-                취소
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSendClarification}
-                style={{
-                  flex: 2,
-                  height: '44px',
-                  borderRadius: '10px',
-                  background: '#FF6D00',
-                  border: 'none',
-                  color: '#FFFFFF',
-                  fontSize: '14px',
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px'
-                }}
-              >
-                <Send size={15} />
-                <span>개선요구 발송</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* 팝업: 감사 로그 (Audit Trail Viewer) */}
+      {/* 팝업 4: 도급 검수 감사 로그 (Audit Trail Viewer) */}
       {/* ========================================================================= */}
       {selectedAuditRecord && (
         <div style={{
@@ -1076,7 +1015,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#00E5FF', fontSize: '15px', fontWeight: 800 }}>
                 <History size={17} />
-                <span>{selectedAuditRecord.workerName} 검수 감사 로그 (DB)</span>
+                <span>{selectedAuditRecord.workerName} 도급 검수 감사 로그</span>
               </div>
               <button onClick={() => setSelectedAuditRecord(null)} style={{ background: 'none', border: 'none', color: '#90A4AE', cursor: 'pointer' }}>
                 <X size={18} />
@@ -1087,10 +1026,11 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
               {selectedAuditRecord.auditTrails.map(log => (
                 <div key={log.id} style={{ background: '#0D1726', padding: '10px 12px', borderRadius: '8px', borderLeft: '3px solid #00E5FF' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#80D8FF', marginBottom: '2px' }}>
-                    <span>{log.actorName} ({log.actorRole})</span>
+                    <span>{log.actorName}</span>
                     <span>{log.timestamp.substring(11)}</span>
                   </div>
                   <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#FFFFFF' }}>{log.action}</div>
+                  <div style={{ fontSize: '10.5px', color: '#00E5FF', marginTop: '2px' }}>라벨: [{log.systemLabel || '도급 계약 이행 확인'}]</div>
                   <div style={{ fontSize: '11px', color: '#90A4AE', marginTop: '2px' }}>{log.details}</div>
                 </div>
               ))}
