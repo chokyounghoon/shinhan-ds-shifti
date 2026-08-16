@@ -175,6 +175,58 @@ export class PureDatabaseEngine {
       this.auditTrails = JSON.parse(localStorage.getItem(DB_KEY_AUDIT) || '[]');
       this.slaClarifications = JSON.parse(localStorage.getItem(DB_KEY_SLA) || '[]');
 
+      if (this.users.length === 0 || !this.users.some(u => u.employeeId === 'S01832' || u.employeeId === '01832')) {
+        const defaultUsers: DbUser[] = [
+          {
+            employeeId: 'S01832',
+            email: 'khcho0421@gmail.com',
+            name: '조경훈',
+            passwordHash: '••••••••',
+            role: 'DS_PRINCIPAL_PM',
+            authProvider: 'local',
+            company: '신한DS',
+            phone: '010-4421-8890',
+            team: '카드개발팀',
+            part: '카드IS (Part 1)',
+            position: '부장',
+            status: 'ACTIVE',
+            failedAttempts: 0,
+            createdAt: '2026-08-16 09:00:00',
+            isActive: true,
+            isAdmin: 1,
+            deviceType: 'Android',
+            regId: 'SYSTEM',
+            regDt: '2026-08-16 09:00:00'
+          },
+          {
+            employeeId: 'S181210',
+            email: 'khcho0421@gmail.com',
+            name: '조경훈',
+            passwordHash: '••••••••',
+            role: 'DS_PRINCIPAL_PM',
+            authProvider: 'local',
+            company: '신한DS',
+            phone: '010-4421-8890',
+            team: '상담팀',
+            part: '상담',
+            position: '수석',
+            status: 'ACTIVE',
+            failedAttempts: 0,
+            createdAt: '2026-08-16 09:00:00',
+            isActive: true,
+            isAdmin: 1,
+            deviceType: 'Android',
+            regId: 'SYSTEM',
+            regDt: '2026-08-16 09:00:00'
+          }
+        ];
+        // 기존 사용자 목록에 병합
+        const existingMap = new Map(this.users.map(u => [u.employeeId, u]));
+        defaultUsers.forEach(u => existingMap.set(u.employeeId, u));
+        this.users = Array.from(existingMap.values());
+        localStorage.setItem(DB_KEY_USERS, JSON.stringify(this.users));
+      }
+
       if (this.manpowerInputs.length === 0) {
         this.initDefaultPartnerRoster();
       }
@@ -256,8 +308,20 @@ export class PureDatabaseEngine {
 
   public findUserByEmpId(empId?: string): DbUser | undefined {
     if (!empId) return undefined;
-    const cleanId = String(empId).toUpperCase().trim();
-    return this.users.find(u => (u.employeeId || '').toUpperCase().trim() === cleanId);
+    const cleanInput = String(empId).toLowerCase().trim();
+    const cleanWithoutS = cleanInput.replace(/^s/i, '').replace(/^emp-/i, '').replace(/^pt-/i, '');
+
+    return this.users.find(u => {
+      const uEmp = (u.employeeId || '').toLowerCase().trim();
+      const uEmail = (u.email || '').toLowerCase().trim();
+      const uName = (u.name || '').toLowerCase().trim();
+      const uWithoutS = uEmp.replace(/^s/i, '').replace(/^emp-/i, '').replace(/^pt-/i, '');
+
+      return uEmp === cleanInput || 
+             uEmail === cleanInput || 
+             uName === cleanInput ||
+             (cleanWithoutS && uWithoutS === cleanWithoutS);
+    });
   }
 
   public findUserByEmail(email?: string): DbUser | undefined {

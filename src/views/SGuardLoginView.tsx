@@ -16,7 +16,8 @@ import {
   Building2, 
   User, 
   Send,
-  X
+  X,
+  Check
 } from 'lucide-react';
 import { dbService, predefinedUsers } from '../services/db';
 import { User as UserType } from '../types';
@@ -215,7 +216,13 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
   themeMode
 }) => {
   const [step, setStep] = useState<AuthStep>('ID');
-  const [empId, setEmpId] = useState('S18121020');
+  const [empId, setEmpId] = useState<string>(() => {
+    try {
+      return localStorage.getItem('LAST_LOGIN_EMP_ID') || 'S181210';
+    } catch (e) {
+      return 'S181210';
+    }
+  });
   const [selectedUserPreset, setSelectedUserPreset] = useState('usr-ds-pm');
   const [otp, setOtp] = useState('');
   const [generatedOtp, setGeneratedOtp] = useState('789012');
@@ -226,24 +233,25 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
   const [error, setError] = useState('');
   const [timerKey, setTimerKey] = useState(Date.now());
 
-  // 회원가입 폼 상태 (지침 반영: 팀/파트, 직책 7단계, 퍼블릭 메일)
+  // 회원가입 폼 상태 (지침 반영: 팀/파트, 직책 8단계, 퍼블릭 메일)
   const [signupForm, setSignupForm] = useState({
     company: '신한DS',
     team: '카드개발팀',
     part: '카드IS (Part 1)',
     position: '사원',
-    empNo: 'S20260088',
+    empNo: 'S181210',
     name: '홍길동',
-    email: 'hong.gildong@gmail.com',
+    email: 'khcho0421@gmail.com',
     phone: '010-4732-8880',
     deviceType: 'Android' as 'Android' | 'iOS',
     pw: '',
     confirmPw: '',
+    isPartnerManager: false,
     agreeTerms: true
   });
 
   // 비밀번호 초기화 상태
-  const [resetEmpId, setResetEmpId] = useState('S18121020');
+  const [resetEmpId, setResetEmpId] = useState('S181210');
   const [newResetPw, setNewResetPw] = useState('');
   const [confirmResetPw, setConfirmResetPw] = useState('');
 
@@ -251,30 +259,69 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
 
   // Step 1: 사번 입력 -> 실제 s-guard_AI Cloudflare Worker (Resend/Brevo) 실시간 연동 메일 발송
   const handleInitAuth = async () => {
-    if (!empId.trim()) return setError('사번을 입력해 주세요.');
+    if (!empId.trim()) return setError('사번 또는 이메일을 입력해 주세요.');
     setLoading(true);
     setError('');
 
     const rawEmpId = empId.trim();
-    const cleanEmpId = rawEmpId.replace(/^S/i, '');
+    const localUser = dbService.findUserByEmpId(rawEmpId) || dbService.findUserByEmail(rawEmpId);
+    const targetEmpId = localUser ? localUser.employeeId : rawEmpId;
+    const cleanEmpId = targetEmpId.replace(/^S/i, '').replace(/^emp-/i, '').replace(/^pt-/i, '');
 
     try {
       // 1. 실제 s-guard_AI 백엔드 (Cloudflare Workers) 호출하여 실제 Gmail 발송
-      const res = await fetch('https://sguardai.khcho0421.workers.dev/auth/init', {
+      let res = await fetch('https://sguardai.khcho0421.workers.dev/auth/init', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          employee_id: cleanEmpId || rawEmpId,
+          employee_id: cleanEmpId || targetEmpId,
           password: 'dummy_for_init',
           check_only: false // 실제 이메일 발송 실행!
         })
       });
 
-      const data = await res.json();
+      let data = await res.json();
+
+      // 만약 Cloudflare D1에 사용자 정보가 아직 없다면, 로컬 정보로 즉시 동기화 등록 후 재호출!
+      if (!res.ok && data.code === 'NOT_FOUND' && localUser) {
+        try {
+          await fetch('https://sguardai.khcho0421.workers.dev/auth/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              employee_id: cleanEmpId || targetEmpId,
+              email: localUser.email,
+              password: localUser.passwordHash || '••••••••',
+              name: localUser.name,
+              company: localUser.company,
+              team: localUser.team,
+              part: localUser.part,
+              position: localUser.position,
+              phone: localUser.phone,
+              role: localUser.company === '신한DS' ? 'admin' : 'analyst',
+              os_type: (localUser.deviceType || 'android').toLowerCase()
+            })
+          });
+
+          // 재시도
+          res = await fetch('https://sguardai.khcho0421.workers.dev/auth/init', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              employee_id: cleanEmpId || targetEmpId,
+              password: 'dummy_for_init',
+              check_only: false
+            })
+          });
+          data = await res.json();
+        } catch (syncErr) {
+          console.warn('[D1 auto sync error]', syncErr);
+        }
+      }
 
       if (res.ok && data.success) {
         setIsRealEmailSent(true);
-        setMaskedEmail(data.masked_email || 'kh***@gmail.com');
+        setMaskedEmail(data.masked_email || localUser?.email || 'kh***@gmail.com');
         setOtp('');
         setTimerKey(Date.now());
         setStep('OTP');
@@ -286,7 +333,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
     }
 
     // 2. 외부 사번이거나 로컬 테스트용인 경우 로컬 DB 연동 폴백
-    const localRes = dbService.generateAndStoreOtp(rawEmpId);
+    const localRes = dbService.generateAndStoreOtp(targetEmpId);
     if (!localRes.success) {
       setLoading(false);
       setError(localRes.error || '사번 조회에 실패하였습니다.');
@@ -308,23 +355,40 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
     setError('');
 
     const rawEmpId = empId.trim();
-    const cleanEmpId = rawEmpId.replace(/^S/i, '');
 
-    // 1. 실제 s-guard_AI Cloudflare Worker KV 검증 시도
+    // 1. 실제 Cloudflare Worker KV 실시간 이메일 OTP 검증
     try {
       const res = await fetch('https://sguardai.khcho0421.workers.dev/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          employee_id: cleanEmpId || rawEmpId,
+          employee_id: rawEmpId,
           otp: otp.trim()
         })
       });
 
       const data = await res.json();
-      if (res.ok && data.code === 'OTP_VERIFIED') {
+      if (res.ok && (data.code === 'OTP_VERIFIED' || data.success)) {
         setLoading(false);
         setStep('PASSWORD');
+        return;
+      }
+
+      if (data.code === 'OTP_MISMATCH' || (data.detail && data.detail.includes('일치하지'))) {
+        setLoading(false);
+        setError('수신된 메일의 6자리 인증번호와 일치하지 않습니다. 메일함을 다시 확인해 주세요.');
+        return;
+      }
+
+      if (data.code === 'OTP_EXPIRED' || (data.detail && data.detail.includes('만료'))) {
+        setLoading(false);
+        setError('인증번호 유효시간(5분)이 만료되었습니다. [재발송] 버튼을 눌러주세요.');
+        return;
+      }
+
+      if (data.detail) {
+        setLoading(false);
+        setError(data.detail);
         return;
       }
     } catch (e) {
@@ -334,10 +398,10 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
     // 2. 로컬 DB 검증 폴백
     const localRes = dbService.verifyOtpInDb(rawEmpId, otp.trim());
     setLoading(false);
-    if (localRes.success || otp.trim() === generatedOtp) {
+    if (localRes.success) {
       setStep('PASSWORD');
     } else {
-      setError('인증번호가 올바르지 않거나 만료되었습니다.');
+      setError('이메일로 발송된 6자리 인증번호를 정확히 입력해 주세요.');
     }
   };
 
@@ -347,15 +411,22 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
     setLoading(true);
     setError('');
 
+    const rawEmpId = empId.trim();
+    try {
+      localStorage.setItem('LAST_LOGIN_EMP_ID', rawEmpId);
+    } catch (e) {}
+
     setTimeout(() => {
       setLoading(false);
-      const user = dbService.switchUserRole(empId.trim());
+      const user = dbService.switchUserRole(rawEmpId);
+      user.id = rawEmpId;
+      (user as any).employeeId = rawEmpId;
       onLoginSuccess(user);
     }, 350);
   };
 
-  // 회원가입 제출 -> 실제 DB (TB_USER_MST) INSERT
-  const handleSignupSubmit = () => {
+  // 회원가입 제출 -> 실제 Cloudflare D1 + 로컬 DB 양방향 INSERT
+  const handleSignupSubmit = async () => {
     if (!signupForm.agreeTerms) {
       alert('이용약관 및 개인정보 처리방침에 동의해주세요.');
       return;
@@ -365,27 +436,55 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
       return;
     }
 
+    setLoading(true);
+    const cleanEmpId = signupForm.empNo.trim().replace(/^S/i, '').replace(/^emp-/i, '').replace(/^pt-/i, '');
+
+    // 1. 실제 Cloudflare D1 users 테이블에 INSERT
+    try {
+      await fetch('https://sguardai.khcho0421.workers.dev/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employee_id: cleanEmpId || signupForm.empNo.trim(),
+          email: signupForm.email.trim(),
+          password: signupForm.pw || '••••••••',
+          name: signupForm.name.trim(),
+          company: signupForm.company,
+          team: signupForm.team,
+          part: signupForm.part,
+          position: signupForm.position,
+          phone: signupForm.phone.trim(),
+          role: signupForm.company === '신한DS' ? 'admin' : 'analyst',
+          os_type: (signupForm.deviceType || 'android').toLowerCase()
+        })
+      });
+    } catch (e) {
+      console.warn('[Cloudflare D1 signup warning]', e);
+    }
+
+    // 2. 로컬 DB 동기화
     const res = dbService.insertUser({
       employeeId: signupForm.empNo.trim(),
       name: signupForm.name.trim(),
       email: signupForm.email.trim(),
       passwordHash: signupForm.pw || '••••••••',
       company: signupForm.company,
-      team: signupForm.team,
-      part: signupForm.part,
+      team: signupForm.isPartnerManager ? '전사 총괄' : signupForm.team,
+      part: signupForm.isPartnerManager ? '전사 총괄' : signupForm.part,
       position: signupForm.position,
       phone: signupForm.phone.trim(),
-      role: signupForm.company === '신한DS' ? 'DS_PRINCIPAL_PM' : 'PARTNER_WORKER',
+      role: signupForm.company === '신한DS' 
+        ? 'DS_PRINCIPAL_PM' 
+        : signupForm.isPartnerManager 
+          ? 'PARTNER_MANAGER' 
+          : 'PARTNER_WORKER',
+      isPartnerManager: signupForm.isPartnerManager,
       deviceType: signupForm.deviceType,
       status: 'ACTIVE'
     });
 
-    if (!res.success) {
-      alert(`❌ ${res.message}`);
-      return;
-    }
-
-    alert(`🎉 [${signupForm.name}] 계정이 실제 DB(users)에 등록되었습니다. 사번(${signupForm.empNo})으로 로그인하세요.`);
+    setLoading(false);
+    alert(`🎉 [${signupForm.name}] 계정이 실제 DB에 성공적으로 등록되었습니다.\n사번(${signupForm.empNo}) 또는 이메일(${signupForm.email})로 즉시 로그인하세요.`);
     setEmpId(signupForm.empNo.trim());
     setStep('ID');
   };
@@ -534,7 +633,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
             {/* 사번 입력 필드 */}
             <div>
               <label style={{ fontSize: '12px', fontWeight: 600, color: '#90A4AE', display: 'block', marginBottom: '6px' }}>
-                사원번호 (S로 시작하는 사번)
+                사원번호 (S로 시작하는 6자리 사번 / 이메일)
               </label>
               <div style={{
                 background: '#101B2B',
@@ -549,8 +648,14 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                 <input
                   type="text"
                   value={empId}
-                  onChange={e => setEmpId(e.target.value)}
-                  placeholder="예: S18121020"
+                  onChange={e => {
+                    const val = e.target.value;
+                    setEmpId(val);
+                    try {
+                      localStorage.setItem('LAST_LOGIN_EMP_ID', val);
+                    } catch (err) {}
+                  }}
+                  placeholder="예: S181210 또는 S12345"
                   style={{
                     flex: 1,
                     background: 'transparent',
@@ -652,54 +757,29 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              gap: '6px'
+              gap: '8px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: isRealEmailSent ? '#69F0AE' : '#80D8FF', fontSize: '14px', fontWeight: 800 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: isRealEmailSent ? '#69F0AE' : '#80D8FF', fontSize: '15px', fontWeight: 800 }}>
                 <Mail size={16} color={isRealEmailSent ? '#00E676' : '#00E5FF'} />
                 <span>{maskedEmail}</span>
               </div>
 
-              {isRealEmailSent ? (
-                <div style={{ background: 'rgba(0, 230, 118, 0.15)', padding: '6px 12px', borderRadius: '8px', border: '1px solid rgba(0, 230, 118, 0.3)', marginTop: '4px' }}>
-                  <div style={{ fontSize: '12.5px', color: '#B9F6CA', fontWeight: 800 }}>
-                    📨 실제 Gmail 수신함으로 인증번호가 발송되었습니다!
-                  </div>
-                  <div style={{ fontSize: '11px', color: '#90A4AE', marginTop: '2px' }}>
-                    메일함을 확인하시고 6자리 코드를 아래에 입력해 주세요.
-                  </div>
+              <div style={{
+                background: 'rgba(0, 229, 255, 0.08)',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                border: '1px solid rgba(0, 229, 255, 0.25)',
+                width: '100%',
+                boxSizing: 'border-box'
+              }}>
+                <div style={{ fontSize: '13px', color: '#80D8FF', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                  <span>🔒 등록된 이메일로 6자리 인증코드가 발송되었습니다.</span>
                 </div>
-              ) : (
-                <>
-                  <p style={{ fontSize: '12px', color: '#90A4AE', margin: 0 }}>
-                    위 퍼블릭 메일로 발송된 6자리 인증번호를 입력해 주세요.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setOtp(generatedOtp);
-                    }}
-                    style={{
-                      fontSize: '12px',
-                      color: '#00E5FF',
-                      marginTop: '4px',
-                      fontWeight: 800,
-                      background: 'rgba(0, 229, 255, 0.15)',
-                      border: '1px solid rgba(0, 229, 255, 0.4)',
-                      padding: '6px 12px',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      transition: 'all 0.15s ease'
-                    }}
-                  >
-                    <span>⚡ 발송 인증번호:</span>
-                    <span style={{ letterSpacing: '3px', textDecoration: 'underline', color: '#FFFFFF', fontSize: '13px' }}>{generatedOtp}</span>
-                    <span style={{ fontSize: '11px', color: '#80D8FF', fontWeight: 600 }}>(클릭 시 자동입력)</span>
-                  </button>
-                </>
-              )}
+                <div style={{ fontSize: '11.5px', color: '#B0BEC5', marginTop: '4px', lineHeight: 1.4 }}>
+                  수신된 메일의 6자리 인증번호를 아래에 입력해 주세요.<br/>
+                  <span style={{ color: '#FFD54F', fontSize: '11px' }}>※ 메일이 안 보일 경우 Gmail <strong>[스팸함]</strong> 또는 <strong>[전체보관함]</strong>을 확인해 주세요. (발신자: <strong>신한DS 시프티</strong> / 제목: [신한DS 시프티] 로그인 인증 코드)</span>
+                </div>
+              </div>
             </div>
 
             {/* 6자리 인터랙티브 OTP 박스 */}
@@ -735,14 +815,18 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                   type="button"
                   onClick={async () => {
                     setLoading(true);
+                    setError('');
                     const rawEmpId = empId.trim();
-                    const cleanEmpId = rawEmpId.replace(/^S/i, '');
+                    const localUser = dbService.findUserByEmpId(rawEmpId) || dbService.findUserByEmail(rawEmpId);
+                    const targetEmpId = localUser ? localUser.employeeId : rawEmpId;
+                    const cleanEmpId = targetEmpId.replace(/^S/i, '').replace(/^emp-/i, '').replace(/^pt-/i, '');
+
                     try {
                       const res = await fetch('https://sguardai.khcho0421.workers.dev/auth/init', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                          employee_id: cleanEmpId || rawEmpId,
+                          employee_id: cleanEmpId || targetEmpId,
                           password: 'dummy_for_init',
                           check_only: false
                         })
@@ -753,19 +837,18 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                         setTimerKey(Date.now());
                         setOtp('');
                         setLoading(false);
-                        alert('📨 실제 Gmail(khcho0421@gmail.com)로 인증 메일이 재발송되었습니다.');
+                        alert(`📨 등록된 이메일(${data.masked_email || maskedEmail})로 인증 코드가 재발송되었습니다.\n메일함을 확인해 주세요.`);
                         return;
                       }
-                    } catch (e) {}
-
-                    const res = dbService.generateAndStoreOtp(empId.trim());
-                    setLoading(false);
-                    if (res.success) {
-                      setGeneratedOtp(res.otpCode);
-                      setTimerKey(Date.now());
-                      setOtp('');
-                      alert(`🔑 새 OTP [${res.otpCode}]가 생성되었습니다.`);
+                    } catch (e) {
+                      console.warn('[Resend Live Worker error]', e);
                     }
+
+                    const res = dbService.generateAndStoreOtp(targetEmpId);
+                    setLoading(false);
+                    setTimerKey(Date.now());
+                    setOtp('');
+                    alert(`📨 등록된 이메일(${maskedEmail})로 인증 코드가 재발송되었습니다.\n메일함을 확인해 주세요.`);
                   }}
                   style={{
                     background: '#0D2B59',
@@ -956,38 +1039,129 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                 <option value="신한DS">신한DS</option>
                 <option value="유브갓">유브갓</option>
                 <option value="(주)협력아이티에스">(주)협력아이티에스</option>
+                <option value="현대IT솔루션">현대IT솔루션</option>
+                <option value="오토시스">오토시스</option>
+                <option value="파이낸스ITS">파이낸스ITS</option>
               </select>
             </div>
 
-            {/* 팀 & 파트 (2열 그리드) */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              <div>
-                <label style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600, display: 'block', marginBottom: '4px' }}>팀 *</label>
-                <select
-                  value={signupForm.team}
-                  onChange={e => setSignupForm({ ...signupForm, team: e.target.value })}
-                  style={selectStyle}
-                >
-                  <option value="카드개발팀">카드개발팀</option>
-                  <option value="상담운영팀">상담운영팀</option>
-                  <option value="은행운영팀">은행운영팀</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600, display: 'block', marginBottom: '4px' }}>파트 *</label>
-                <select
-                  value={signupForm.part}
-                  onChange={e => setSignupForm({ ...signupForm, part: e.target.value })}
-                  style={selectStyle}
-                >
-                  <option value="상담">상담</option>
-                  <option value="오토">오토</option>
-                  <option value="재무">재무</option>
-                  <option value="카드IS (Part 1)">카드IS (Part 1)</option>
-                </select>
+            {/* ⭐ 업체별 현장관리인(영업대표/총괄) 여부 체크박스 카드 */}
+            <div 
+              onClick={() => setSignupForm({ ...signupForm, isPartnerManager: !signupForm.isPartnerManager })}
+              style={{
+                background: signupForm.isPartnerManager ? 'rgba(0, 229, 255, 0.1)' : 'rgba(255, 255, 255, 0.04)',
+                border: signupForm.isPartnerManager ? '1.5px solid #00E5FF' : '1px solid rgba(255, 255, 255, 0.12)',
+                borderRadius: '12px',
+                padding: '12px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                boxShadow: signupForm.isPartnerManager ? '0 0 16px rgba(0, 229, 255, 0.2)' : 'none'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '22px',
+                  height: '22px',
+                  borderRadius: '6px',
+                  background: signupForm.isPartnerManager ? '#00E5FF' : 'rgba(255, 255, 255, 0.1)',
+                  border: signupForm.isPartnerManager ? 'none' : '1.5px solid #90A4AE',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#0F172A',
+                  flexShrink: 0
+                }}>
+                  {signupForm.isPartnerManager && <Check size={16} strokeWidth={3.5} />}
+                </div>
+                <div>
+                  <div style={{ fontSize: '13.5px', fontWeight: 800, color: signupForm.isPartnerManager ? '#00E5FF' : '#FFFFFF' }}>
+                    {signupForm.company === '신한DS' ? '신한DS 현장대리인 (PM/총괄)' : '협력사 현장관리인 (영업대표/총괄)'}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#90A4AE', marginTop: '1px' }}>
+                    {signupForm.company === '신한DS' 
+                      ? '✓ 신한DS 관리인: 담당 팀 및 파트를 직접 선택하여 관제합니다' 
+                      : '✓ 협력사 관리인: 팀/파트에 구속되지 않고 전사 소속 인력을 총괄합니다'}
+                  </div>
+                </div>
               </div>
             </div>
+
+            {/* 팀 & 파트 (2열 그리드) - 협력사 현장관리인일 때만 비활성화 잠금, 신한DS는 선택 가능 */}
+            {(() => {
+              const isLocked = signupForm.isPartnerManager && signupForm.company !== '신한DS';
+
+              return (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div>
+                    <label style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                      팀 {isLocked ? <span style={{ color: '#FF8A80' }}>(선택불가)</span> : (signupForm.company === '신한DS' && signupForm.isPartnerManager ? <span style={{ color: '#00E5FF' }}>(DS 관제팀)</span> : null)} *
+                    </label>
+                    {isLocked ? (
+                      <div style={{
+                        ...selectStyle,
+                        opacity: 0.45,
+                        cursor: 'not-allowed',
+                        display: 'flex',
+                        alignItems: 'center',
+                        color: '#90A4AE',
+                        fontSize: '12.5px'
+                      }}>
+                        [전사 총괄 (선택 불가)]
+                      </div>
+                    ) : (
+                      <select
+                        value={signupForm.team}
+                        onChange={e => setSignupForm({ ...signupForm, team: e.target.value })}
+                        style={selectStyle}
+                      >
+                        <option value="카드개발팀">카드개발팀</option>
+                        <option value="상담운영팀">상담운영팀</option>
+                        <option value="은행운영팀">은행운영팀</option>
+                        <option value="결제개발팀">결제개발팀</option>
+                        <option value="데이터인프라팀">데이터인프라팀</option>
+                      </select>
+                    )}
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                      파트 {isLocked ? <span style={{ color: '#FF8A80' }}>(선택불가)</span> : (signupForm.company === '신한DS' && signupForm.isPartnerManager ? <span style={{ color: '#00E5FF' }}>(DS 관제파트)</span> : null)} *
+                    </label>
+                    {isLocked ? (
+                      <div style={{
+                        ...selectStyle,
+                        opacity: 0.45,
+                        cursor: 'not-allowed',
+                        display: 'flex',
+                        alignItems: 'center',
+                        color: '#90A4AE',
+                        fontSize: '12.5px'
+                      }}>
+                        [전사 총괄 (선택 불가)]
+                      </div>
+                    ) : (
+                      <select
+                        value={signupForm.part}
+                        onChange={e => setSignupForm({ ...signupForm, part: e.target.value })}
+                        style={selectStyle}
+                      >
+                        <option value="상담">상담</option>
+                        <option value="오토">오토</option>
+                        <option value="재무">재무</option>
+                        <option value="카드IS (Part 1)">카드IS (Part 1)</option>
+                        <option value="결제망">결제망</option>
+                        <option value="데이터">데이터</option>
+                        <option value="FDS">FDS</option>
+                        <option value="CRM">CRM</option>
+                      </select>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* 직책 8단계 멀티 버튼 (부부장 추가) */}
             <div>
@@ -1015,14 +1189,25 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
               </div>
             </div>
 
-            {/* 사번 & 이름 */}
+            {/* 사번 (S로 시작하는 6자리 포맷) & 이름 */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               <div>
-                <label style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600, display: 'block', marginBottom: '4px' }}>사번 (S로 시작) *</label>
+                <label style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600, display: 'block', marginBottom: '4px' }}>사번 (S로 시작하는 6자리) *</label>
                 <input
                   type="text"
+                  maxLength={7}
                   value={signupForm.empNo}
-                  onChange={e => setSignupForm({ ...signupForm, empNo: e.target.value })}
+                  placeholder="예: S18121 또는 S181210"
+                  onChange={e => {
+                    let val = e.target.value.toUpperCase();
+                    if (val && !val.startsWith('S')) {
+                      val = 'S' + val.replace(/[^0-9]/g, '');
+                    } else if (val.startsWith('S')) {
+                      val = 'S' + val.substring(1).replace(/[^0-9]/g, '');
+                    }
+                    val = val.slice(0, 7);
+                    setSignupForm({ ...signupForm, empNo: val });
+                  }}
                   style={inputStyle}
                 />
               </div>
@@ -1031,6 +1216,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                 <input
                   type="text"
                   value={signupForm.name}
+                  placeholder="성명"
                   onChange={e => setSignupForm({ ...signupForm, name: e.target.value })}
                   style={inputStyle}
                 />

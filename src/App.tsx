@@ -221,7 +221,14 @@ export function App() {
           <SGuardLoginView
             onLoginSuccess={(user) => {
               try {
-                localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(user));
+                // 1년(365일) 장기 영구 세션 토큰 보관
+                const sessionPayload = {
+                  ...user,
+                  token: (user as any).token || `SGUARD-PERM-TOKEN-${Date.now()}`,
+                  expiresAt: Date.now() + 365 * 24 * 60 * 60 * 1000,
+                  sessionDuration: '1_YEAR_EXTENDED'
+                };
+                localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionPayload));
               } catch (e) {}
               setIsLoggedIn(true);
               setCurrentUser(user);

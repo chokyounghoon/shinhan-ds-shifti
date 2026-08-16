@@ -398,90 +398,95 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
             <Briefcase size={18} color={isPartnerManager ? '#00E5FF' : '#64748B'} />
           </div>
 
-          {/* 팀 & 파트 (2열 그리드 - 현장관리인 체크 시 비활성화 잠금) */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', opacity: isPartnerManager ? 0.45 : 1 }}>
-            <div>
-              <label style={fieldLabelStyle}>
-                팀 {isPartnerManager && <span style={{ color: '#FF8A80', fontSize: '10.5px' }}>(관리자 선택불가)</span>}
-              </label>
-              <div style={{
-                ...selectContainerStyle,
-                background: isPartnerManager ? '#0D1522' : '#192841',
-                cursor: isPartnerManager ? 'not-allowed' : 'pointer'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                  <Building2 size={16} color={isPartnerManager ? '#64748B' : '#90A4AE'} style={{ flexShrink: 0 }} />
-                  <select
-                    disabled={isPartnerManager}
-                    value={isPartnerManager ? '전사 총괄' : team}
-                    onChange={e => setTeam(e.target.value)}
-                    style={{
-                      ...selectFieldStyle,
-                      cursor: isPartnerManager ? 'not-allowed' : 'pointer',
-                      color: isPartnerManager ? '#64748B' : '#FFFFFF'
-                    }}
-                  >
-                    {isPartnerManager ? (
-                      <option value="전사 총괄" style={optionStyle}>전사 총괄 (선택 불가)</option>
-                    ) : (
-                      <>
-                        <option value="상담팀" style={optionStyle}>상담팀</option>
-                        <option value="오토팀" style={optionStyle}>오토팀</option>
-                        <option value="재무팀" style={optionStyle}>재무팀</option>
-                        <option value="카드개발팀" style={optionStyle}>카드개발팀</option>
-                        <option value="결제개발팀" style={optionStyle}>결제개발팀</option>
-                        <option value="데이터인프라팀" style={optionStyle}>데이터인프라팀</option>
-                      </>
-                    )}
-                  </select>
+          {/* 팀 & 파트 (2열 그리드 - 협력사 현장관리인일 때만 비활성화 잠금, 신한DS는 선택 허용) */}
+          {(() => {
+            const isLocked = isPartnerManager && company !== '신한DS';
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', opacity: isLocked ? 0.45 : 1 }}>
+                <div>
+                  <label style={fieldLabelStyle}>
+                    팀 {isLocked ? <span style={{ color: '#FF8A80', fontSize: '10.5px' }}>(관리자 선택불가)</span> : (company === '신한DS' && isPartnerManager ? <span style={{ color: '#00E5FF', fontSize: '10.5px' }}>(DS PM 관제팀)</span> : null)}
+                  </label>
+                  <div style={{
+                    ...selectContainerStyle,
+                    background: isLocked ? '#0D1522' : '#192841',
+                    cursor: isLocked ? 'not-allowed' : 'pointer'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                      <Building2 size={16} color={isLocked ? '#64748B' : '#90A4AE'} style={{ flexShrink: 0 }} />
+                      <select
+                        disabled={isLocked}
+                        value={isLocked ? '전사 총괄' : team}
+                        onChange={e => setTeam(e.target.value)}
+                        style={{
+                          ...selectFieldStyle,
+                          cursor: isLocked ? 'not-allowed' : 'pointer',
+                          color: isLocked ? '#64748B' : '#FFFFFF'
+                        }}
+                      >
+                        {isLocked ? (
+                          <option value="전사 총괄" style={optionStyle}>전사 총괄 (선택 불가)</option>
+                        ) : (
+                          <>
+                            <option value="상담팀" style={optionStyle}>상담팀</option>
+                            <option value="오토팀" style={optionStyle}>오토팀</option>
+                            <option value="재무팀" style={optionStyle}>재무팀</option>
+                            <option value="카드개발팀" style={optionStyle}>카드개발팀</option>
+                            <option value="결제개발팀" style={optionStyle}>결제개발팀</option>
+                            <option value="데이터인프라팀" style={optionStyle}>데이터인프라팀</option>
+                          </>
+                        )}
+                      </select>
+                    </div>
+                    <ChevronDown size={15} color={isLocked ? '#475569' : '#90A4AE'} style={{ flexShrink: 0 }} />
+                  </div>
                 </div>
-                <ChevronDown size={15} color={isPartnerManager ? '#475569' : '#90A4AE'} style={{ flexShrink: 0 }} />
-              </div>
-            </div>
 
-            <div>
-              <label style={fieldLabelStyle}>
-                파트 {isPartnerManager && <span style={{ color: '#FF8A80', fontSize: '10.5px' }}>(관리자 선택불가)</span>}
-              </label>
-              <div style={{
-                ...selectContainerStyle,
-                background: isPartnerManager ? '#0D1522' : '#192841',
-                cursor: isPartnerManager ? 'not-allowed' : 'pointer'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                  <Building2 size={16} color={isPartnerManager ? '#64748B' : '#90A4AE'} style={{ flexShrink: 0 }} />
-                  <select
-                    disabled={isPartnerManager}
-                    value={isPartnerManager ? '전 파트 총괄' : part}
-                    onChange={e => setPart(e.target.value)}
-                    style={{
-                      ...selectFieldStyle,
-                      cursor: isPartnerManager ? 'not-allowed' : 'pointer',
-                      color: isPartnerManager ? '#64748B' : '#FFFFFF'
-                    }}
-                  >
-                    {isPartnerManager ? (
-                      <option value="전 파트 총괄" style={optionStyle}>전 파트 총괄 (선택 불가)</option>
-                    ) : (
-                      <>
-                        <option value="상담" style={optionStyle}>상담</option>
-                        <option value="오토" style={optionStyle}>오토</option>
-                        <option value="재무" style={optionStyle}>재무</option>
-                        <option value="카드IS" style={optionStyle}>카드IS</option>
-                        <option value="결제망" style={optionStyle}>결제망</option>
-                        <option value="데이터" style={optionStyle}>데이터</option>
-                        <option value="FDS" style={optionStyle}>FDS</option>
-                        <option value="CRM" style={optionStyle}>CRM</option>
-                        <option value="모바일" style={optionStyle}>모바일</option>
-                        <option value="인프라" style={optionStyle}>인프라</option>
-                      </>
-                    )}
-                  </select>
+                <div>
+                  <label style={fieldLabelStyle}>
+                    파트 {isLocked ? <span style={{ color: '#FF8A80', fontSize: '10.5px' }}>(관리자 선택불가)</span> : (company === '신한DS' && isPartnerManager ? <span style={{ color: '#00E5FF', fontSize: '10.5px' }}>(DS PM 관제파트)</span> : null)}
+                  </label>
+                  <div style={{
+                    ...selectContainerStyle,
+                    background: isLocked ? '#0D1522' : '#192841',
+                    cursor: isLocked ? 'not-allowed' : 'pointer'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                      <Building2 size={16} color={isLocked ? '#64748B' : '#90A4AE'} style={{ flexShrink: 0 }} />
+                      <select
+                        disabled={isLocked}
+                        value={isLocked ? '전 파트 총괄' : part}
+                        onChange={e => setPart(e.target.value)}
+                        style={{
+                          ...selectFieldStyle,
+                          cursor: isLocked ? 'not-allowed' : 'pointer',
+                          color: isLocked ? '#64748B' : '#FFFFFF'
+                        }}
+                      >
+                        {isLocked ? (
+                          <option value="전 파트 총괄" style={optionStyle}>전 파트 총괄 (선택 불가)</option>
+                        ) : (
+                          <>
+                            <option value="상담" style={optionStyle}>상담</option>
+                            <option value="오토" style={optionStyle}>오토</option>
+                            <option value="재무" style={optionStyle}>재무</option>
+                            <option value="카드IS" style={optionStyle}>카드IS</option>
+                            <option value="결제망" style={optionStyle}>결제망</option>
+                            <option value="데이터" style={optionStyle}>데이터</option>
+                            <option value="FDS" style={optionStyle}>FDS</option>
+                            <option value="CRM" style={optionStyle}>CRM</option>
+                            <option value="모바일" style={optionStyle}>모바일</option>
+                            <option value="인프라" style={optionStyle}>인프라</option>
+                          </>
+                        )}
+                      </select>
+                    </div>
+                    <ChevronDown size={15} color={isLocked ? '#475569' : '#90A4AE'} style={{ flexShrink: 0 }} />
+                  </div>
                 </div>
-                <ChevronDown size={15} color={isPartnerManager ? '#475569' : '#90A4AE'} style={{ flexShrink: 0 }} />
               </div>
-            </div>
-          </div>
+            );
+          })()}
 
           {/* 직책 (8단계 직책 선택 버튼) */}
           <div>
