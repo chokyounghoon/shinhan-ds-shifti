@@ -205,7 +205,7 @@ export const AttendanceReportView: React.FC<AttendanceReportViewProps> = ({
                       {log.date}
                     </div>
                     <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '2px' }}>
-                      투입 시간: {log.start} ~ {log.end}
+                      GPS 투입 인증: {log.start} (1 M/D 확정)
                     </div>
                   </div>
 

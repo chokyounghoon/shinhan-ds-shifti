@@ -616,9 +616,9 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
 
                     <div style={{ fontSize: '12.5px', color: '#CFD8DC', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ color: '#80D8FF', fontWeight: 700 }}>
-                        🕒 {record.clockInTime} ~ {record.clockOutTime}
+                        🕒 투입 인증: {record.clockInTime}
                       </span>
-                      <span>실투입: <strong>{record.actualInputHours}h</strong> / 약정 {record.contractedHours}h</span>
+                      <span>실적: <strong>1 M/D ({record.actualInputHours}h)</strong> / 약정 {record.contractedHours}h</span>
                     </div>
 
                     <div style={{ fontSize: '11.5px', color: '#90A4AE', marginTop: '2px' }}>

@@ -461,7 +461,7 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
             <ShieldCheck size={18} />
             <span>
               {isWithin100m 
-                ? `📍 100m 이내 확인됨 - ${isPunchedIn ? '투입 종료' : '투입 시작'}` 
+                ? '📍 100m 이내 확인됨 - 오늘 도급 투입 인증 (1 M/D)' 
                 : '⚠️ 100m 이내에서만 출근(투입) 가능'}
             </span>
           </button>
