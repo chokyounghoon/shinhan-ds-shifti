@@ -125,6 +125,21 @@ export interface DbSlaClarification {
   createdAt: string;
 }
 
+export interface DbPreGapNotice {
+  id: string;
+  partnerCompany: string;
+  workerName: string;
+  partName: string;
+  gapPeriod: string;
+  gapHours: number;
+  gapType: string;
+  reason: string;
+  status: 'DISPATCHED' | 'ACKNOWLEDGED';
+  acknowledgedBy?: string;
+  acknowledgedAt?: string;
+  createdAt: string;
+}
+
 // =========================================================================
 // 2. 10인 PM 체제 Pure Database Engine
 // =========================================================================
@@ -134,6 +149,7 @@ const DB_KEY_OTP = 'SGUARD_10PM_OTP';
 const DB_KEY_MANPOWER = 'SGUARD_10PM_MANPOWER';
 const DB_KEY_AUDIT = 'SGUARD_10PM_AUDIT';
 const DB_KEY_SLA = 'SGUARD_10PM_SLA';
+const DB_KEY_GAP_NOTICES = 'SGUARD_10PM_GAP_NOTICES';
 
 export class PureDatabaseEngine {
   private users: DbUser[] = [];
@@ -141,6 +157,7 @@ export class PureDatabaseEngine {
   private manpowerInputs: DbManpowerInput[] = [];
   private auditTrails: DbAuditTrail[] = [];
   private slaClarifications: DbSlaClarification[] = [];
+  private preGapNotices: DbPreGapNotice[] = [];
 
   private currentUser: User | null = null;
   private activePmPart: string = '상담';
@@ -683,6 +700,103 @@ export class PureDatabaseEngine {
       systemLabel: '도급 계약 이행 확인',
       details: answer,
       createdAt: item.answeredAt
+    });
+
+    this.sync();
+    return true;
+  }
+
+  /**
+   * =========================================================================
+   * 4. 투입 공백 사전 통보 (휴가 결재 대체 -> 원청 공백 통보 & 공정 확인 체계)
+   * =========================================================================
+   */
+  public getPreGapNotices(partName?: string): DbPreGapNotice[] {
+    if (this.preGapNotices.length === 0) {
+      this.initDefaultPreGapNotices();
+    }
+    if (!partName) return this.preGapNotices;
+    return this.preGapNotices.filter(n => n.partName === partName);
+  }
+
+  private initDefaultPreGapNotices(): void {
+    const todayStr = new Date().toISOString().substring(0, 10);
+    this.preGapNotices = [
+      {
+        id: 'gap-01',
+        partnerCompany: '유브갓',
+        workerName: '송무준',
+        partName: '상담',
+        gapPeriod: '2026-08-17 ~ 2026-08-18',
+        gapHours: 16.0,
+        gapType: '연차 (소속사 자체 승인)',
+        reason: '소속사(유브갓) 복무규정에 따른 하계 정기 연차 승인 건으로 도급 현장 2.0 M/D 투입 공백 발생 사전 통보',
+        status: 'DISPATCHED',
+        createdAt: `${todayStr} 09:30:00`
+      },
+      {
+        id: 'gap-02',
+        partnerCompany: '(주)협력아이티에스',
+        workerName: '정재호',
+        partName: '상담',
+        gapPeriod: '2026-08-19',
+        gapHours: 8.0,
+        gapType: '체력단련휴가 (소속사 자체 승인)',
+        reason: '협력사 복무지침에 따른 체력단련휴가 승인 건으로 1.0 M/D 투입 공백 사전 통보',
+        status: 'ACKNOWLEDGED',
+        acknowledgedBy: '신한DS 조경훈 PM',
+        acknowledgedAt: `${todayStr} 11:20:00`,
+        createdAt: `${todayStr} 08:40:00`
+      }
+    ];
+    this.sync();
+  }
+
+  public dispatchPreGapNotice(notice: Omit<DbPreGapNotice, 'id' | 'status' | 'createdAt'>): DbPreGapNotice {
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const newNotice: DbPreGapNotice = {
+      ...notice,
+      id: `gap-${Date.now()}`,
+      status: 'DISPATCHED',
+      createdAt: nowStr
+    };
+    this.preGapNotices.unshift(newNotice);
+
+    this.auditTrails.push({
+      id: Date.now(),
+      recordId: newNotice.id,
+      actorId: 'PARTNER_MGR',
+      actorName: `${newNotice.partnerCompany} 현장관리인 (영업대표)`,
+      actorRole: '수급사 현장관리자',
+      action: '원청 도급 투입 공백 사전 통보서 발송',
+      systemLabel: '도급 계약 이행 확인',
+      details: `[투입 공백 사전 통보] ${newNotice.workerName} (${newNotice.partnerCompany}) ${newNotice.gapPeriod} ${newNotice.gapType} 사유로 투입 공백(${newNotice.gapHours / 8} M/D) 사전 통보 발송`,
+      createdAt: nowStr
+    });
+
+    this.sync();
+    return newNotice;
+  }
+
+  public acknowledgePreGapNotice(noticeId: string, dsPmName: string = '신한DS 현장관리인'): boolean {
+    const notice = this.preGapNotices.find(n => n.id === noticeId);
+    if (!notice) return false;
+
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    notice.status = 'ACKNOWLEDGED';
+    notice.acknowledgedBy = dsPmName;
+    notice.acknowledgedAt = nowStr;
+
+    this.auditTrails.push({
+      id: Date.now(),
+      recordId: notice.id,
+      actorId: this.currentUser?.id || 'DS_PM',
+      actorName: dsPmName,
+      actorRole: '신한DS 현장관리인 (PM)',
+      action: '공정 투입 공백 확인 (인프라 검수 완료)',
+      systemLabel: '도급 계약 이행 확인',
+      details: `[공정 검수 완료] ${notice.partnerCompany} ${notice.workerName} 직원의 ${notice.gapPeriod} 투입 공백 통보를 확인하였으며, 기성 검수 기록에 정상 반영함`,
+      createdAt: nowStr
     });
 
     this.sync();

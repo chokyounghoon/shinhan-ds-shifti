@@ -156,7 +156,7 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
             신한DS
           </div>
 
-          {/* 휴가 / 사전 공수 제외 등록 */}
+          {/* 투입 공백 사전 통보 (부재 일정 공유) */}
           {onOpenVacation && (
             <button 
               style={{ ...menuItemStyle, color: '#0052FF', background: '#EFF6FF', borderRadius: '8px' }} 
@@ -166,7 +166,7 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
               }}
             >
               <Megaphone size={19} color="#0052FF" strokeWidth={2} />
-              <span style={{ fontWeight: 800 }}>🌴 휴가 / 사전 공수 제외 등록</span>
+              <span style={{ fontWeight: 800 }}>📢 투입 공백 사전 통보 (부재 공유)</span>
             </button>
           )}
 

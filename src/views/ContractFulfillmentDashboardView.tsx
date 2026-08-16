@@ -23,7 +23,8 @@ import {
   FileSpreadsheet, 
   Check, 
   Slash,
-  AlertCircle
+  AlertCircle,
+  Megaphone
 } from 'lucide-react';
 import { dbService, PM_PART_LIST } from '../services/db';
 import { User, ManpowerInputRecord, PartFulfillmentSummary, LegalDefenseReport } from '../types';
@@ -40,6 +41,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
   const [activePart, setActivePart] = useState<string>(currentUser.partName || '상담');
   const [records, setRecords] = useState<ManpowerInputRecord[]>([]);
   const [exceptionRecords, setExceptionRecords] = useState<ManpowerInputRecord[]>([]);
+  const [gapNotices, setGapNotices] = useState<any[]>([]);
   const [summary, setSummary] = useState<PartFulfillmentSummary>(dbService.getPartSummary('상담'));
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
   
@@ -79,15 +81,23 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
     const partRecords = dbService.getManpowerRecordsByPart(activePart);
     const exceptions = dbService.getExceptionRecordsByPart(activePart);
     const sum = dbService.getPartSummary(activePart);
+    const notices = dbService.getPreGapNotices(activePart);
 
     setRecords(partRecords);
     setExceptionRecords(exceptions);
     setSummary(sum);
+    setGapNotices(notices);
 
     const pendingIds = partRecords
       .filter(r => r.verificationStatus === 'PARTNER_CONFIRMED' || r.verificationStatus === 'VARIANCE_GAP' || r.verificationStatus === 'UNVERIFIED')
       .map(r => r.id);
     setSelectedRecordIds(pendingIds);
+  };
+
+  const handleAcknowledgeGapNotice = (noticeId: string, workerName: string, company: string) => {
+    dbService.acknowledgePreGapNotice(noticeId, `${currentUser.name || '조경훈'} PM`);
+    loadData();
+    alert(`✅ [공정 투입 공백 확인 완료]\n• 대상: [${company}] ${workerName} 직원\n• 조치: 원청의 '휴가 승인'이 아닌 '도급 공정 투입 공백 확인(인프라 검수 완료)'으로 정상 기록 처리되었습니다.`);
   };
 
   useEffect(() => {
@@ -441,6 +451,106 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* 3-2. [투입 공백 사전 통보 현황] (휴가 승인이 아닌 공정 투입 공백 확인) */}
+        {gapNotices.length > 0 && (
+          <div style={{
+            background: 'rgba(0, 82, 255, 0.08)',
+            border: '1.5px solid rgba(0, 82, 255, 0.35)',
+            borderRadius: '14px',
+            padding: '14px',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#00E5FF', fontSize: '13.5px', fontWeight: 800 }}>
+                <Megaphone size={16} />
+                <span>협력사 투입 공백 사전 통보 ({gapNotices.filter(g => g.status === 'DISPATCHED').length}건 미확인)</span>
+              </div>
+              <span style={{ fontSize: '10.5px', color: '#80D8FF' }}>
+                ※ 휴가 승인이 아닌 공정 공백 확인
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {gapNotices.map((notice) => {
+                const isDispatched = notice.status === 'DISPATCHED';
+
+                return (
+                  <div
+                    key={notice.id}
+                    style={{
+                      background: isDispatched ? '#10223A' : '#0B1524',
+                      border: isDispatched ? '1px solid #00E5FF' : '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: '10px',
+                      padding: '12px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: '10px'
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                        <span style={{ fontSize: '14px', fontWeight: 900, color: '#FFFFFF' }}>
+                          {notice.workerName}
+                        </span>
+                        <span style={{ fontSize: '10.5px', color: '#00E5FF', background: 'rgba(0,229,255,0.12)', padding: '1px 5px', borderRadius: '4px' }}>
+                          {notice.partnerCompany}
+                        </span>
+                        <span style={{ fontSize: '11px', color: '#80D8FF', background: 'rgba(0,140,255,0.15)', padding: '1px 6px', borderRadius: '4px' }}>
+                          {notice.gapPeriod} ({notice.gapType})
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '11.5px', color: '#90A4AE', lineHeight: 1.4 }}>
+                        {notice.reason}
+                      </div>
+                      {notice.acknowledgedAt && (
+                        <div style={{ fontSize: '10.5px', color: '#00E676', marginTop: '3px' }}>
+                          ✓ {notice.acknowledgedBy} 공정 공백 확인 완료 ({notice.acknowledgedAt})
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      {isDispatched ? (
+                        <button
+                          type="button"
+                          onClick={() => handleAcknowledgeGapNotice(notice.id, notice.workerName, notice.partnerCompany)}
+                          style={{
+                            background: 'linear-gradient(90deg, #0052FF 0%, #00D4FF 100%)',
+                            border: 'none',
+                            color: '#FFFFFF',
+                            fontSize: '12px',
+                            fontWeight: 800,
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 10px rgba(0, 82, 255, 0.4)',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          공정 투입 공백 확인
+                        </button>
+                      ) : (
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          color: '#00E676',
+                          background: 'rgba(0, 230, 118, 0.12)',
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          ✓ 검수 확인 완료
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

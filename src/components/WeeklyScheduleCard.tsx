@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, ChevronDown, CheckCircle2, PlusCircle, Sun } from 'lucide-react';
+import { Calendar, ChevronDown, CheckCircle2, Megaphone } from 'lucide-react';
 import { DaySchedule } from '../types';
 
 interface WeeklyScheduleCardProps {
@@ -20,10 +20,10 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
       <div className="week-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <div className="week-title" style={{ fontSize: '15px', fontWeight: 800 }}>
-            주간 도급 투입 계획 및 휴가 (Man-Day)
+            주간 도급 투입 계획 및 공백 관리 (Man-Day)
           </div>
           <div style={{ fontSize: '11px', color: '#6B7684', marginTop: '2px' }}>
-            휴가 시 당일 도급 공수에서 사전 제외(0 M/D)
+            휴가 승인이 아닌 원청 앞 투입 공백(0 M/D)을 사전 통보합니다
           </div>
         </div>
 
@@ -45,8 +45,8 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
               gap: '4px'
             }}
           >
-            <Sun size={13} />
-            <span>+ 휴가 등록</span>
+            <Megaphone size={13} />
+            <span>+ 투입 공백 통보</span>
           </button>
         )}
       </div>
@@ -72,7 +72,7 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
               </div>
 
               <div className="day-content" style={{ fontSize: '11px' }}>
-                <span>{day.title === '체력단련휴.' || day.title === '연차' ? '연차/휴무' : day.title}</span>
+                <span>{day.title === '체력단련휴.' || day.title === '연차' ? '사전공백' : day.title}</span>
                 {day.isVacation && (
                   <CheckCircle2
                     size={11}
