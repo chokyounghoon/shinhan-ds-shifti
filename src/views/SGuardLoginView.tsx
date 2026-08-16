@@ -50,9 +50,9 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
     company: '신한DS',
     department: '부문 선택',
     division: '해당없음',
-    team: '해당없음',
-    part: '해당없음',
-    position: '팀원',
+    team: '카드개발팀',
+    part: '카드IS (Part 1)',
+    position: '사원',
     empNo: 'SH202400001',
     name: '홍길동',
     email: 'name@shinhan.com',
@@ -827,7 +827,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
               </div>
             </div>
 
-            {/* 직책 멀티 필 (팀원, 파트장, 팀장, 그룹장 등) */}
+            {/* 직책 멀티 필 (사원, 대리, 과장, 차장, 부장, 이사, 대표이사) */}
             <div>
               <label style={signupLabelStyle}>직책 *</label>
               <div style={{
@@ -839,7 +839,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                 gridTemplateColumns: 'repeat(4, 1fr)',
                 gap: '6px'
               }}>
-                {['팀원', '파트장', '팀장', '그룹장', '상무', '부사장', '사장'].map(p => (
+                {['사원', '대리', '과장', '차장', '부장', '이사', '대표이사'].map(p => (
                   <button
                     key={p}
                     type="button"
@@ -850,7 +850,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                       border: 'none',
                       background: signupForm.position === p ? '#0052FF' : 'rgba(255, 255, 255, 0.04)',
                       color: '#FFFFFF',
-                      fontSize: '11.5px',
+                      fontSize: '12px',
                       fontWeight: signupForm.position === p ? 800 : 500,
                       cursor: 'pointer'
                     }}

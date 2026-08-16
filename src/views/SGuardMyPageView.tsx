@@ -32,9 +32,9 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
   const [phone, setPhone] = useState(user.phone || '010-4732-8880');
   const [company, setCompany] = useState(user.companyName || user.partnerCompany || '신한DS');
   const [department, setDepartment] = useState('개발운영부문');
-  const [division, setDivision] = useState('금융본부');
   const [team, setTeam] = useState('카드개발팀');
-  const [part, setPart] = useState('상담');
+  const [part, setPart] = useState('카드IS (Part 1)');
+  const [position, setPosition] = useState('과장');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
@@ -337,6 +337,41 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
                 </div>
                 <ChevronDown size={15} color="#90A4AE" style={{ flexShrink: 0 }} />
               </div>
+            </div>
+          </div>
+
+          {/* 직책 (사원, 대리, 과장, 차장, 부장, 이사, 대표이사) */}
+          <div>
+            <label style={fieldLabelStyle}>직책</label>
+            <div style={{
+              background: '#192841',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: '10px',
+              padding: '8px',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, 1fr)',
+              gap: '6px'
+            }}>
+              {['사원', '대리', '과장', '차장', '부장', '이사', '대표이사'].map(p => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPosition(p)}
+                  style={{
+                    padding: '7px 2px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: position === p ? '#0052FF' : 'rgba(255, 255, 255, 0.05)',
+                    color: '#FFFFFF',
+                    fontSize: '12px',
+                    fontWeight: position === p ? 800 : 500,
+                    cursor: 'pointer',
+                    transition: 'all 0.12s ease'
+                  }}
+                >
+                  {p}
+                </button>
+              ))}
             </div>
           </div>
 
