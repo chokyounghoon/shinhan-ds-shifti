@@ -340,7 +340,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
             </div>
           </div>
 
-          {/* 직책 (사원, 대리, 과장, 차장, 부장, 이사, 대표이사) */}
+          {/* 직책 (사원, 대리, 과장, 차장, 부부장, 부장, 이사, 대표이사) */}
           <div>
             <label style={fieldLabelStyle}>직책</label>
             <div style={{
@@ -352,7 +352,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
               gridTemplateColumns: 'repeat(4, 1fr)',
               gap: '6px'
             }}>
-              {['사원', '대리', '과장', '차장', '부장', '이사', '대표이사'].map(p => (
+              {['사원', '대리', '과장', '차장', '부부장', '부장', '이사', '대표이사'].map(p => (
                 <button
                   key={p}
                   type="button"

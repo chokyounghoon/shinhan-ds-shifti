@@ -206,43 +206,67 @@ export class PureDatabaseEngine {
   // 3. User & Auth Database Operations
   // =========================================================================
 
-  public findUserByEmpId(empId: string): DbUser | undefined {
-    return this.users.find(u => u.employeeId.toUpperCase() === empId.toUpperCase().trim());
+  public findUserByEmpId(empId?: string): DbUser | undefined {
+    if (!empId) return undefined;
+    const cleanId = String(empId).toUpperCase().trim();
+    return this.users.find(u => (u.employeeId || '').toUpperCase().trim() === cleanId);
   }
 
-  public findUserByEmail(email: string): DbUser | undefined {
-    return this.users.find(u => u.email.toLowerCase() === email.toLowerCase().trim());
+  public findUserByEmail(email?: string): DbUser | undefined {
+    if (!email) return undefined;
+    const cleanEmail = String(email).toLowerCase().trim();
+    return this.users.find(u => (u.email || '').toLowerCase().trim() === cleanEmail);
   }
 
-  public insertUser(userDto: Omit<DbUser, 'createdAt' | 'isActive' | 'isAdmin' | 'failedAttempts' | 'regId' | 'regDt'>): {
+  public insertUser(userDto: any): {
     success: boolean;
     message: string;
     user?: DbUser;
   } {
-    const existingEmp = this.findUserByEmpId(userDto.employeeId);
-    if (existingEmp) {
-      return { success: false, message: `이미 등록된 사번(${userDto.employeeId})입니다.` };
+    const rawEmpId = userDto.employeeId || userDto.empId;
+    const rawEmail = userDto.email || userDto.emailAddr;
+    const rawName = userDto.name || userDto.userNm;
+
+    if (!rawEmpId || !rawName || !rawEmail) {
+      return { success: false, message: '사번, 성명, 이메일은 필수 입력 항목입니다.' };
     }
 
-    const existingEmail = this.findUserByEmail(userDto.email);
+    const existingEmp = this.findUserByEmpId(rawEmpId);
+    if (existingEmp) {
+      return { success: false, message: `이미 등록된 사번(${rawEmpId})입니다.` };
+    }
+
+    const existingEmail = this.findUserByEmail(rawEmail);
     if (existingEmail) {
-      return { success: false, message: `이미 등록된 이메일(${userDto.email})입니다.` };
+      return { success: false, message: `이미 등록된 이메일(${rawEmail})입니다.` };
     }
 
     const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    const newUser: DbUser = {
-      ...userDto,
+    const normalizedUser: DbUser = {
+      employeeId: String(rawEmpId).trim(),
+      email: String(rawEmail).trim(),
+      name: String(rawName).trim(),
+      passwordHash: userDto.passwordHash || userDto.pw || '••••••••',
+      role: userDto.role || userDto.roleCd || 'PARTNER_WORKER',
+      authProvider: userDto.authProvider || 'local',
+      company: userDto.company || userDto.companyNm || '신한DS',
+      phone: userDto.phone || userDto.phoneNo || '',
+      team: userDto.team || userDto.teamNm || '상담팀',
+      part: userDto.part || userDto.partNm || '상담',
+      position: userDto.position || userDto.positionCd || '사원',
+      status: 'ACTIVE',
+      failedAttempts: 0,
       createdAt: nowStr,
       isActive: true,
-      isAdmin: userDto.role === 'DS_PRINCIPAL_PM' ? 1 : 0,
-      failedAttempts: 0,
-      regId: userDto.employeeId,
+      isAdmin: (userDto.role === 'DS_PRINCIPAL_PM' || userDto.roleCd === 'DS_PRINCIPAL_PM') ? 1 : 0,
+      deviceType: userDto.deviceType || 'Android',
+      regId: String(rawEmpId).trim(),
       regDt: nowStr
     };
 
-    this.users.push(newUser);
+    this.users.push(normalizedUser);
     this.sync();
-    return { success: true, message: '사용자 계정이 DB에 성공적으로 등록되었습니다.', user: newUser };
+    return { success: true, message: '사용자 계정이 DB에 성공적으로 등록되었습니다.', user: normalizedUser };
   }
 
   public updatePassword(empId: string, newPasswordHash: string): boolean {

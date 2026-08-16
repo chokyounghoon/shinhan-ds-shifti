@@ -310,18 +310,19 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
       return;
     }
 
-    const res = dbService.registerUser({
-      empId: signupForm.empNo.trim(),
-      userNm: signupForm.name.trim(),
+    const res = dbService.insertUser({
+      employeeId: signupForm.empNo.trim(),
+      name: signupForm.name.trim(),
+      email: signupForm.email.trim(),
       passwordHash: signupForm.pw || '••••••••',
-      companyNm: signupForm.company,
-      teamNm: signupForm.team,
-      partNm: signupForm.part,
-      positionCd: signupForm.position,
-      emailAddr: signupForm.email.trim(),
-      phoneNo: signupForm.phone.trim(),
-      roleCd: signupForm.company === '신한DS' ? 'DS_PRINCIPAL_PM' : 'PARTNER_WORKER',
-      deviceType: signupForm.deviceType
+      company: signupForm.company,
+      team: signupForm.team,
+      part: signupForm.part,
+      position: signupForm.position,
+      phone: signupForm.phone.trim(),
+      role: signupForm.company === '신한DS' ? 'DS_PRINCIPAL_PM' : 'PARTNER_WORKER',
+      deviceType: signupForm.deviceType,
+      status: 'ACTIVE'
     });
 
     if (!res.success) {
@@ -329,8 +330,8 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
       return;
     }
 
-    alert(`🎉 [${signupForm.name}] 계정이 실제 DB(TB_USER_MST)에 등록되었습니다. 사번(${signupForm.empNo})으로 로그인하세요.`);
-    setEmpId(signupForm.empNo);
+    alert(`🎉 [${signupForm.name}] 계정이 실제 DB(users)에 등록되었습니다. 사번(${signupForm.empNo})으로 로그인하세요.`);
+    setEmpId(signupForm.empNo.trim());
     setStep('ID');
   };
 
@@ -874,11 +875,11 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
               </div>
             </div>
 
-            {/* 직책 7단계 멀티 버튼 */}
+            {/* 직책 8단계 멀티 버튼 (부부장 추가) */}
             <div>
               <label style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600, display: 'block', marginBottom: '4px' }}>직책 *</label>
               <div style={{ background: '#101B2B', padding: '8px', borderRadius: '10px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
-                {['사원', '대리', '과장', '차장', '부장', '이사', '대표이사'].map(pos => (
+                {['사원', '대리', '과장', '차장', '부부장', '부장', '이사', '대표이사'].map(pos => (
                   <button
                     key={pos}
                     type="button"
