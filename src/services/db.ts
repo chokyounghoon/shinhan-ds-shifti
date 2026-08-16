@@ -697,17 +697,63 @@ export class PureDatabaseEngine {
   public getThemeMode(): 'ddangyo' | 'shinhan' { return this.themeMode; }
   public setThemeMode(mode: 'ddangyo' | 'shinhan'): void { this.themeMode = mode; }
 
-  // Legacy compat
-  public getWeeklySchedules(): DaySchedule[] { return []; }
-  public getRequests(): AttendanceRequest[] { return []; }
+  // Home View Helper APIs (초기 메인 홈 화면용)
+  public getWeeklySchedules(): DaySchedule[] {
+    return [
+      { dayOfWeek: '월', dateStr: '8/10', fullDate: '2026-08-10', statusType: 'VACATION', statusLabel: '체력단련휴가', timeRange: '전일', isToday: false, isVacation: true, title: '체력단련휴.' },
+      { dayOfWeek: '화', dateStr: '8/11', fullDate: '2026-08-11', statusType: 'VACATION', statusLabel: '체력단련휴가', timeRange: '전일', isToday: false, isVacation: true, title: '체력단련휴.' },
+      { dayOfWeek: '수', dateStr: '8/12', fullDate: '2026-08-12', statusType: 'VACATION', statusLabel: '연차휴가', timeRange: '전일', isToday: false, isVacation: true, title: '연차' },
+      { dayOfWeek: '목', dateStr: '8/13', fullDate: '2026-08-13', statusType: 'VACATION', statusLabel: '연차휴가', timeRange: '전일', isToday: false, isVacation: true, title: '연차' },
+      { dayOfWeek: '금', dateStr: '8/14', fullDate: '2026-08-14', statusType: 'VACATION', statusLabel: '연차휴가', timeRange: '전일', isToday: false, isVacation: true, title: '연차' },
+      { dayOfWeek: '토', dateStr: '8/15', fullDate: '2026-08-15', statusType: 'OFF', statusLabel: '휴무', timeRange: '-', isToday: false, isVacation: false, title: '일정 없음' },
+      { dayOfWeek: '오늘', dateStr: '8/16', fullDate: '2026-08-16', statusType: 'OFF', statusLabel: '휴무', timeRange: '-', isToday: true, isVacation: false, title: '일정 없음' }
+    ];
+  }
+
+  public getRequests(): AttendanceRequest[] {
+    return [
+      {
+        id: 'req-01',
+        userId: 'usr-001',
+        userName: '조경훈',
+        userDept: '카드개발팀',
+        partnerApproverName: '김협력 PM (협력사 현장대리인)',
+        requestType: 'VACATION',
+        targetDate: '2026-08-12 ~ 2026-08-14',
+        timeRange: '전일',
+        hours: 24,
+        reason: '하계 정기 연차 휴가 (소속사 복무규정 준수)',
+        status: 'APPROVED',
+        createdAt: '2026-08-01 09:30',
+        approvalMemo: '소속사 현장대리인 김협력 승인 완료'
+      },
+      {
+        id: 'req-02',
+        userId: 'usr-001',
+        userName: '조경훈',
+        userDept: '카드개발팀',
+        partnerApproverName: '김협력 PM (협력사 현장대리인)',
+        requestType: 'OVERTIME',
+        targetDate: '2026-08-17',
+        timeRange: '18:00 ~ 20:30',
+        startTime: '18:00',
+        endTime: '20:30',
+        hours: 2.5,
+        reason: '땡겨요 결제 모듈 긴급 배포 준비',
+        status: 'PENDING',
+        createdAt: '2026-08-16 09:10'
+      }
+    ];
+  }
+
   public getWeeklyStats(): WeeklyWorkStat {
     return {
-      approvedHours: 0,
-      totalCapHours: 52,
-      workedDays: 0,
-      totalDays: 0,
-      remainingHours: 52,
-      overtimeHours: 0,
+      approvedHours: 40.0,
+      totalCapHours: 52.0,
+      workedDays: 5,
+      totalDays: 7,
+      remainingHours: 12.0,
+      overtimeHours: 0.0,
       lateCount: 0,
       earlyLeaveCount: 0
     };

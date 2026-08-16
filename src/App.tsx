@@ -84,8 +84,8 @@ export function App() {
   // S-GUARD 회원 정보 관리(마이페이지) 모달 상태
   const [isMyPageOpen, setIsMyPageOpen] = useState(false);
 
-  // Tab & Page Navigation (기본값: DS 총괄 관리인 포털)
-  const [currentPage, setCurrentPage] = useState<PageView>('principal_portal');
+  // Tab & Page Navigation (초기 기본값: 메인 홈 화면)
+  const [currentPage, setCurrentPage] = useState<PageView>('home');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isRequestActionSheetOpen, setIsRequestActionSheetOpen] = useState(false);
   const [isNoScheduleModalOpen, setIsNoScheduleModalOpen] = useState(false);
