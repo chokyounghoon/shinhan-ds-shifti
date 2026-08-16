@@ -29,7 +29,7 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
 
         <div className="brand-logo-wrap">
-          {/* 신한DS 로고 & 땡겨요 협력사 브랜딩 */}
+          {/* 신한DS 로고 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
               <circle cx="12" cy="12" r="10" fill={themeMode === 'ddangyo' ? '#FF462D' : '#0046FF'} />
@@ -46,17 +46,6 @@ export const Header: React.FC<HeaderProps> = ({
               gap: '4px'
             }}>
               신한<span style={{ fontWeight: 900 }}>DS</span>
-            </span>
-            <span style={{
-              fontSize: '11px',
-              fontWeight: 700,
-              color: '#FF462D',
-              background: '#FFF0ED',
-              padding: '2px 6px',
-              borderRadius: '4px',
-              marginLeft: '2px'
-            }}>
-              땡겨요 협력사
             </span>
           </div>
         </div>
