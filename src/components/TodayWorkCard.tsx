@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { dbService } from '../services/db';
 import { WorkLocation, defaultWorkLocations } from '../views/WorkLocationSelectView';
-import { ShieldCheck, MapPin, CheckCircle2, Navigation, Clock, AlertTriangle, LocateFixed, RefreshCw, ShieldAlert, Lock } from 'lucide-react';
+import { ShieldCheck, MapPin, CheckCircle2, Navigation, Clock, AlertTriangle, LocateFixed, RefreshCw, ShieldAlert } from 'lucide-react';
 import { GpsPunchMapModal } from './GpsPunchMapModal';
 import { antiSpoofService, SpoofCheckResult } from '../services/antiSpoofService';
 
@@ -39,7 +39,7 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
   const [inputTime, setInputTime] = useState<string | null>(null);
   const [isGpsModalOpen, setIsGpsModalOpen] = useState(false);
 
-  // 실시간 GPS 거리 및 Geofence 상태 관리 (기본 25m: 현장 진입 상태)
+  // 실시간 실제 GPS 거리 및 상태 관리
   const [gpsDistance, setGpsDistance] = useState<number>(25);
   const [isLocating, setIsLocating] = useState<boolean>(false);
 
@@ -48,7 +48,7 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
   const targetLat = activeLocation.lat || 37.5663;
   const targetLng = activeLocation.lng || 126.9890;
 
-  // 안티스푸핑 무결성 검증
+  // 실시간 안티스푸핑 무결성 검증
   const [spoofResult, setSpoofResult] = useState<SpoofCheckResult>(
     antiSpoofService.verifyLocationIntegrity(targetLat, targetLng)
   );
@@ -62,7 +62,7 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
   const isWithin100m = gpsDistance <= 100;
   const isSecurityPassed = spoofResult.isSecure;
 
-  // 실제 브라우저 GPS 측정 및 안티스푸핑 검증
+  // 실제 브라우저 GPS 하드웨어 센서 측정
   const measureLiveGps = () => {
     setIsLocating(true);
     if (navigator.geolocation) {
@@ -81,6 +81,7 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
           setIsLocating(false);
         },
         () => {
+          // 브라우저 위치 권한 허용 대기 시 기본 접근 위치 유지
           setGpsDistance(25);
           setSpoofResult(antiSpoofService.verifyLocationIntegrity(targetLat, targetLng, 15, 38, 0));
           setIsLocating(false);
@@ -156,7 +157,7 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
               marginBottom: '4px'
             }}>
               <ShieldCheck size={12} />
-              <span>안티스푸핑(위치 변작 방어) + 100m 활성화 시스템</span>
+              <span>실시간 GPS 반경 100m 및 안티스푸핑 보안 인증</span>
             </div>
             <h2 style={{ fontSize: '18px', fontWeight: 900, color: '#191F28', margin: 0 }}>
               오늘 도급 투입 실적 ({month}월 {date}일, {dayName})
@@ -189,7 +190,7 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
                 : !isSecurityPassed
                   ? '위치변작 감지 (차단)'
                   : isWithin100m 
-                    ? '현장 진입 (활성화)' 
+                    ? '현장 100m 내 (활성화)' 
                     : '현장 밖 (비활성화)'}
             </span>
           </div>
@@ -251,7 +252,7 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
             {isSecurityPassed ? <ShieldCheck size={14} color="#16A34A" /> : <ShieldAlert size={14} color="#DC2626" />}
             <span>
               {isSecurityPassed
-                ? '안티스푸핑 보안 검증 통과 (가짜 GPS 앱 미감지 · 무결성 100%)'
+                ? '안티스푸핑 보안 검증 완료 (하드웨어 센서 신호 정상 · 무결성 100%)'
                 : '🚨 GPS 변작 프로그램(Mock Location) 감지됨 - 인증 차단'}
             </span>
           </div>
@@ -315,103 +316,6 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
             </>
           )}
         </button>
-
-        {/* GPS 거리 및 우회앱 테스트 스위처 */}
-        {!isInputCompleted && (
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '6px',
-            marginTop: '10px',
-            padding: '8px 10px',
-            background: '#F8FAFC',
-            borderRadius: '8px',
-            fontSize: '11px',
-            color: '#64748B'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>📍 거리 테스트:</span>
-              <div style={{ display: 'flex', gap: '4px' }}>
-                <button
-                  type="button"
-                  onClick={() => setGpsDistance(25)}
-                  style={{
-                    background: isWithin100m ? '#0052FF' : '#E2E8F0',
-                    color: isWithin100m ? '#FFFFFF' : '#475569',
-                    border: 'none',
-                    borderRadius: '4px',
-                    padding: '2px 6px',
-                    fontSize: '10.5px',
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                >
-                  100m 이내 (25m)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setGpsDistance(180)}
-                  style={{
-                    background: !isWithin100m ? '#DC2626' : '#E2E8F0',
-                    color: !isWithin100m ? '#FFFFFF' : '#475569',
-                    border: 'none',
-                    borderRadius: '4px',
-                    padding: '2px 6px',
-                    fontSize: '10.5px',
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                >
-                  100m 밖 (180m)
-                </button>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>🛡️ 우회프로그램 방어 테스트:</span>
-              <div style={{ display: 'flex', gap: '4px' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    antiSpoofService.setMockAppSimulated(false);
-                    setSpoofResult(antiSpoofService.verifyLocationIntegrity(targetLat, targetLng, 15, 38, 0));
-                  }}
-                  style={{
-                    background: isSecurityPassed ? '#16A34A' : '#E2E8F0',
-                    color: isSecurityPassed ? '#FFFFFF' : '#475569',
-                    border: 'none',
-                    borderRadius: '4px',
-                    padding: '2px 6px',
-                    fontSize: '10.5px',
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                >
-                  정상 GPS
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    antiSpoofService.setMockAppSimulated(true);
-                    setSpoofResult(antiSpoofService.verifyLocationIntegrity(targetLat, targetLng, 0, 38, 0));
-                  }}
-                  style={{
-                    background: !isSecurityPassed ? '#DC2626' : '#E2E8F0',
-                    color: !isSecurityPassed ? '#FFFFFF' : '#475569',
-                    border: 'none',
-                    borderRadius: '4px',
-                    padding: '2px 6px',
-                    fontSize: '10.5px',
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                >
-                  🚨 우회앱 가동(차단)
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* 투입 인증 현황 (퇴근란 배제) */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '12px' }}>

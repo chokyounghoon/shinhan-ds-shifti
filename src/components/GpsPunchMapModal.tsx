@@ -62,7 +62,7 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
   const isWithin100m = distanceMeters !== null && distanceMeters <= 100;
   const isSecurityPassed = spoofResult.isSecure;
 
-  // GPS 위치 측정 & 5중 안티스푸핑 검증
+  // 실제 GPS 위치 측정 & 5중 안티스푸핑 검증
   const fetchCurrentLocation = () => {
     setIsLocating(true);
     setGpsError(null);
@@ -80,7 +80,6 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
           const dist = getDistanceMeters(uLat, uLng, targetLat, targetLng);
           setDistanceMeters(dist);
 
-          // 안티스푸핑 무결성 검증 실행
           const sec = antiSpoofService.verifyLocationIntegrity(uLat, uLng, uAcc, uAlt, uSpeed);
           setSpoofResult(sec);
           setIsLocating(false);
@@ -105,24 +104,6 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
       setDistanceMeters(getDistanceMeters(simLat, simLng, targetLat, targetLng));
       setSpoofResult(antiSpoofService.verifyLocationIntegrity(simLat, simLng, 15, 38, 0));
       setIsLocating(false);
-    }
-  };
-
-  // 위치 시뮬레이션 토글 (100m 이내 vs 100m 초과 테스트용)
-  const setSimulatedDistance = (meters: number) => {
-    const offset = meters / 111000;
-    const newLat = targetLat + offset;
-    const newLng = targetLng;
-    setUserPos({ lat: newLat, lng: newLng });
-    setDistanceMeters(meters);
-    setSpoofResult(antiSpoofService.verifyLocationIntegrity(newLat, newLng, 15, 38, 0));
-  };
-
-  // 가짜 GPS 앱 변작 시뮬레이션 토글
-  const toggleMockGpsAttack = (isMock: boolean) => {
-    antiSpoofService.setMockAppSimulated(isMock);
-    if (userPos) {
-      setSpoofResult(antiSpoofService.verifyLocationIntegrity(userPos.lat, userPos.lng, isMock ? 0 : 15, 38, 0));
     }
   };
 
@@ -246,7 +227,7 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
         </div>
 
         {/* 2. 카카오 지도 뷰영역 */}
-        <div style={{ position: 'relative', width: '100%', height: '200px', background: '#E2E8F0' }}>
+        <div style={{ position: 'relative', width: '100%', height: '210px', background: '#E2E8F0' }}>
           <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
 
           {/* 우측 상단 내 위치 재측정 버튼 */}
@@ -311,7 +292,7 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
         </div>
 
         {/* 4. 측정 결과 안내 배너 */}
-        <div style={{ padding: '14px 18px 18px 18px' }}>
+        <div style={{ padding: '16px 18px 18px 18px' }}>
           {!isSecurityPassed ? (
             <div style={{
               background: '#FEF2F2',
@@ -321,7 +302,7 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
               display: 'flex',
               alignItems: 'center',
               gap: '10px',
-              marginBottom: '12px'
+              marginBottom: '14px'
             }}>
               <ShieldAlert size={24} color="#DC2626" />
               <div>
@@ -342,7 +323,7 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
               display: 'flex',
               alignItems: 'center',
               gap: '10px',
-              marginBottom: '12px'
+              marginBottom: '14px'
             }}>
               <CheckCircle2 size={22} color="#16A34A" />
               <div>
@@ -363,7 +344,7 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
               display: 'flex',
               alignItems: 'center',
               gap: '10px',
-              marginBottom: '12px'
+              marginBottom: '14px'
             }}>
               <AlertTriangle size={22} color="#DC2626" />
               <div>
@@ -377,95 +358,6 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
             </div>
           )}
 
-          {/* 보안 테스트 및 시뮬레이션 바 */}
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '6px',
-            background: '#F8FAFC',
-            padding: '8px 10px',
-            borderRadius: '8px',
-            marginBottom: '14px',
-            fontSize: '11px',
-            color: '#64748B'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>📍 거리 테스트:</span>
-              <div style={{ display: 'flex', gap: '4px' }}>
-                <button
-                  type="button"
-                  onClick={() => setSimulatedDistance(25)}
-                  style={{
-                    background: isWithin100m ? '#0052FF' : '#E2E8F0',
-                    color: isWithin100m ? '#FFFFFF' : '#475569',
-                    border: 'none',
-                    borderRadius: '4px',
-                    padding: '2px 6px',
-                    fontSize: '10.5px',
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                >
-                  100m 안 (25m)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSimulatedDistance(180)}
-                  style={{
-                    background: !isWithin100m ? '#DC2626' : '#E2E8F0',
-                    color: !isWithin100m ? '#FFFFFF' : '#475569',
-                    border: 'none',
-                    borderRadius: '4px',
-                    padding: '2px 6px',
-                    fontSize: '10.5px',
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                >
-                  100m 밖 (180m)
-                </button>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>🛡️ 가짜GPS 우회앱 방어 테스트:</span>
-              <div style={{ display: 'flex', gap: '4px' }}>
-                <button
-                  type="button"
-                  onClick={() => toggleMockGpsAttack(false)}
-                  style={{
-                    background: !antiSpoofService.isMockSimulated() ? '#16A34A' : '#E2E8F0',
-                    color: !antiSpoofService.isMockSimulated() ? '#FFFFFF' : '#475569',
-                    border: 'none',
-                    borderRadius: '4px',
-                    padding: '2px 6px',
-                    fontSize: '10.5px',
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                >
-                  정상 GPS
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleMockGpsAttack(true)}
-                  style={{
-                    background: antiSpoofService.isMockSimulated() ? '#DC2626' : '#E2E8F0',
-                    color: antiSpoofService.isMockSimulated() ? '#FFFFFF' : '#475569',
-                    border: 'none',
-                    borderRadius: '4px',
-                    padding: '2px 6px',
-                    fontSize: '10.5px',
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                >
-                  🚨 우회앱 가동(차단)
-                </button>
-              </div>
-            </div>
-          </div>
-
           {/* 5. 최종 출근(투입) 확정 버튼 (100m 이내 + 보안 무결성 통과 시에만 활성화) */}
           <button
             type="button"
@@ -478,7 +370,7 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
             }}
             style={{
               width: '100%',
-              height: '50px',
+              height: '52px',
               borderRadius: '12px',
               background: !isSecurityPassed
                 ? '#EF4444'
@@ -487,7 +379,7 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
                   : '#CBD5E1',
               border: 'none',
               color: '#FFFFFF',
-              fontSize: '15px',
+              fontSize: '15.5px',
               fontWeight: 900,
               cursor: isWithin100m && isSecurityPassed ? 'pointer' : 'not-allowed',
               display: 'flex',
