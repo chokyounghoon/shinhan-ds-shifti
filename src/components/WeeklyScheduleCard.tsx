@@ -1,33 +1,57 @@
 import React from 'react';
-import { Calendar, ChevronDown, CheckCircle2 } from 'lucide-react';
+import { Calendar, ChevronDown, CheckCircle2, PlusCircle, Sun } from 'lucide-react';
 import { DaySchedule } from '../types';
 
 interface WeeklyScheduleCardProps {
   schedules: DaySchedule[];
   onSelectDay: (schedule: DaySchedule) => void;
+  onOpenVacationModal?: () => void;
   themeMode: 'ddangyo' | 'shinhan';
 }
 
 export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
   schedules,
   onSelectDay,
+  onOpenVacationModal,
   themeMode
 }) => {
   return (
     <div className="week-schedule-card">
-      <div className="week-header">
-        <div className="week-title" style={{ fontSize: '15px', fontWeight: 800 }}>
-          주간 도급 인력 투입 계획 (Man-Day)
+      <div className="week-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <div className="week-title" style={{ fontSize: '15px', fontWeight: 800 }}>
+            주간 도급 투입 계획 및 휴가 (Man-Day)
+          </div>
+          <div style={{ fontSize: '11px', color: '#6B7684', marginTop: '2px' }}>
+            휴가 시 당일 도급 공수에서 사전 제외(0 M/D)
+          </div>
         </div>
 
-        <div className="week-range-selector">
-          <Calendar size={14} color="#4E5968" />
-          <span>08.10 - 08.16</span>
-          <ChevronDown size={13} color="#6B7684" />
-        </div>
+        {onOpenVacationModal && (
+          <button
+            type="button"
+            onClick={onOpenVacationModal}
+            style={{
+              background: 'rgba(0, 82, 255, 0.08)',
+              border: '1px solid #0052FF',
+              color: '#0052FF',
+              fontSize: '11.5px',
+              fontWeight: 800,
+              padding: '5px 9px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            <Sun size={13} />
+            <span>+ 휴가 등록</span>
+          </button>
+        )}
       </div>
 
-      <div className="week-grid">
+      <div className="week-grid" style={{ marginTop: '12px' }}>
         {schedules.map((day, idx) => {
           const isSat = day.dayOfWeek === '토';
           const isToday = day.isToday;
@@ -48,7 +72,7 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
               </div>
 
               <div className="day-content" style={{ fontSize: '11px' }}>
-                <span>{day.title === '체력단련휴.' || day.title === '연차' ? '약정휴무' : day.title}</span>
+                <span>{day.title === '체력단련휴.' || day.title === '연차' ? '연차/휴무' : day.title}</span>
                 {day.isVacation && (
                   <CheckCircle2
                     size={11}

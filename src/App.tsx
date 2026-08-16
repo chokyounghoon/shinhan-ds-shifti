@@ -41,6 +41,7 @@ import { RequestActionSheetModal } from './components/modals/RequestActionSheetM
 import { NoScheduleModal } from './components/modals/NoScheduleModal';
 import { QRScannerModal } from './components/modals/QRScannerModal';
 import { DayDetailModal } from './components/modals/DayDetailModal';
+import { VacationRegistrationModal } from './components/modals/VacationRegistrationModal';
 
 // DB & Types
 import { dbService } from './services/db';
@@ -90,6 +91,7 @@ export function App() {
   const [isRequestActionSheetOpen, setIsRequestActionSheetOpen] = useState(false);
   const [isNoScheduleModalOpen, setIsNoScheduleModalOpen] = useState(false);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [isVacationModalOpen, setIsVacationModalOpen] = useState(false);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [selectedDaySchedule, setSelectedDaySchedule] = useState<DaySchedule | null>(null);
 
@@ -268,6 +270,7 @@ export function App() {
                   <WeeklyScheduleCard
                     schedules={schedules}
                     onSelectDay={day => setSelectedDaySchedule(day)}
+                    onOpenVacationModal={() => setIsVacationModalOpen(true)}
                     themeMode={themeMode}
                   />
 
@@ -519,6 +522,7 @@ export function App() {
               onOpenOrganizations={() => setCurrentPage('organizations')}
               onOpenEmployees={() => setCurrentPage('employees')}
               onOpenScheduleTemplates={() => setCurrentPage('schedule_templates')}
+              onOpenVacation={() => setIsVacationModalOpen(true)}
             />
 
             {/* S-GUARD 회원 정보 관리(마이페이지) 모달 (스크린샷 100% 일치) */}
@@ -586,6 +590,17 @@ export function App() {
               schedule={selectedDaySchedule}
               onClose={() => setSelectedDaySchedule(null)}
               onOpenRequest={() => setIsRequestModalOpen(true)}
+              themeMode={themeMode}
+            />
+
+            {/* 휴가 / 사전 공수 제외 등록 모달 */}
+            <VacationRegistrationModal
+              isOpen={isVacationModalOpen}
+              onClose={() => setIsVacationModalOpen(false)}
+              onSuccess={(type, range) => {
+                refreshData();
+              }}
+              currentUser={currentUser}
               themeMode={themeMode}
             />
           </>

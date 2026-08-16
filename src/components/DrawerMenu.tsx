@@ -23,6 +23,7 @@ interface DrawerMenuProps {
   onOpenOrganizations: () => void;
   onOpenEmployees: () => void;
   onOpenScheduleTemplates: () => void;
+  onOpenVacation?: () => void;
 }
 
 export const DrawerMenu: React.FC<DrawerMenuProps> = ({
@@ -38,7 +39,8 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
   onOpenWorkLocations,
   onOpenOrganizations,
   onOpenEmployees,
-  onOpenScheduleTemplates
+  onOpenScheduleTemplates,
+  onOpenVacation
 }) => {
   if (!isOpen) return null;
 
@@ -153,6 +155,20 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
           <div style={{ fontSize: '14px', fontWeight: 800, color: '#191F28', marginBottom: '10px', paddingLeft: '4px' }}>
             신한DS
           </div>
+
+          {/* 휴가 / 사전 공수 제외 등록 */}
+          {onOpenVacation && (
+            <button 
+              style={{ ...menuItemStyle, color: '#0052FF', background: '#EFF6FF', borderRadius: '8px' }} 
+              onClick={() => {
+                onClose();
+                onOpenVacation();
+              }}
+            >
+              <Megaphone size={19} color="#0052FF" strokeWidth={2} />
+              <span style={{ fontWeight: 800 }}>🌴 휴가 / 사전 공수 제외 등록</span>
+            </button>
+          )}
 
           {/* 회사 방침 */}
           <button style={menuItemStyle} onClick={() => handleMenuClick('회사 방침')}>
