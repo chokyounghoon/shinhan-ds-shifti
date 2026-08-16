@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, FolderClosed, Calendar, Clock, Plane, QrCode } from 'lucide-react';
+import { Home, FolderClosed, Calendar, Clock, FileCheck2, QrCode } from 'lucide-react';
 
 export type TabType = 'home' | 'request' | 'schedule' | 'logs' | 'vacation';
 
@@ -20,16 +20,16 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
 }) => {
   return (
     <nav className={`bottom-nav-bar ${themeMode === 'ddangyo' ? 'ddangyo-bar' : ''}`}>
-      {/* 1. 홈 */}
+      {/* 1. 투입홈 */}
       <button
         className={`nav-item ${activeTab === 'home' ? 'active' : ''}`}
         onClick={() => onTabChange('home')}
       >
         <Home size={22} strokeWidth={activeTab === 'home' ? 2.5 : 1.8} />
-        <span>홈</span>
+        <span>투입홈</span>
       </button>
 
-      {/* 2. 요청 (뱃지 0) */}
+      {/* 2. 투입소명 */}
       <button
         className={`nav-item ${activeTab === 'request' ? 'active' : ''}`}
         onClick={() => onTabChange('request')}
@@ -40,17 +40,16 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             {requestCount}
           </span>
         </div>
-        <span>요청</span>
+        <span>투입소명</span>
       </button>
 
-      {/* 3. 근무일정 (5/5 뱃지) */}
+      {/* 3. 투입계획 */}
       <button
         className={`nav-item ${activeTab === 'schedule' ? 'active' : ''}`}
         onClick={() => onTabChange('schedule')}
       >
         <div style={{ position: 'relative' }}>
           <Calendar size={22} strokeWidth={activeTab === 'schedule' ? 2.5 : 1.8} />
-          {/* 스크린샷 중앙의 5/5 표시 */}
           <span style={{
             position: 'absolute',
             bottom: '-12px',
@@ -65,36 +64,36 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             whiteSpace: 'nowrap',
             border: '0.5px solid rgba(255, 255, 255, 0.2)'
           }}>
-            5/5
+            약정
           </span>
         </div>
-        <span style={{ marginTop: '2px' }}>근무일정</span>
+        <span style={{ marginTop: '2px' }}>투입계획</span>
       </button>
 
-      {/* 4. 출퇴근기록 */}
+      {/* 4. 투입이력 */}
       <button
         className={`nav-item ${activeTab === 'logs' ? 'active' : ''}`}
         onClick={() => onTabChange('logs')}
       >
         <Clock size={22} strokeWidth={activeTab === 'logs' ? 2.5 : 1.8} />
-        <span>출퇴근기록</span>
+        <span>투입이력</span>
       </button>
 
-      {/* 5. 휴가 */}
+      {/* 5. 도급정산 */}
       <button
         className={`nav-item ${activeTab === 'vacation' ? 'active' : ''}`}
         onClick={() => onTabChange('vacation')}
       >
-        <Plane size={22} strokeWidth={activeTab === 'vacation' ? 2.5 : 1.8} style={{ transform: 'rotate(-45deg)' }} />
-        <span>휴가</span>
+        <FileCheck2 size={22} strokeWidth={activeTab === 'vacation' ? 2.5 : 1.8} />
+        <span>도급정산</span>
       </button>
 
-      {/* 플로팅 QR 스캐너 버튼 (스크린샷 우측 하단 QR 아이콘) */}
+      {/* 플로팅 QR 스캐너 버튼 */}
       <button
         className="qr-floating-btn"
         onClick={onOpenQR}
-        aria-label="QR 근태 태깅"
-        title="QR 출퇴근 태깅"
+        aria-label="QR 투입 인증"
+        title="QR 도급 투입 인증"
       >
         <QrCode size={20} />
       </button>

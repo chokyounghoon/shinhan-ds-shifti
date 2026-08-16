@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, ChevronDown, Plane } from 'lucide-react';
+import { Calendar, ChevronDown, CheckCircle2 } from 'lucide-react';
 import { DaySchedule } from '../types';
 
 interface WeeklyScheduleCardProps {
@@ -16,12 +16,14 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
   return (
     <div className="week-schedule-card">
       <div className="week-header">
-        <div className="week-title">이번주 근무</div>
+        <div className="week-title" style={{ fontSize: '15px', fontWeight: 800 }}>
+          주간 도급 인력 투입 계획 (Man-Day)
+        </div>
 
         <div className="week-range-selector">
-          <Calendar size={15} color="#4E5968" />
+          <Calendar size={14} color="#4E5968" />
           <span>08.10 - 08.16</span>
-          <ChevronDown size={14} color="#6B7684" />
+          <ChevronDown size={13} color="#6B7684" />
         </div>
       </div>
 
@@ -40,20 +42,19 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
             >
               <div
                 className={`day-name ${isSat ? 'sat' : isToday ? 'today-red' : ''}`}
-                style={isToday ? { color: '#F04438' } : undefined}
+                style={isToday ? { color: '#0052FF', fontWeight: 800 } : undefined}
               >
                 {day.dayOfWeek}
               </div>
 
-              <div className="day-content">
-                <span>{day.title}</span>
+              <div className="day-content" style={{ fontSize: '11px' }}>
+                <span>{day.title === '체력단련휴.' || day.title === '연차' ? '약정휴무' : day.title}</span>
                 {day.isVacation && (
-                  <Plane
-                    size={12}
-                    className="airplane-icon"
+                  <CheckCircle2
+                    size={11}
                     style={{
-                      transform: 'rotate(-45deg)',
-                      color: themeMode === 'ddangyo' ? '#FF462D' : '#0066FF'
+                      color: '#0052FF',
+                      marginTop: '2px'
                     }}
                   />
                 )}

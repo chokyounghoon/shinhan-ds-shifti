@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Info, RotateCw, ChevronRight, Clock, ShieldCheck } from 'lucide-react';
+import { Info, RotateCw, ChevronRight, ShieldCheck, CheckCircle2, FileCheck } from 'lucide-react';
 import { WeeklyWorkStat } from '../types';
 
 interface CurrentStatusCardProps {
@@ -16,86 +16,117 @@ export const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
   themeMode
 }) => {
   const [isSpinning, setIsSpinning] = useState(false);
-  const [showQuickStat, setShowQuickStat] = useState(true);
 
   const handleRefresh = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsSpinning(true);
     setTimeout(() => {
       setIsSpinning(false);
-    }, 600);
+    }, 500);
   };
 
   return (
-    <div className="current-status-card">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div className="status-card-header">
-          <span>현재 근무 상황</span>
-          <button onClick={onOpenInfo} style={{ display: 'flex', alignItems: 'center' }}>
-            <Info size={16} color="#8B95A1" />
+    <div style={{
+      background: '#FFFFFF',
+      borderRadius: '16px',
+      padding: '16px 18px',
+      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.06)',
+      border: '1px solid #E5E8EB',
+      marginBottom: '12px'
+    }}>
+      {/* 헤더 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ fontSize: '15px', fontWeight: 800, color: '#191F28' }}>
+            도급 계약 이행 공수 현황
+          </span>
+          <button onClick={onOpenInfo} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex' }}>
+            <Info size={15} color="#8B95A1" />
           </button>
         </div>
 
         <button
-          className={`reload-spinner-btn ${isSpinning ? 'spinning' : ''}`}
           onClick={handleRefresh}
-          aria-label="근태 상황 새로고침"
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#8B95A1',
+            cursor: 'pointer',
+            padding: '2px',
+            transform: isSpinning ? 'rotate(360deg)' : 'none',
+            transition: 'transform 0.5s ease'
+          }}
+          aria-label="공수 현황 새로고침"
         >
-          <RotateCw size={19} strokeWidth={2.2} />
+          <RotateCw size={17} />
         </button>
       </div>
 
-      {/* 중앙 근무 상태 영역 */}
-      <div className="status-card-body">
-        <div style={{ width: '100%', textAlign: 'center' }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-around',
-            alignItems: 'center',
-            background: '#F8F9FA',
-            padding: '14px 10px',
-            borderRadius: '10px',
-            border: '1px solid #ECEFF2'
-          }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '11px', color: '#6B7684', fontWeight: 600, marginBottom: '2px' }}>
-                인정 근로시간
-              </div>
-              <div style={{ fontSize: '18px', fontWeight: 800, color: themeMode === 'ddangyo' ? '#FF462D' : '#0046FF' }}>
-                40<span style={{ fontSize: '13px', fontWeight: 600, color: '#4E5968' }}>시간</span>
-              </div>
-              <div style={{ fontSize: '10px', color: '#12B76A', fontWeight: 700, marginTop: '2px' }}>
-                ✓ 휴가 5일 완벽 반영
-              </div>
-            </div>
+      {/* 중앙: 도급 공수 달성 현황 (52시간/근태 용어 완전 배제) */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        background: '#F8FAFC',
+        padding: '14px 12px',
+        borderRadius: '12px',
+        border: '1px solid #E2E8F0',
+        gap: '8px'
+      }}>
+        {/* 지표 1: 누적 실투입 공수 */}
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, marginBottom: '2px' }}>
+            누적 실투입 공수
+          </div>
+          <div style={{ fontSize: '19px', fontWeight: 900, color: '#0052FF' }}>
+            40.0<span style={{ fontSize: '13px', fontWeight: 700, color: '#475569' }}>h</span>
+          </div>
+          <div style={{ fontSize: '10.5px', color: '#16A34A', fontWeight: 700, marginTop: '2px' }}>
+            ✓ 주간 약정 공수 100% 달성
+          </div>
+        </div>
 
-            <div style={{ width: '1px', height: '36px', background: '#E5E8EB' }} />
-
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '11px', color: '#6B7684', fontWeight: 600, marginBottom: '2px' }}>
-                주 52시간 잔여
-              </div>
-              <div style={{ fontSize: '18px', fontWeight: 800, color: '#191F28' }}>
-                12<span style={{ fontSize: '13px', fontWeight: 600, color: '#4E5968' }}>시간</span>
-              </div>
-              <div style={{ fontSize: '10px', color: '#6B7684', fontWeight: 600, marginTop: '2px' }}>
-                연장근무 0시간
-              </div>
-            </div>
+        {/* 지표 2: 도급비 정산 검수 상태 */}
+        <div style={{ textAlign: 'center', borderLeft: '1px solid #E2E8F0' }}>
+          <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, marginBottom: '2px' }}>
+            도급 검수 상태
+          </div>
+          <div style={{ fontSize: '15px', fontWeight: 800, color: '#0D9488', marginTop: '3px' }}>
+            협력사 1차 확인완료
+          </div>
+          <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, marginTop: '3px' }}>
+            도급 정산 정상 반영
           </div>
         </div>
       </div>
 
-      <div className="status-card-footer">
-        <div 
-          className={`view-detail-btn ${themeMode === 'ddangyo' ? 'ddangyo-color' : ''}`}
+      {/* 하단 법적 선언 고지 */}
+      <div style={{
+        marginTop: '10px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        fontSize: '11.5px',
+        color: '#64748B'
+      }}>
+        <span>※ 용역 완성물 및 공수(Man-Hour) 기준 정산</span>
+        <button
+          type="button"
           onClick={onOpenDetail}
-          role="button"
-          tabIndex={0}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#0052FF',
+            fontWeight: 700,
+            fontSize: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            cursor: 'pointer',
+            padding: 0
+          }}
         >
-          <span>자세히 보기</span>
+          <span>내역 보기</span>
           <ChevronRight size={14} />
-        </div>
+        </button>
       </div>
     </div>
   );

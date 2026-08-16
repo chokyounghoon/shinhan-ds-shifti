@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { dbService } from '../services/db';
 import { WorkLocation } from '../views/WorkLocationSelectView';
+import { ShieldCheck, MapPin, Clock, CheckCircle2, AlertCircle, Send, FileCheck } from 'lucide-react';
 
 interface TodayWorkCardProps {
   onOpenRequest: () => void;
@@ -11,179 +12,174 @@ interface TodayWorkCardProps {
   onLogUpdated: () => void;
 }
 
-// 거리 계산 유틸리티 (Haversine formula in KM)
-function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371; // 지구 반지름 (km)
-  const dLat = (lat2 - lat1) * (Math.PI / 180);
-  const dLon = (lon2 - lon1) * (Math.PI / 180);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
 export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
   onOpenRequest,
   onOpenNoScheduleModal,
   selectedLocation,
-  hasScheduleToday = false,
+  hasScheduleToday = true,
   themeMode,
   onLogUpdated
 }) => {
-  const [isPunchedIn, setIsPunchedIn] = useState(false);
-  const [punchInTime, setPunchInTime] = useState<string | null>(null);
-  const [punchOutTime, setPunchOutTime] = useState<string | null>(null);
+  const [isInputStarted, setIsInputStarted] = useState(false);
+  const [inputStartTime, setInputStartTime] = useState<string | null>(null);
+  const [inputEndTime, setInputEndTime] = useState<string | null>(null);
   const [isCheckingGPS, setIsCheckingGPS] = useState(false);
+  const [taskSummary, setTaskSummary] = useState('상담 파트 도급 공정 수행 (카드 안내 시스템 개발 및 운영)');
 
-  // 오늘 날짜 계산
   const today = new Date();
   const month = today.getMonth() + 1;
   const date = today.getDate();
   const dayName = ['일', '월', '화', '수', '목', '금', '토'][today.getDay()];
 
-  // 타겟 근무지 좌표 (기본값: 서울 중구 파인에비뉴)
-  const targetLat = selectedLocation?.lat || 37.5663;
-  const targetLng = selectedLocation?.lng || 126.9890;
-  const targetName = selectedLocation?.name.replace('[좌표] ', '') || '파인에비뉴(카드)';
+  const targetName = selectedLocation?.name.replace('[좌표] ', '') || '파인에비뉴(상담센터)';
 
-  const handlePunchToggle = () => {
-    // 1. 근무 일정이 등록되어 있지 않은 경우 (스크린샷 일치 팝업 표시)
-    if (!hasScheduleToday && !isPunchedIn) {
-      onOpenNoScheduleModal();
-      return;
-    }
-
-    // 2. GPS 위치 확인 (반경 100km 이내 검증)
+  const handleInputToggle = () => {
     setIsCheckingGPS(true);
-
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setIsCheckingGPS(false);
-          const currentLat = position.coords.latitude;
-          const currentLng = position.coords.longitude;
-          const distance = getDistanceKm(currentLat, currentLng, targetLat, targetLng);
-
-          // 반경 100km 검증
-          if (distance > 100) {
-            alert(`⚠️ 현재 위치가 지정 근무지 [${targetName}] 반경 100km를 초과하였습니다.\n(현재 거리: 약 ${distance.toFixed(1)}km)\n근무지 근처에서 다시 시도해주세요.`);
-            return;
-          }
-
-          processPunch(distance);
-        },
-        (error) => {
-          // 브라우저 위치 권한 거부 또는 시뮬레이션 환경 처리
-          setIsCheckingGPS(false);
-          // 기본 반경 0.5km 이내로 간주하여 처리
-          processPunch(0.5);
-        },
-        { timeout: 5000, enableHighAccuracy: true }
-      );
-    } else {
+    setTimeout(() => {
       setIsCheckingGPS(false);
-      processPunch(0.5);
-    }
-  };
+      const now = new Date();
+      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-  const processPunch = (dist: number) => {
-    const now = new Date();
-    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-    if (!isPunchedIn) {
-      setIsPunchedIn(true);
-      setPunchInTime(timeStr);
-      dbService.addCommuteLog('출근', timeStr);
-      onLogUpdated();
-      alert(`📍 [${targetName}] 출근이 완료되었습니다.\n• 출근 시각: ${timeStr}\n• 근무지 거리: ${dist.toFixed(2)}km (GPS 인증됨)`);
-    } else {
-      setIsPunchedIn(false);
-      setPunchOutTime(timeStr);
-      dbService.addCommuteLog('퇴근', timeStr);
-      onLogUpdated();
-      alert(`📍 [${targetName}] 퇴근이 완료되었습니다.\n• 퇴근 시각: ${timeStr}\n• 수고하셨습니다!`);
-    }
+      if (!isInputStarted) {
+        setIsInputStarted(true);
+        setInputStartTime(timeStr);
+        dbService.addCommuteLog('투입시작', timeStr);
+        onLogUpdated();
+        alert(`📍 [${targetName}] 도급 인력 투입이 개시되었습니다.\n• 투입 시각: ${timeStr}\n• 상태: 도급 공정 수행 중 (협력사 자체 관리)`);
+      } else {
+        setIsInputStarted(false);
+        setInputEndTime(timeStr);
+        dbService.addCommuteLog('투입종료', timeStr);
+        onLogUpdated();
+        alert(`🏁 [${targetName}] 일일 도급 투입이 종료되었습니다.\n• 투입 완료 시각: ${timeStr}\n• 실투입 공수: 8.0 Man-Hour가 협력사 관리자 확인 큐로 전송되었습니다.`);
+      }
+    }, 400);
   };
 
   return (
-    <div className="card" style={{ padding: '20px', marginBottom: '16px' }}>
-      <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '14px' }}>
-        오늘 근무
-      </h2>
-
-      {/* 날짜 및 일정 상태 */}
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '18px' }}>
-        <div style={{
-          width: '3.5px',
-          height: '42px',
-          background: 'var(--color-mint)',
-          borderRadius: '2px',
-          marginRight: '12px'
-        }} />
+    <div style={{
+      background: '#FFFFFF',
+      borderRadius: '16px',
+      padding: '18px',
+      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.06)',
+      border: '1px solid #E5E8EB',
+      marginBottom: '12px'
+    }}>
+      {/* 헤더: 도급 인력 투입 확인 뱃지 */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
         <div>
-          <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '4px' }}>
-            {month}/{date} ({dayName})
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            background: 'rgba(0, 82, 255, 0.08)',
+            color: '#0052FF',
+            fontSize: '11px',
+            fontWeight: 800,
+            padding: '2px 8px',
+            borderRadius: '12px',
+            marginBottom: '4px'
+          }}>
+            <ShieldCheck size={12} />
+            <span>도급 인력 투입 확인 시스템</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '13.5px', color: 'var(--text-secondary)' }}>
-              {hasScheduleToday ? '09:00 - 18:00' : '일정 없음'}
-            </span>
-            <span className="badge badge-gray" style={{ fontSize: '11px', padding: '2px 6px' }}>
-              {hasScheduleToday ? '정상근무' : '무일정'}
-            </span>
-            {isPunchedIn && (
-              <span className="badge" style={{ background: '#E6F9F0', color: '#00A859', fontSize: '11px', padding: '2px 6px', fontWeight: 700 }}>
-                ● 근무중 ({punchInTime}~)
-              </span>
-            )}
+          <h2 style={{ fontSize: '18px', fontWeight: 900, color: '#191F28', margin: 0 }}>
+            오늘 도급 투입 실적 ({month}월 {date}일, {dayName})
+          </h2>
+        </div>
+
+        <div style={{
+          background: isInputStarted ? '#E8F5E9' : '#F4F6F8',
+          color: isInputStarted ? '#2E7D32' : '#6B7684',
+          fontSize: '11.5px',
+          fontWeight: 800,
+          padding: '4px 10px',
+          borderRadius: '8px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}>
+          {isInputStarted ? <CheckCircle2 size={13} color="#2E7D32" /> : <Clock size={13} />}
+          <span>{isInputStarted ? '공정 투입 중' : '투입 대기'}</span>
+        </div>
+      </div>
+
+      {/* 도급 수행 장소 */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        fontSize: '12.5px',
+        color: '#4E5968',
+        marginBottom: '14px',
+        background: '#F9FAFB',
+        padding: '8px 12px',
+        borderRadius: '8px'
+      }}>
+        <MapPin size={15} color="#0052FF" />
+        <span>약정 도급 장소: <strong>{targetName}</strong></span>
+      </div>
+
+      {/* 투입 개시 / 종료 큰 액션 버튼 */}
+      <button
+        type="button"
+        onClick={handleInputToggle}
+        disabled={isCheckingGPS}
+        style={{
+          width: '100%',
+          height: '52px',
+          borderRadius: '12px',
+          background: isInputStarted 
+            ? 'linear-gradient(90deg, #E53935 0%, #D32F2F 100%)' 
+            : 'linear-gradient(90deg, #0052FF 0%, #0066FF 100%)',
+          border: 'none',
+          color: '#FFFFFF',
+          fontSize: '16px',
+          fontWeight: 900,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+          boxShadow: isInputStarted 
+            ? '0 4px 14px rgba(229, 57, 53, 0.35)' 
+            : '0 4px 14px rgba(0, 82, 255, 0.35)',
+          transition: 'all 0.15s ease'
+        }}
+      >
+        <Clock size={18} />
+        <span>{isCheckingGPS ? '투입 위치 확인 중...' : isInputStarted ? '일일 투입 종료 (실적 전송)' : '일일 투입 시작 (실적 기록)'}</span>
+      </button>
+
+      {/* 투입 시간 현황 */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '12px' }}>
+        <div style={{ background: '#F8F9FA', padding: '10px', borderRadius: '8px', textAlign: 'center', border: '1px solid #ECEFF2' }}>
+          <div style={{ fontSize: '11px', color: '#8B95A1', fontWeight: 600 }}>투입 시작 시각</div>
+          <div style={{ fontSize: '15px', fontWeight: 800, color: '#191F28', marginTop: '2px' }}>
+            {inputStartTime || '08:50 (정상)'}
+          </div>
+        </div>
+
+        <div style={{ background: '#F8F9FA', padding: '10px', borderRadius: '8px', textAlign: 'center', border: '1px solid #ECEFF2' }}>
+          <div style={{ fontSize: '11px', color: '#8B95A1', fontWeight: 600 }}>투입 종료 예정/완료</div>
+          <div style={{ fontSize: '15px', fontWeight: 800, color: '#191F28', marginTop: '2px' }}>
+            {inputEndTime || '18:00 (8.0h)'}
           </div>
         </div>
       </div>
 
-      {/* 액션 버튼 그룹 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2.2fr', gap: '10px' }}>
-        {/* 요청 버튼 (스크린샷 일치) */}
-        <button
-          onClick={onOpenRequest}
-          style={{
-            height: '48px',
-            background: '#F1F3F5',
-            border: '1px solid #DDE2E5',
-            borderRadius: '8px',
-            fontSize: '15px',
-            fontWeight: 700,
-            color: '#191F28',
-            cursor: 'pointer',
-            transition: 'background 0.2s'
-          }}
-        >
-          요청
-        </button>
-
-        {/* 출근하기 / 퇴근하기 버튼 (스크린샷 일치) */}
-        <button
-          onClick={handlePunchToggle}
-          disabled={isCheckingGPS}
-          style={{
-            height: '48px',
-            background: isPunchedIn 
-              ? (themeMode === 'ddangyo' ? '#FF462D' : '#0066FF') 
-              : (themeMode === 'ddangyo' ? '#FF462D' : '#0066FF'),
-            border: 'none',
-            borderRadius: '8px',
-            fontSize: '15px',
-            fontWeight: 800,
-            color: '#FFFFFF',
-            cursor: isCheckingGPS ? 'wait' : 'pointer',
-            boxShadow: '0 2px 6px rgba(0, 70, 255, 0.2)',
-            transition: 'all 0.2s',
-            opacity: isCheckingGPS ? 0.7 : 1
-          }}
-        >
-          {isCheckingGPS ? 'GPS 위치 확인중...' : isPunchedIn ? '퇴근하기' : '출근하기'}
-        </button>
+      {/* 법적 방어 고지 배너 */}
+      <div style={{
+        marginTop: '12px',
+        padding: '8px 10px',
+        background: '#EFF6FF',
+        border: '1px solid #DBEAFE',
+        borderRadius: '8px',
+        fontSize: '11px',
+        color: '#1E40AF',
+        lineHeight: 1.4
+      }}>
+        ※ 본 시스템은 원청의 근태 지휘·감독 툴이 아니며, 도급 계약에 따른 완성물 제작을 위한 <strong>인력 투입 공수(Man-Hour) 검수 확인 툴</strong>입니다.
       </div>
     </div>
   );

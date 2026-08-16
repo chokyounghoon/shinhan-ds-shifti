@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Info, RotateCw } from 'lucide-react';
+import { ArrowLeft, Info, RotateCw, ShieldCheck } from 'lucide-react';
 
 interface CurrentWorkStatusDetailViewProps {
   onBack: () => void;
@@ -25,18 +25,17 @@ export const CurrentWorkStatusDetailView: React.FC<CurrentWorkStatusDetailViewPr
   };
 
   const statusItems = [
-    { label: '근무중', count: '-', color: '#2AC769' },
-    { label: '무일정', count: '-', color: '#70B6F6' },
-    { label: '간주근로', count: '-', color: '#0F9F90' },
-    { label: '휴게', count: '-', color: '#FAB005' },
-    { label: '조퇴', count: '-', color: '#9AA5B1' },
-    { label: '지각', count: '-', color: '#E8590C' },
-    { label: '휴가', count: '-', color: '#A855F7' },
+    { label: '공정투입중', count: '1명', color: '#2AC769' },
+    { label: '약정투입', count: '8.0h', color: '#70B6F6' },
+    { label: '실적확인', count: '완료', color: '#0F9F90' },
+    { label: '편차발생', count: '0건', color: '#FAB005' },
+    { label: '소명대기', count: '0건', color: '#E8590C' },
+    { label: '약정휴무', count: '0건', color: '#A855F7' },
   ];
 
   return (
     <div style={{ background: '#FFFFFF', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* 1. 상단 헤더 (← 현재 근무 상황 | ⓘ) */}
+      {/* 1. 상단 헤더 */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -46,79 +45,87 @@ export const CurrentWorkStatusDetailView: React.FC<CurrentWorkStatusDetailViewPr
         background: '#FFFFFF'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <button onClick={onBack} style={{ color: '#191F28', display: 'flex', alignItems: 'center' }}>
+          <button onClick={onBack} style={{ color: '#191F28', display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer' }}>
             <ArrowLeft size={24} />
           </button>
-          <span style={{ fontSize: '18px', fontWeight: 800, color: '#191F28' }}>현재 근무 상황</span>
+          <span style={{ fontSize: '18px', fontWeight: 800, color: '#191F28' }}>도급 인력 투입 공수 상세</span>
         </div>
 
         <button 
-          onClick={() => alert('근무 상황 기준: 실시간 GPS 태깅 및 출퇴근 기록을 기반으로 자동 집계됩니다.')}
-          style={{ color: '#4E5968', display: 'flex', alignItems: 'center', padding: '4px' }}
+          onClick={() => alert('도급 투입 기준: 원·하청 도급 계약서 제5조에 따른 일일 투입 공수(Man-Hour)를 확인 및 정산합니다.')}
+          style={{ color: '#4E5968', display: 'flex', alignItems: 'center', padding: '4px', background: 'none', border: 'none', cursor: 'pointer' }}
         >
           <Info size={22} />
         </button>
       </div>
 
-      {/* 2. 마지막 업데이트 시간 및 새로고침 버튼 (스크린샷 일치) */}
+      {/* 2. 최종 집계 시간 & 새로고침 */}
       <div style={{
         display: 'flex',
         justifyContent: 'flex-end',
         alignItems: 'center',
-        padding: '14px 18px 8px 18px',
-        gap: '6px'
+        padding: '12px 18px 6px 18px',
+        gap: '6px',
+        fontSize: '12px',
+        color: '#6B7684'
       }}>
-        <span style={{ fontSize: '13px', color: '#6B7684', fontWeight: 500 }}>
-          마지막 업데이트 {lastUpdateTime}
-        </span>
-        <button 
+        <span>실적 집계 기준: {lastUpdateTime}</span>
+        <button
           onClick={handleRefresh}
           style={{
-            color: '#4E5968',
-            display: 'flex',
-            alignItems: 'center',
+            background: 'none',
+            border: 'none',
+            color: '#6B7684',
+            cursor: 'pointer',
+            padding: '2px',
             transform: isRotating ? 'rotate(360deg)' : 'none',
-            transition: 'transform 0.4s ease'
+            transition: 'transform 0.4s ease',
+            display: 'flex'
           }}
         >
-          <RotateCw size={15} />
+          <RotateCw size={14} />
         </button>
       </div>
 
-      {/* 3. 7가지 근무 상태 그리드 (스크린샷 100% 일치) */}
+      {/* 3. 상태 그리드 */}
       <div style={{
+        padding: '10px 18px',
         display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        rowGap: '20px',
-        columnGap: '6px',
-        padding: '12px 18px 24px 18px'
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: '12px'
       }}>
-        {statusItems.map((item, index) => (
-          <div key={index} style={{ display: 'flex', flexDirection: 'column' }}>
-            {/* 컬러 도트 + 라벨 */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-              <div style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                background: item.color,
-                flexShrink: 0
-              }} />
-              <span style={{ fontSize: '13px', fontWeight: 700, color: '#191F28' }}>
-                {item.label}
-              </span>
+        {statusItems.map((item, idx) => (
+          <div key={idx} style={{
+            background: '#F8FAFC',
+            border: '1px solid #E2E8F0',
+            borderRadius: '12px',
+            padding: '14px 10px',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, marginBottom: '4px' }}>
+              {item.label}
             </div>
-
-            {/* 인원 카운트 */}
-            <div style={{ fontSize: '14px', fontWeight: 600, color: '#6B7684', paddingLeft: '14px' }}>
+            <div style={{ fontSize: '18px', fontWeight: 900, color: item.color }}>
               {item.count}
             </div>
           </div>
         ))}
       </div>
 
-      {/* 4. 본문 영역 (스크린샷 일치하는 깔끔한 빈 상태) */}
-      <div style={{ flex: 1, background: '#F8F9FA', borderTop: '1px solid #ECEFF2' }} />
+      {/* 4. 법적 고지 박스 */}
+      <div style={{
+        margin: '16px 18px',
+        padding: '12px 14px',
+        background: '#EFF6FF',
+        border: '1px solid #DBEAFE',
+        borderRadius: '10px',
+        fontSize: '11.5px',
+        color: '#1E40AF',
+        lineHeight: 1.5
+      }}>
+        <div style={{ fontWeight: 800, marginBottom: '2px' }}>[도급 계약 이행 확인 지침]</div>
+        본 시스템은 개별 근로자의 인사 노무 및 근태 관리를 행하지 않으며, 협력사가 자체 관리하여 전송한 일일 완성물 제작 공수(Man-Hour)를 도급 정산에 반영하기 위한 실적 확인 툴입니다.
+      </div>
     </div>
   );
 };
