@@ -603,11 +603,34 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                 <Mail size={16} color="#00E5FF" />
                 <span>{maskedEmail}</span>
               </div>
-              <p style={{ fontSize: '12px', color: '#90A4AE', margin: 0 }}>
-                위 퍼블릭 메일로 발송된 6자리 인증번호를 입력해 주세요.
-              </p>
-              <div style={{ fontSize: '11.5px', color: '#00E5FF', marginTop: '4px', fontWeight: 800, background: 'rgba(0, 229, 255, 0.1)', padding: '4px 10px', borderRadius: '6px' }}>
-                실제 DB 발송 인증번호: <span style={{ letterSpacing: '2px', textDecoration: 'underline' }}>{generatedOtp}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setOtp(generatedOtp);
+                }}
+                style={{
+                  fontSize: '12px',
+                  color: '#00E5FF',
+                  marginTop: '6px',
+                  fontWeight: 800,
+                  background: 'rgba(0, 229, 255, 0.15)',
+                  border: '1px solid rgba(0, 229, 255, 0.4)',
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>⚡ 실제 발송 인증번호:</span>
+                <span style={{ letterSpacing: '3px', textDecoration: 'underline', color: '#FFFFFF', fontSize: '13px' }}>{generatedOtp}</span>
+                <span style={{ fontSize: '11px', color: '#80D8FF', fontWeight: 600 }}>(클릭 시 자동입력)</span>
+              </button>
+
+              <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
+                ※ 로컬 브라우저 환경에서는 외부 SMTP 메일 전송 대신 위 발급 번호가 생성됩니다.
               </div>
             </div>
 
