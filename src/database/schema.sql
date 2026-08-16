@@ -1,110 +1,175 @@
 -- ============================================================
--- Shinhan DS 도급 인력 투입 및 공정 검수 시스템 (Contract Fulfillment DB)
--- Target DB: Cloudflare D1 (SQLite compatible) / PostgreSQL
+-- S-GUARD AI & SHINHAN DS 도급 인력 투입 및 공정 검수 통합 DB DDL
+-- Target DB : Cloudflare D1 / SQLite 3 Compatible
+-- Reference: /Users/khcho/work_antigravity/s_guard_AI/workers/sms-api/schema.sql
 -- ============================================================
 
--- 1. 사용자 마스터 (임직원 & 협력사 투입 인력)
-CREATE TABLE IF NOT EXISTS TB_USER_MST (
-  EMP_ID          TEXT    PRIMARY KEY,          -- 사번 (e.g. S18121020)
-  USER_NM         TEXT    NOT NULL,             -- 성명
-  PASSWORD_HASH   TEXT    NOT NULL,             -- 비밀번호 해시
-  COMPANY_NM      TEXT    NOT NULL,             -- 소속사 ((주)신한DS, 유브갓, (주)협력아이티에스)
-  TEAM_NM         TEXT    NOT NULL,             -- 팀명 (카드개발팀, 상담운영팀, 은행운영팀)
-  PART_NM         TEXT    NOT NULL,             -- 파트명 (상담, 오토, 재무, 카드IS)
-  POSITION_CD     TEXT    NOT NULL,             -- 직책 (사원, 대리, 과장, 차장, 부장, 이사, 대표이사)
-  EMAIL_ADDR      TEXT    NOT NULL,             -- OTP 인증용 퍼블릭 이메일 (구글, 네이버 등)
-  PHONE_NO        TEXT    NOT NULL,             -- 휴대전화번호
-  ROLE_CD         TEXT    NOT NULL,             -- 역할 (DS_PRINCIPAL_PM, PARTNER_PART_LEADER, PARTNER_WORKER)
-  DEVICE_TYPE     TEXT    NOT NULL DEFAULT 'Android', -- 기종 (Android / iOS)
-  USE_YN          TEXT    NOT NULL DEFAULT 'Y' CHECK (USE_YN IN ('Y','N')),
-  REG_DT          TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
-  MOD_DT          TEXT
+-- 1. 조직 체계 마스터 (Organizations)
+CREATE TABLE IF NOT EXISTS organizations (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT NOT NULL,                         -- 조직명 (e.g. 카드개발팀, 상담운영부, 상담, 오토, 재무)
+    code        TEXT UNIQUE NOT NULL,                  -- 조직 코드 (e.g. ORG_COUNSEL_PART, ORG_AUTO_PART)
+    parent_id   INTEGER,                               -- 상위 조직 ID (팀 -> 파트)
+    depth       INTEGER DEFAULT 1,                     -- 깊이 (1: 본부/팀, 2: 파트)
+    sort_order  INTEGER DEFAULT 0,
+    reg_id      TEXT DEFAULT 'SYSTEM',
+    reg_dt      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    mod_id      TEXT DEFAULT 'SYSTEM',
+    mod_dt      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(parent_id) REFERENCES organizations(id) ON DELETE SET NULL
 );
-CREATE INDEX IF NOT EXISTS IDX_USER_PART ON TB_USER_MST(PART_NM);
-CREATE INDEX IF NOT EXISTS IDX_USER_ROLE ON TB_USER_MST(ROLE_CD);
+CREATE INDEX IF NOT EXISTS idx_org_parent ON organizations(parent_id);
 
--- 2. OTP 인증 발송 및 검증 이력 테이블 (실제 DB 관리)
-CREATE TABLE IF NOT EXISTS TB_AUTH_OTP_LOG (
-  OTP_ID          INTEGER PRIMARY KEY AUTOINCREMENT,
-  EMP_ID          TEXT    NOT NULL REFERENCES TB_USER_MST(EMP_ID),
-  OTP_CODE        TEXT    NOT NULL,             -- 6자리 생성 OTP 번호
-  EMAIL_ADDR      TEXT    NOT NULL,             -- 수신 퍼블릭 메일 주소
-  EXPIRE_DT       TEXT    NOT NULL,             -- 만료 일시 (발송 + 3분)
-  IS_VERIFIED     TEXT    NOT NULL DEFAULT 'N' CHECK (IS_VERIFIED IN ('Y','N')),
-  VERIFIED_DT     TEXT,                         -- 검증 완료 일시
-  ATTEMPT_COUNT   INTEGER NOT NULL DEFAULT 0,   -- 검증 시도 횟수
-  REG_DT          TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+-- 2. 사용자 마스터 (Users - s_guard_AI 완벽 호환)
+CREATE TABLE IF NOT EXISTS users (
+    employee_id     TEXT PRIMARY KEY,                  -- 사번 (e.g. S18121020, S20240012, S20260031)
+    email           TEXT UNIQUE NOT NULL,              -- OTP 인증용 퍼블릭 이메일 (구글, 네이버 등)
+    name            TEXT NOT NULL,                     -- 성명
+    password_hash   TEXT,                              -- 비밀번호 해시
+    role            TEXT DEFAULT 'PARTNER_WORKER',     -- DS_PRINCIPAL_PM / PARTNER_PART_LEADER / PARTNER_WORKER
+    auth_provider   TEXT DEFAULT 'local',
+    company         TEXT NOT NULL,                     -- 소속사 ((주)신한DS, 유브갓, 오토시스, 파이낸스ITS)
+    phone           TEXT NOT NULL,                     -- 휴대전화번호
+    team            TEXT NOT NULL,                     -- 팀명 (카드개발팀, 상담운영팀, 은행운영팀)
+    part            TEXT NOT NULL,                     -- 파트명 (상담, 오토, 재무, 카드IS)
+    position        TEXT DEFAULT '사원',               -- 직책 (사원, 대리, 과장, 차장, 부장, 이사, 대표이사)
+    token           TEXT,
+    status          TEXT DEFAULT 'ACTIVE' CHECK (status IN ('PRE_REGISTERED', 'ACTIVE', 'SUSPENDED')),
+    failed_attempts INTEGER DEFAULT 0,
+    last_login_at   DATETIME,
+    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    is_active       BOOLEAN DEFAULT 1,
+    is_admin        INTEGER DEFAULT 0,
+    device_type     TEXT DEFAULT 'Android',            -- Android / iOS
+    reg_id          TEXT DEFAULT 'SYSTEM',
+    reg_dt          DATETIME DEFAULT CURRENT_TIMESTAMP,
+    mod_id          TEXT DEFAULT 'SYSTEM',
+    mod_dt          DATETIME DEFAULT CURRENT_TIMESTAMP,
+    profile_picture TEXT
 );
-CREATE INDEX IF NOT EXISTS IDX_OTP_EMP ON TB_AUTH_OTP_LOG(EMP_ID, IS_VERIFIED);
+CREATE INDEX IF NOT EXISTS idx_users_part ON users(part);
+CREATE INDEX IF NOT EXISTS idx_users_company ON users(company);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
--- 3. 일일 도급 인력 투입 및 공수 정산 테이블
-CREATE TABLE IF NOT EXISTS TB_MANPOWER_INPUT_LOG (
-  RECORD_ID            TEXT    PRIMARY KEY,     -- 레코드 ID (e.g. REC-20260816-001)
-  WORKER_EMP_ID        TEXT    NOT NULL REFERENCES TB_USER_MST(EMP_ID),
-  WORKER_NM            TEXT    NOT NULL,
-  PART_NM              TEXT    NOT NULL,        -- 담당 파트 (상담, 오토, 재무)
-  PARTNER_COMPANY      TEXT    NOT NULL,        -- 협력사명 (유브갓 등)
-  WORK_DT              TEXT    NOT NULL,        -- 투입 일자 (YYYY-MM-DD)
-  CONTRACTED_HOURS     REAL    NOT NULL DEFAULT 8.0, -- 약정 공수 (시간)
-  ACTUAL_INPUT_HOURS   REAL    NOT NULL,        -- 실 투입 공수 (시간)
-  CLOCK_IN_TM          TEXT    NOT NULL,        -- 출근 투입 시각 (HH:mm)
-  CLOCK_OUT_TM         TEXT    NOT NULL,        -- 퇴근 투입 시각 (HH:mm)
-  TASK_SUMMARY         TEXT    NOT NULL,        -- 작업 수행 내역
-  VARIANCE_MINUTES     INTEGER NOT NULL DEFAULT 0, -- 투입 편차 (분)
-  IS_SLA_BREACH        TEXT    NOT NULL DEFAULT 'N' CHECK (IS_SLA_BREACH IN ('Y','N')),
-  GAP_REASON           TEXT,                    -- 공백 사유
-  PARTNER_CLARIFICATION TEXT,                   -- 협력사 1차 소명 내용
-  VERIFICATION_STATUS  TEXT    NOT NULL DEFAULT 'UNVERIFIED', -- UNVERIFIED / PARTNER_CONFIRMED / SETTLED / VARIANCE_GAP
-  REG_DT               TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
-  MOD_DT               TEXT
+-- 3. OTP 인증 및 발송 이력 (OTP Verifications - s_guard_AI 호환)
+CREATE TABLE IF NOT EXISTS otp_verifications (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee_id     TEXT NOT NULL,
+    email           TEXT NOT NULL,
+    otp_code        TEXT NOT NULL,                     -- 6자리 암호학적 생성 난수
+    expires_at      DATETIME NOT NULL,                 -- 만료 일시 (3분)
+    is_verified     BOOLEAN DEFAULT 0,                 -- 검증 완료 여부
+    verified_at     DATETIME,
+    attempts        INTEGER DEFAULT 0,
+    ip_address      TEXT DEFAULT '127.0.0.1',
+    user_agent      TEXT,
+    reg_id          TEXT DEFAULT 'SYSTEM',
+    reg_dt          DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(employee_id) REFERENCES users(employee_id) ON DELETE CASCADE
 );
-CREATE INDEX IF NOT EXISTS IDX_MANPOWER_PART_DT ON TB_MANPOWER_INPUT_LOG(PART_NM, WORK_DT);
-CREATE INDEX IF NOT EXISTS IDX_MANPOWER_STATUS  ON TB_MANPOWER_INPUT_LOG(VERIFICATION_STATUS);
+CREATE INDEX IF NOT EXISTS idx_otp_emp ON otp_verifications(employee_id, is_verified);
 
--- 4. 검수 및 정산 확정 감사 이력 (Audit Trail)
-CREATE TABLE IF NOT EXISTS TB_AUDIT_TRAIL_LOG (
-  LOG_ID          INTEGER PRIMARY KEY AUTOINCREMENT,
-  RECORD_ID       TEXT    NOT NULL REFERENCES TB_MANPOWER_INPUT_LOG(RECORD_ID),
-  ACTOR_EMP_ID    TEXT    NOT NULL,
-  ACTOR_NM        TEXT    NOT NULL,
-  ACTOR_ROLE      TEXT    NOT NULL,
-  ACTION_TYPE     TEXT    NOT NULL,             -- 투입등록 / 1차사실확인 / 정산확정 / 소명요구
-  DETAILS         TEXT    NOT NULL,
-  REG_DT          TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+-- 4. 로그인 접속 이력 (Login History - s_guard_AI 호환)
+CREATE TABLE IF NOT EXISTS login_history (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         TEXT NOT NULL,
+    email           TEXT,
+    ip_address      TEXT,
+    user_agent      TEXT,
+    status          TEXT NOT NULL,                     -- SUCCESS / FAILED
+    login_time      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    reg_id          TEXT DEFAULT 'SYSTEM',
+    reg_dt          DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(user_id) REFERENCES users(employee_id) ON DELETE CASCADE
 );
-CREATE INDEX IF NOT EXISTS IDX_AUDIT_RECORD ON TB_AUDIT_TRAIL_LOG(RECORD_ID);
+CREATE INDEX IF NOT EXISTS idx_login_hist_user ON login_history(user_id, login_time DESC);
 
--- 5. 협력업체 개선 요청 및 소명 요구 공문 테이블
-CREATE TABLE IF NOT EXISTS TB_SLA_CLARIFICATION_REQ (
-  REQ_ID          INTEGER PRIMARY KEY AUTOINCREMENT,
-  RECORD_ID       TEXT    NOT NULL REFERENCES TB_MANPOWER_INPUT_LOG(RECORD_ID),
-  PART_NM         TEXT    NOT NULL,
-  PARTNER_COMPANY TEXT    NOT NULL,
-  REQUESTER_EMP_ID TEXT   NOT NULL,
-  OFFICIAL_TITLE  TEXT    NOT NULL,
-  MESSAGE_CONTENT TEXT    NOT NULL,
-  STATUS          TEXT    NOT NULL DEFAULT 'REQUESTED', -- REQUESTED / ANSWERED / ACCEPTED
-  ANSWER_CONTENT  TEXT,
-  REG_DT          TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
-  MOD_DT          TEXT
+-- 5. 일일 도급 인력 투입 및 공수 정산 테이블 (Manpower Inputs)
+CREATE TABLE IF NOT EXISTS manpower_inputs (
+    record_id             TEXT PRIMARY KEY,            -- 레코드 ID (e.g. REC-COUNSEL-01)
+    employee_id           TEXT NOT NULL,               -- 근로자 사번
+    worker_name           TEXT NOT NULL,               -- 근로자 성명
+    part_name             TEXT NOT NULL,               -- 담당 파트 (상담, 오토, 재무)
+    partner_company       TEXT NOT NULL,               -- 협력사명 (유브갓 등)
+    work_date             TEXT NOT NULL,               -- 투입 일자 (YYYY-MM-DD)
+    contracted_hours      REAL NOT NULL DEFAULT 8.0,   -- 약정 공수 (8.0h)
+    actual_input_hours    REAL NOT NULL,               -- 실 투입 공수 (8.0h, 7.15h 등)
+    clock_in_time         TEXT NOT NULL,               -- 출근 투입 시각 (HH:mm)
+    clock_out_time        TEXT NOT NULL,               -- 퇴근 투입 시각 (HH:mm)
+    task_summary          TEXT NOT NULL,               -- 작업 수행 내역
+    variance_minutes      INTEGER NOT NULL DEFAULT 0,  -- 투입 편차 (분)
+    is_sla_breach         BOOLEAN DEFAULT 0,           -- 투입 공백 발생 여부 (0/1)
+    gap_reason            TEXT,                        -- 공백 사유
+    partner_clarification TEXT,                        -- 협력사 1차 소명 내용
+    verification_status   TEXT NOT NULL DEFAULT 'UNVERIFIED' CHECK (verification_status IN ('UNVERIFIED', 'PARTNER_CONFIRMED', 'SETTLED', 'VARIANCE_GAP')),
+    reg_id                TEXT DEFAULT 'SYSTEM',
+    reg_dt                DATETIME DEFAULT CURRENT_TIMESTAMP,
+    mod_id                TEXT DEFAULT 'SYSTEM',
+    mod_dt                DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(employee_id) REFERENCES users(employee_id)
+);
+CREATE INDEX IF NOT EXISTS idx_manpower_part_dt ON manpower_inputs(part_name, work_date);
+CREATE INDEX IF NOT EXISTS idx_manpower_status ON manpower_inputs(verification_status);
+
+-- 6. 검수 및 정산 감사 이력 테이블 (Audit Trails - s_guard_AI 호환)
+CREATE TABLE IF NOT EXISTS audit_trails (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    record_id       TEXT NOT NULL,
+    actor_id        TEXT NOT NULL,
+    actor_name      TEXT NOT NULL,
+    actor_role      TEXT NOT NULL,                     -- 신한DS 현장관리인(PM) / 협력업체 관리자 / 작업자
+    action          TEXT NOT NULL,                     -- 1차 사실확인 / 정산확정 / 소명요구 등
+    details         TEXT NOT NULL,
+    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    reg_id          TEXT DEFAULT 'SYSTEM',
+    reg_dt          DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(record_id) REFERENCES manpower_inputs(record_id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_audit_record ON audit_trails(record_id);
+
+-- 7. SLA 개선 요청 및 소명 요구 공문 테이블 (SLA Clarifications)
+CREATE TABLE IF NOT EXISTS sla_clarifications (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    record_id       TEXT NOT NULL,
+    part_name       TEXT NOT NULL,
+    partner_company TEXT NOT NULL,
+    requester_id    TEXT NOT NULL,
+    official_title  TEXT NOT NULL,
+    message_content TEXT NOT NULL,
+    status          TEXT NOT NULL DEFAULT 'REQUESTED' CHECK (status IN ('REQUESTED', 'ANSWERED', 'ACCEPTED')),
+    answer_content  TEXT,
+    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    reg_id          TEXT DEFAULT 'SYSTEM',
+    reg_dt          DATETIME DEFAULT CURRENT_TIMESTAMP,
+    mod_id          TEXT DEFAULT 'SYSTEM',
+    mod_dt          DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(record_id) REFERENCES manpower_inputs(record_id) ON DELETE CASCADE
 );
 
 -- ============================================================
--- 초기 데이터 적재 (Master & Initial Records)
+-- 초기 마스터 시드 데이터 (Organizations & Users)
 -- ============================================================
 
-INSERT OR REPLACE INTO TB_USER_MST
-  (EMP_ID, USER_NM, PASSWORD_HASH, COMPANY_NM, TEAM_NM, PART_NM, POSITION_CD, EMAIL_ADDR, PHONE_NO, ROLE_CD)
-VALUES
-  ('S18121020', '조경훈', 'hashed_pw_admin', '(주)신한DS', '상담전담팀', '상담', '과장', 'khcho.pm@gmail.com', '010-9988-7766', 'DS_PRINCIPAL_PM'),
-  ('S20240012', '유관리', 'hashed_pw_partner', '유브갓', '상담운영부', '상담', '차장', 'kim.partner@naver.com', '010-1234-5678', 'PARTNER_PART_LEADER'),
-  ('S20260031', '송무준', 'hashed_pw_worker', '유브갓', '상담운영 1팀', '상담', '사원', 'worker.song@gmail.com', '010-4321-8765', 'PARTNER_WORKER'),
-  ('S20260032', '배경보', 'hashed_pw_worker', '유브갓', '상담운영 1팀', '상담', '대리', 'bae.gb@gmail.com', '010-2222-3333', 'PARTNER_WORKER'),
-  ('S20260033', '이재연', 'hashed_pw_worker', '유브갓', '상담운영 1팀', '상담', '사원', 'lee.jy@naver.com', '010-3333-4444', 'PARTNER_WORKER'),
-  ('S20260034', '김성훈', 'hashed_pw_worker', '유브갓', '상담운영 1팀', '상담', '대리', 'kim.sh@gmail.com', '010-4444-5555', 'PARTNER_WORKER'),
-  ('S20260035', '이제성', 'hashed_pw_worker', '유브갓', '상담운영 1팀', '상담', '과장', 'lee.js@naver.com', '010-5555-6666', 'PARTNER_WORKER'),
-  ('S20260036', '김흥섭', 'hashed_pw_worker', '유브갓', '상담운영 1팀', '상담', '대리', 'kim.hs@gmail.com', '010-6666-7777', 'PARTNER_WORKER'),
-  ('S20260037', '이동은', 'hashed_pw_worker', '유브갓', '상담운영 1팀', '상담', '사원', 'lee.de@naver.com', '010-7777-8888', 'PARTNER_WORKER'),
-  ('S20260038', '명보민', 'hashed_pw_worker', '유브갓', '상담운영 1팀', '상담', '사원', 'myung.bm@gmail.com', '010-8888-9999', 'PARTNER_WORKER'),
-  ('S20260039', '박선용', 'hashed_pw_worker', '유브갓', '상담운영 1팀', '상담', '대리', 'park.sy@naver.com', '010-9999-0000', 'PARTNER_WORKER'),
-  ('S20260040', '김종현', 'hashed_pw_worker', '유브갓', '상담운영 1팀', '상담', '사원', 'kim.jh@gmail.com', '010-1010-2020', 'PARTNER_WORKER');
+INSERT OR REPLACE INTO organizations (id, name, code, parent_id, depth, sort_order) VALUES
+(1, '상담운영팀', 'TEAM_COUNSEL', NULL, 1, 1),
+(2, '오토금융팀', 'TEAM_AUTO',    NULL, 1, 2),
+(3, '재무정산팀', 'TEAM_FINANCE', NULL, 1, 3),
+(4, '상담',       'PART_COUNSEL', 1,    2, 1),
+(5, '오토',       'PART_AUTO',    2,    2, 2),
+(6, '재무',       'PART_FINANCE', 3,    2, 3);
+
+INSERT OR REPLACE INTO users (
+    employee_id, email, name, password_hash, role, company, phone, team, part, position, status, is_active, is_admin, device_type
+) VALUES
+('S18121020', 'khcho.pm@gmail.com',  '조경훈', 'hashed_pw_admin',   'DS_PRINCIPAL_PM',     '(주)신한DS', '010-9988-7766', '상담운영팀', '상담', '과장', 'ACTIVE', 1, 1, 'Android'),
+('S20240012', 'kim.partner@naver.com', '유관리', 'hashed_pw_partner', 'PARTNER_PART_LEADER', '유브갓',     '010-1234-5678', '상담운영팀', '상담', '차장', 'ACTIVE', 1, 0, 'Android'),
+('S20260031', 'worker.song@gmail.com', '송무준', 'hashed_pw_worker',  'PARTNER_WORKER',      '유브갓',     '010-4321-8765', '상담운영팀', '상담', '사원', 'ACTIVE', 1, 0, 'Android'),
+('S20260032', 'bae.gb@gmail.com',    '배경보', 'hashed_pw_worker',  'PARTNER_WORKER',      '유브갓',     '010-2222-3333', '상담운영팀', '상담', '대리', 'ACTIVE', 1, 0, 'iOS'),
+('S20260033', 'lee.jy@naver.com',    '이재연', 'hashed_pw_worker',  'PARTNER_WORKER',      '유브갓',     '010-3333-4444', '상담운영팀', '상담', '사원', 'ACTIVE', 1, 0, 'Android'),
+('S20260034', 'kim.sh@gmail.com',    '김성훈', 'hashed_pw_worker',  'PARTNER_WORKER',      '유브갓',     '010-4444-5555', '상담운영팀', '상담', '대리', 'ACTIVE', 1, 0, 'Android'),
+('S20260035', 'lee.js@naver.com',    '이제성', 'hashed_pw_worker',  'PARTNER_WORKER',      '유브갓',     '010-5555-6666', '상담운영팀', '상담', '과장', 'ACTIVE', 1, 0, 'Android'),
+('S20260036', 'kim.hs@gmail.com',    '김흥섭', 'hashed_pw_worker',  'PARTNER_WORKER',      '유브갓',     '010-6666-7777', '상담운영팀', '상담', '대리', 'ACTIVE', 1, 0, 'Android'),
+('S20260037', 'lee.de@naver.com',    '이동은', 'hashed_pw_worker',  'PARTNER_WORKER',      '유브갓',     '010-7777-8888', '상담운영팀', '상담', '사원', 'ACTIVE', 1, 0, 'Android'),
+('S20260038', 'myung.bm@gmail.com',  '명보민', 'hashed_pw_worker',  'PARTNER_WORKER',      '유브갓',     '010-8888-9999', '상담운영팀', '상담', '사원', 'ACTIVE', 1, 0, 'Android'),
+('S20260039', 'park.sy@naver.com',   '박선용', 'hashed_pw_worker',  'PARTNER_WORKER',      '유브갓',     '010-9999-0000', '상담운영팀', '상담', '대리', 'ACTIVE', 1, 0, 'Android'),
+('S20260040', 'kim.jh@gmail.com',    '김종현', 'hashed_pw_worker',  'PARTNER_WORKER',      '유브갓',     '010-1010-2020', '상담운영팀', '상담', '사원', 'ACTIVE', 1, 0, 'Android');
