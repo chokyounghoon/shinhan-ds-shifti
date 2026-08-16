@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { 
   X, Megaphone, Users, Network, MapPin, Briefcase, 
-  Layers, ArrowLeftRight, MessageSquare, HelpCircle, MessagesSquare 
+  Layers, ArrowLeftRight, MessageSquare, HelpCircle, MessagesSquare,
+  Lock, LogOut
 } from 'lucide-react';
 import { User } from '../types';
 
@@ -13,6 +14,7 @@ interface DrawerMenuProps {
   onToggleTheme: () => void;
   isMobileFrame: boolean;
   onToggleFrame: () => void;
+  onLogout?: () => void;
   onOpenReport: () => void;
   onOpenMissedPunch: () => void;
   onOpenRequests: () => void;
@@ -31,6 +33,7 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
   onToggleTheme,
   isMobileFrame,
   onToggleFrame,
+  onLogout,
   onOpenAccountSettings,
   onOpenWorkLocations,
   onOpenOrganizations,
@@ -219,6 +222,26 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
           </button>
         </div>
 
+        {/* 4. 로그아웃 (S-GUARD 보안 세션 종료) */}
+        <div style={{ marginTop: '14px', marginBottom: '14px' }}>
+          <button 
+            onClick={() => {
+              onClose();
+              if (onLogout) onLogout();
+            }}
+            style={{
+              ...menuItemStyle,
+              width: '100%',
+              color: '#D9480F',
+              background: '#FFF5F2',
+              borderRadius: '8px'
+            }}
+          >
+            <Lock size={18} color="#D9480F" />
+            <span style={{ fontWeight: 700 }}>S-GUARD 보안 로그아웃</span>
+          </button>
+        </div>
+
         {/* 하단 유틸리티 (테마 & 프레임 토글) */}
         <div style={{
           marginTop: 'auto',
@@ -233,7 +256,7 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
           <button onClick={onToggleTheme} style={{ color: themeMode === 'ddangyo' ? '#FF462D' : '#0066FF', fontWeight: 700 }}>
             ● {themeMode === 'ddangyo' ? '땡겨요 테마' : '신한블루 테마'}
           </button>
-          <span>v1.3.30</span>
+          <span>v2.0 (S-GUARD)</span>
         </div>
       </div>
     </div>
