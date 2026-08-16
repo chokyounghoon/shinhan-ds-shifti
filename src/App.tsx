@@ -100,7 +100,7 @@ export function App() {
     setStats(dbService.getWeeklyStats());
   };
 
-  const handleSwitchUser = (roleKey: 'PARTNER' | 'DS_PM') => {
+  const handleSwitchUser = (roleKey: 'PARTNER' | 'PARTNER_MANAGER' | 'DS_PM') => {
     if (roleKey === 'DS_PM') {
       const dsUser: User = {
         id: 'S18121020',
@@ -122,21 +122,42 @@ export function App() {
       dbService.setCurrentUser(dsUser);
       setCurrentUser(dsUser);
       setCurrentPage('principal_portal');
+    } else if (roleKey === 'PARTNER_MANAGER') {
+      const managerUser: User = {
+        id: 'MGR-YG-001',
+        name: '박영업 (유브갓 영업대표)',
+        firstName: '영업',
+        lastName: '박',
+        companyName: '유브갓',
+        partnerCompany: '유브갓',
+        deptName: '영업총괄본부',
+        partName: '상담',
+        role: 'PARTNER_PART_LEADER',
+        roleTitle: '유브갓 신한DS 도급사업 전담 영업대표',
+        location: '파인에비뉴(상담센터)',
+        phone: '010-3390-1120',
+        email: 'sales.ubgot@partner.com',
+        language: '한국어',
+        timezone: 'Asia/Seoul (GMT+9)'
+      };
+      dbService.setCurrentUser(managerUser);
+      setCurrentUser(managerUser);
+      setCurrentPage('attendance_report');
     } else {
       const partnerUser: User = {
         id: 'usr-001',
-        name: '조경훈',
-        firstName: '경훈',
-        lastName: '조',
+        name: '송무준',
+        firstName: '무준',
+        lastName: '송',
         companyName: '유브갓 (신한DS 협력사)',
         partnerCompany: '유브갓',
         deptName: '상담팀',
         partName: '상담',
         role: 'PARTNER_WORKER',
-        roleTitle: '협력사 상담원',
+        roleTitle: '협력사 투입 작업자',
         location: '파인에비뉴(상담센터)',
         phone: '010-4732-8880',
-        email: 'khcho0421@gmail.com',
+        email: 'moojun.song@ubgot.co.kr',
         language: '한국어',
         timezone: 'Asia/Seoul (GMT+9)'
       };
@@ -376,6 +397,7 @@ export function App() {
                 <AttendanceReportView
                   onBack={() => setCurrentPage('home')}
                   themeMode={themeMode}
+                  currentUser={currentUser}
                 />
               )}
 

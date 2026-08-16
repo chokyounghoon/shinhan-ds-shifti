@@ -1,10 +1,10 @@
 import React from 'react';
-import { ShieldCheck, Briefcase, Building } from 'lucide-react';
+import { ShieldCheck, User as UserIcon, Users, Building } from 'lucide-react';
 import { User } from '../types';
 
 interface RoleSwitcherBarProps {
   currentUser: User;
-  onSwitchUser: (roleKey: 'PARTNER' | 'DS_PM') => void;
+  onSwitchUser: (roleKey: 'PARTNER' | 'PARTNER_MANAGER' | 'DS_PM') => void;
   themeMode: 'ddangyo' | 'shinhan';
 }
 
@@ -14,6 +14,8 @@ export const RoleSwitcherBar: React.FC<RoleSwitcherBarProps> = ({
   themeMode
 }) => {
   const isDsPm = currentUser.role === 'DS_PRINCIPAL_PM' || currentUser.role === 'PRINCIPAL_INSPECTOR';
+  const isPartnerManager = currentUser.role === 'PARTNER_PART_LEADER' || currentUser.role === 'PARTNER_SITE_MANAGER';
+  const isPartnerWorker = !isDsPm && !isPartnerManager;
 
   return (
     <div style={{
@@ -35,52 +37,76 @@ export const RoleSwitcherBar: React.FC<RoleSwitcherBarProps> = ({
         </span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-        {/* 1. 협력사 */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.15fr 1fr', gap: '5px' }}>
+        {/* 1. 협력사 (개인) */}
         <button
           type="button"
           onClick={() => onSwitchUser('PARTNER')}
           style={{
-            padding: '8px 6px',
+            padding: '7px 4px',
             borderRadius: '8px',
-            background: !isDsPm ? '#0066FF' : 'rgba(255, 255, 255, 0.08)',
+            background: isPartnerWorker ? '#0066FF' : 'rgba(255, 255, 255, 0.08)',
             color: '#FFFFFF',
-            fontSize: '12.5px',
-            fontWeight: !isDsPm ? 800 : 500,
+            fontSize: '11.5px',
+            fontWeight: isPartnerWorker ? 800 : 500,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '6px',
+            gap: '4px',
             cursor: 'pointer',
-            border: !isDsPm ? '1px solid #00E5FF' : '1px solid transparent',
+            border: isPartnerWorker ? '1px solid #00E5FF' : '1px solid transparent',
             transition: 'all 0.15s ease'
           }}
         >
-          <Briefcase size={14} color={!isDsPm ? '#00E5FF' : '#90A4AE'} />
-          <span>협력사</span>
+          <UserIcon size={13} color={isPartnerWorker ? '#00E5FF' : '#90A4AE'} />
+          <span>협력사 (개인)</span>
         </button>
 
-        {/* 2. DS현장대리인 */}
+        {/* 2. 협력사 관리인 (영업대표) */}
+        <button
+          type="button"
+          onClick={() => onSwitchUser('PARTNER_MANAGER')}
+          style={{
+            padding: '7px 4px',
+            borderRadius: '8px',
+            background: isPartnerManager ? '#0066FF' : 'rgba(255, 255, 255, 0.08)',
+            color: '#FFFFFF',
+            fontSize: '11.5px',
+            fontWeight: isPartnerManager ? 800 : 500,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '4px',
+            cursor: 'pointer',
+            border: isPartnerManager ? '1px solid #00E5FF' : '1px solid transparent',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          <Users size={13} color={isPartnerManager ? '#00E5FF' : '#90A4AE'} />
+          <span>협력사 관리인</span>
+        </button>
+
+        {/* 3. DS현장대리인 */}
         <button
           type="button"
           onClick={() => onSwitchUser('DS_PM')}
           style={{
-            padding: '8px 6px',
+            padding: '7px 4px',
             borderRadius: '8px',
             background: isDsPm ? '#0066FF' : 'rgba(255, 255, 255, 0.08)',
             color: '#FFFFFF',
-            fontSize: '12.5px',
+            fontSize: '11.5px',
             fontWeight: isDsPm ? 800 : 500,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '6px',
+            gap: '4px',
             cursor: 'pointer',
             border: isDsPm ? '1px solid #00E5FF' : '1px solid transparent',
             transition: 'all 0.15s ease'
           }}
         >
-          <Building size={14} color={isDsPm ? '#00E5FF' : '#90A4AE'} />
+          <Building size={13} color={isDsPm ? '#00E5FF' : '#90A4AE'} />
           <span>DS현장대리인</span>
         </button>
       </div>

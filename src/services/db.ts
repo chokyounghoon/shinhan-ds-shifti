@@ -460,6 +460,10 @@ export class PureDatabaseEngine {
     return { success: true, record: this.mapToManpowerRecord(newRecord) };
   }
 
+  public getManpowerInputs(): DbManpowerInput[] {
+    return [...this.manpowerInputs];
+  }
+
   /**
    * 1. 파트별 데이터 격리: 로그인한 PM 파트의 인원만 노출
    */
