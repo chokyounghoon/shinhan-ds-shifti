@@ -645,16 +645,21 @@ export class PureDatabaseEngine {
   public getCurrentUser(): User {
     if (this.currentUser) return this.currentUser;
     return {
-      id: 'GUEST',
-      name: '로그인 필요',
+      id: 'S18121020',
+      name: '조경훈 (DS PM)',
+      firstName: '경훈',
+      lastName: '조',
       companyName: '신한DS',
+      partnerCompany: '신한DS',
       deptName: '상담팀',
       partName: '상담',
       role: 'DS_PRINCIPAL_PM',
       roleTitle: '신한DS 상담파트 전담 현장관리인',
-      location: '파인에비뉴',
-      phone: '',
-      email: ''
+      location: '파인에비뉴(상담센터)',
+      phone: '010-4421-8890',
+      email: 'khcho0421@gmail.com',
+      language: '한국어',
+      timezone: 'Asia/Seoul (GMT+9)'
     };
   }
 

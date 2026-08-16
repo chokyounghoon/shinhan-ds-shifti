@@ -68,7 +68,7 @@ type PageView =
   | 'vacation_type_select';
 
 export function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // S-GUARD 로그인 상태 (기본 false: 로그인 페이지 표시)
+  const [isLoggedIn, setIsLoggedIn] = useState(true); // 로그인 화면 건너뛰기 (기본 true: 메인 대시보드 즉시 진입)
   const [currentUser, setCurrentUser] = useState<User>(dbService.getCurrentUser());
   const [schedules, setSchedules] = useState<DaySchedule[]>(dbService.getWeeklySchedules());
   const [requests, setRequests] = useState<AttendanceRequest[]>(dbService.getRequests());
