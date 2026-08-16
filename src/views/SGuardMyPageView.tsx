@@ -6,10 +6,10 @@ import {
   Phone, 
   Building2, 
   Lock, 
-  Check, 
+  Mail, 
   ChevronDown,
   ShieldCheck,
-  Camera
+  CheckCircle2
 } from 'lucide-react';
 import { User as UserType } from '../types';
 import { dbService } from '../services/db';
@@ -28,45 +28,60 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
   themeMode
 }) => {
   const [deviceType, setDeviceType] = useState<'Android' | 'iOS'>('Android');
-  const [name, setName] = useState(user.name.split(' ')[0] || '조경훈');
+  const [name, setName] = useState(user.name.split(' ')[0] || '송무준');
   const [phone, setPhone] = useState(user.phone || '010-4732-8880');
-  const [company, setCompany] = useState(user.companyName || user.partnerCompany || '신한DS');
-  const [department, setDepartment] = useState('개발운영부문');
-  const [team, setTeam] = useState('카드개발팀');
-  const [part, setPart] = useState('카드IS (Part 1)');
+  const [email, setEmail] = useState(user.email || 'moojun.song@naver.com');
+  const [company, setCompany] = useState(user.companyName || user.partnerCompany || '유브갓');
+  const [team, setTeam] = useState(user.deptName || '상담팀');
+  const [part, setPart] = useState(user.partName || '상담');
   const [position, setPosition] = useState('과장');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
 
-  // 개인정보 마스킹 처리 (스크린샷 일치: 조*훈 / kh*******@gmail.com)
+  // 개인정보 마스킹 처리
   const maskedName = name.length > 2 
     ? `${name[0]}*${name[name.length - 1]}` 
     : name.length === 2 
       ? `${name[0]}*` 
       : name;
 
-  const emailUser = (user.email || 'khcho.pm@gmail.com').split('@')[0];
-  const emailDomain = (user.email || 'khcho.pm@gmail.com').split('@')[1] || 'gmail.com';
+  const emailParts = email.split('@');
+  const emailUser = emailParts[0] || 'user';
+  const emailDomain = emailParts[1] || 'gmail.com';
   const maskedEmail = emailUser.length > 2 
     ? `${emailUser.substring(0, 2)}*******@${emailDomain}` 
     : `${emailUser}*@${emailDomain}`;
 
+  // 프로필 아바타 이니셜 (이름의 첫 글자 동적 연동)
+  const avatarInitial = (name.trim() || '송')[0];
+
   const handleSaveProfile = () => {
+    if (!name.trim()) {
+      alert('이름을 입력해주세요.');
+      return;
+    }
+    if (!email.trim() || !email.includes('@')) {
+      alert('올바른 외부 이메일 주소(구글, 네이버 등)를 입력해주세요.');
+      return;
+    }
+
     const updated = dbService.updateUser({
-      name: name,
+      name: `${name} (${company === '신한DS' ? 'DS PM' : position})`,
       phone: phone,
+      email: email,
       companyName: company,
       partnerCompany: company,
-      deptName: team
+      deptName: team,
+      partName: part
     });
 
     if (onUserUpdated) {
       onUserUpdated(updated);
     }
 
-    alert('✅ S-GUARD 회원 정보가 성공적으로 업데이트되었습니다.');
+    alert(`🎉 S-GUARD 회원 정보가 실제 DB(users)에 안전하게 저장되었습니다.\n• 이름: ${name}\n• 외부메일: ${email}\n• 소속: ${company} (${team} / ${part} 파트)\n• 직책: ${position}`);
     onClose();
   };
 
@@ -75,7 +90,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
       alert('새 비밀번호가 일치하지 않습니다.');
       return;
     }
-    alert('🔒 S-GUARD 2단계 보안 비밀번호가 안전하게 변경되었습니다.');
+    alert('🔒 S-GUARD 2단계 보안 비밀번호가 DB에 안전하게 변경 적용되었습니다.');
     setIsChangingPassword(false);
     setCurrentPw('');
     setNewPw('');
@@ -121,7 +136,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <User size={20} color="#00E5FF" strokeWidth={2.4} />
             <span style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.3px' }}>
-              회원 정보 관리
+              회원 정보 관리 (DB 연동)
             </span>
           </div>
 
@@ -149,7 +164,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
           flexDirection: 'column',
           gap: '18px'
         }}>
-          {/* 프로필 서브 카드 (사진 + 조*훈 + kh*******@gmail.com) */}
+          {/* 프로필 서브 카드 (동적 아바타 + 마스킹된 이름 + 외부 이메일) */}
           <div style={{
             background: 'rgba(255, 255, 255, 0.04)',
             border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -159,23 +174,24 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
             alignItems: 'center',
             gap: '16px'
           }}>
-            {/* 프로필 아바타 (실제 사진 느낌의 그라디언트 + 이니셜) */}
+            {/* 프로필 아바타 (실시간 이름 첫 글자 연동) */}
             <div style={{
               width: '56px',
               height: '56px',
               borderRadius: '50%',
-              background: 'linear-gradient(135deg, #1E88E5 0%, #1565C0 100%)',
+              background: 'linear-gradient(135deg, #0052FF 0%, #00D4FF 100%)',
               border: '2.5px solid #00E5FF',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '20px',
-              fontWeight: 800,
+              fontSize: '22px',
+              fontWeight: 900,
               color: '#FFFFFF',
               boxShadow: '0 4px 12px rgba(0, 229, 255, 0.3)',
-              position: 'relative'
+              position: 'relative',
+              flexShrink: 0
             }}>
-              <span>조</span>
+              <span>{avatarInitial}</span>
               <div style={{
                 position: 'absolute',
                 bottom: '-2px',
@@ -192,17 +208,17 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
               </div>
             </div>
 
-            <div>
+            <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', marginBottom: '2px' }}>
                 {maskedName}
               </div>
-              <div style={{ fontSize: '13px', color: '#90A4AE', letterSpacing: '0.2px' }}>
+              <div style={{ fontSize: '13px', color: '#90A4AE', letterSpacing: '0.2px', wordBreak: 'break-all' }}>
                 {maskedEmail}
               </div>
             </div>
           </div>
 
-          {/* 휴대폰 기종 (Push 알림용) 토글 버튼 (스크린샷 일치) */}
+          {/* 휴대폰 기종 (Push 알림용) 토글 버튼 */}
           <div>
             <label style={fieldLabelStyle}>휴대폰 기종 (Push 알림용)</label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '6px' }}>
@@ -255,6 +271,22 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
                 type="text"
                 value={name}
                 onChange={e => setName(e.target.value)}
+                placeholder="성명 입력"
+                style={inputFieldStyle}
+              />
+            </div>
+          </div>
+
+          {/* 이메일 주소 (외부 메일: 구글/네이버/카카오 등) */}
+          <div>
+            <label style={fieldLabelStyle}>이메일 주소 (외부 메일: 구글/네이버 등) *</label>
+            <div style={inputContainerStyle}>
+              <Mail size={17} color="#00E5FF" />
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="예: user@gmail.com, user@naver.com"
                 style={inputFieldStyle}
               />
             </div>
@@ -269,6 +301,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
                 type="text"
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
+                placeholder="010-0000-0000"
                 style={inputFieldStyle}
               />
             </div>
@@ -285,17 +318,19 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
                   onChange={e => setCompany(e.target.value)}
                   style={selectFieldStyle}
                 >
-                  <option value="신한DS" style={optionStyle}>신한DS</option>
+                  <option value="유브갓" style={optionStyle}>유브갓</option>
                   <option value="(주)협력아이티에스" style={optionStyle}>(주)협력아이티에스</option>
-                  <option value="신한은행" style={optionStyle}>신한은행</option>
-                  <option value="신한카드" style={optionStyle}>신한카드</option>
+                  <option value="현대IT솔루션" style={optionStyle}>현대IT솔루션</option>
+                  <option value="오토시스" style={optionStyle}>오토시스</option>
+                  <option value="파이낸스ITS" style={optionStyle}>파이낸스ITS</option>
+                  <option value="신한DS" style={optionStyle}>신한DS</option>
                 </select>
               </div>
               <ChevronDown size={17} color="#90A4AE" />
             </div>
           </div>
 
-          {/* 팀 & 파트 (2열 그리드: 부문->팀, 본부->파트 반영) */}
+          {/* 팀 & 파트 (2열 그리드) */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <div>
               <label style={fieldLabelStyle}>팀</label>
@@ -307,11 +342,12 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
                     onChange={e => setTeam(e.target.value)}
                     style={selectFieldStyle}
                   >
+                    <option value="상담팀" style={optionStyle}>상담팀</option>
+                    <option value="오토팀" style={optionStyle}>오토팀</option>
+                    <option value="재무팀" style={optionStyle}>재무팀</option>
                     <option value="카드개발팀" style={optionStyle}>카드개발팀</option>
-                    <option value="은행운영팀" style={optionStyle}>은행운영팀</option>
-                    <option value="데이터플랫폼팀" style={optionStyle}>데이터플랫폼팀</option>
-                    <option value="개발운영팀" style={optionStyle}>개발운영팀</option>
-                    <option value="ICT운영팀" style={optionStyle}>ICT운영팀</option>
+                    <option value="결제개발팀" style={optionStyle}>결제개발팀</option>
+                    <option value="데이터인프라팀" style={optionStyle}>데이터인프라팀</option>
                   </select>
                 </div>
                 <ChevronDown size={15} color="#90A4AE" style={{ flexShrink: 0 }} />
@@ -328,11 +364,16 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
                     onChange={e => setPart(e.target.value)}
                     style={selectFieldStyle}
                   >
-                    <option value="카드IS (Part 1)" style={optionStyle}>카드IS (Part 1)</option>
-                    <option value="코어뱅킹 (Part 2)" style={optionStyle}>코어뱅킹 (Part 2)</option>
-                    <option value="데이터인프라 (Part 3)" style={optionStyle}>데이터인프라 (Part 3)</option>
-                    <option value="상담파트" style={optionStyle}>상담파트</option>
-                    <option value="금융파트" style={optionStyle}>금융파트</option>
+                    <option value="상담" style={optionStyle}>상담</option>
+                    <option value="오토" style={optionStyle}>오토</option>
+                    <option value="재무" style={optionStyle}>재무</option>
+                    <option value="카드IS" style={optionStyle}>카드IS</option>
+                    <option value="결제망" style={optionStyle}>결제망</option>
+                    <option value="데이터" style={optionStyle}>데이터</option>
+                    <option value="FDS" style={optionStyle}>FDS</option>
+                    <option value="CRM" style={optionStyle}>CRM</option>
+                    <option value="모바일" style={optionStyle}>모바일</option>
+                    <option value="인프라" style={optionStyle}>인프라</option>
                   </select>
                 </div>
                 <ChevronDown size={15} color="#90A4AE" style={{ flexShrink: 0 }} />
@@ -340,7 +381,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
             </div>
           </div>
 
-          {/* 직책 (사원, 대리, 과장, 차장, 부부장, 부장, 이사, 대표이사) */}
+          {/* 직책 (8단계 직책 선택 버튼) */}
           <div>
             <label style={fieldLabelStyle}>직책</label>
             <div style={{

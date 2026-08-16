@@ -744,6 +744,40 @@ export class PureDatabaseEngine {
     return this.getCurrentUser();
   }
 
+  public updateUser(updatedFields: Partial<User>): User {
+    if (!this.currentUser) {
+      this.currentUser = this.getCurrentUser();
+    }
+
+    this.currentUser = {
+      ...this.currentUser,
+      ...updatedFields
+    };
+
+    if (updatedFields.partName) {
+      this.activePmPart = updatedFields.partName;
+    }
+
+    // DB users 테이블에도 동기화 업데이트
+    const targetEmpId = this.currentUser.id;
+    const dbUserIdx = this.users.findIndex(u => u.employeeId === targetEmpId || (u.email && u.email.toLowerCase() === (this.currentUser?.email || '').toLowerCase()));
+    if (dbUserIdx >= 0) {
+      this.users[dbUserIdx] = {
+        ...this.users[dbUserIdx],
+        name: updatedFields.name || this.users[dbUserIdx].name,
+        phone: updatedFields.phone || this.users[dbUserIdx].phone,
+        email: updatedFields.email || this.users[dbUserIdx].email,
+        company: updatedFields.companyName || updatedFields.partnerCompany || this.users[dbUserIdx].company,
+        team: updatedFields.deptName || this.users[dbUserIdx].team,
+        part: updatedFields.partName || this.users[dbUserIdx].part,
+        position: (updatedFields as any).position || this.users[dbUserIdx].position
+      };
+    }
+    this.sync();
+
+    return this.currentUser;
+  }
+
   public getActivePmPart(): string { return this.activePmPart; }
   public setActivePmPart(part: string): void { this.activePmPart = part; }
   public getThemeMode(): 'ddangyo' | 'shinhan' { return this.themeMode; }
@@ -817,18 +851,6 @@ export class PureDatabaseEngine {
   public rejectPartnerRequest(reqId: string, memo?: string): boolean { return true; }
   public getInspections(): ServiceDeliveryInspection[] { return []; }
   public acceptContractInspection(id: string, memo?: string): boolean { return true; }
-  public updateUser(partial: Partial<User>): User {
-    if (this.currentUser) {
-      this.currentUser = { ...this.currentUser, ...partial };
-      const u = this.findUserByEmpId(this.currentUser.id);
-      if (u) {
-        if (partial.name) u.name = partial.name;
-        if (partial.phone) u.phone = partial.phone;
-        this.sync();
-      }
-    }
-    return this.getCurrentUser();
-  }
 
   public getUserByEmpId(empId: string) { return this.findUserByEmpId(empId); }
   public registerUser(dto: any) { return this.insertUser(dto); }
