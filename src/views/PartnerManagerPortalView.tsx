@@ -1,228 +1,480 @@
 import React, { useState } from 'react';
-import { ShieldCheck, CheckCircle2, XCircle, Users, Clock, FileText, Send, AlertTriangle } from 'lucide-react';
-import { dbService } from '../services/db';
-import { AttendanceRequest } from '../types';
+import { 
+  ShieldCheck, 
+  Users, 
+  Send, 
+  AlertTriangle, 
+  CheckCircle2, 
+  Clock, 
+  Building2, 
+  FileText, 
+  ChevronRight,
+  MessageSquare,
+  Sparkles
+} from 'lucide-react';
+import { dbService, DbManpowerInput, DbSlaClarification } from '../services/db';
+import { User } from '../types';
 
 interface PartnerManagerPortalViewProps {
   themeMode: 'ddangyo' | 'shinhan';
-  onRequestUpdated: () => void;
+  currentUser?: User;
+  onRequestUpdated?: () => void;
 }
 
 export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> = ({
   themeMode,
-  onRequestUpdated
+  currentUser = dbService.getCurrentUser()
 }) => {
-  const [requests, setRequests] = useState<AttendanceRequest[]>(dbService.getRequests());
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'roster' | 'clarifications'>('roster');
+  const [selectedPartner, setSelectedPartner] = useState<string>(currentUser.partnerCompany || '유브갓');
+  
+  // 소명 답변 모달 상태
+  const [isAnswerModalOpen, setIsAnswerModalOpen] = useState(false);
+  const [selectedClarification, setSelectedClarification] = useState<DbSlaClarification | null>(null);
+  const [answerText, setAnswerText] = useState('');
 
-  const handleApprove = (reqId: string) => {
-    dbService.approvePartnerRequest(reqId, '현장대리인 김협력 승인 완료');
-    setRequests(dbService.getRequests());
-    onRequestUpdated();
-    setToastMsg('✅ 소속 직원 근태 신청이 승인되었습니다. (원청 개입 없이 협력사 독자 처리)');
-    setTimeout(() => setToastMsg(null), 3000);
+  // DB 데이터 로드
+  const allInputs = dbService.getManpowerInputs();
+  const allClarifications = dbService.getSlaClarifications();
+
+  // 현재 선택된 협력사 소속 인력 필터링
+  const myWorkers = allInputs.filter(r => r.partnerCompany === selectedPartner);
+
+  // 미답변 소명 요청 필터링
+  const pendingClarifications = allClarifications.filter(c => 
+    c.partnerCompany === selectedPartner && c.status === 'REQUESTED'
+  );
+
+  const partnerCompanies = ['유브갓', '(주)협력아이티에스', '현대IT솔루션', '오토시스', '파이낸스ITS'];
+
+  const handleOpenAnswerModal = (item: DbSlaClarification) => {
+    setSelectedClarification(item);
+    setAnswerText('대중교통 지연으로 인한 45분 지각 소명서 접수 완료 (당일 집중 공정 대체 투입 이행 계획 제출)');
+    setIsAnswerModalOpen(true);
   };
 
-  const handleReject = (reqId: string) => {
-    const reason = prompt('반려 사유를 입력하세요 (협력사 내부 복무규정 기준):', '프로젝트 집중 개발 일정으로 인한 일정 조율 필요');
-    if (reason) {
-      dbService.rejectPartnerRequest(reqId, reason);
-      setRequests(dbService.getRequests());
-      onRequestUpdated();
-      setToastMsg('❌ 신청이 반려 처리되었습니다.');
-      setTimeout(() => setToastMsg(null), 3000);
-    }
+  const handleSubmitAnswer = () => {
+    if (!selectedClarification || !answerText.trim()) return;
+    dbService.answerClarification(selectedClarification.id, answerText);
+    alert(`📨 [${selectedPartner}] 원청(신한DS PM) 앞으로 공식 소명서가 성공적으로 제출되었습니다.\n\n🛡️ [도급 검수 합법 절차 완료]\n원청 PM의 승인 대기 큐로 전송되었습니다.`);
+    setIsAnswerModalOpen(false);
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingBottom: '80px' }}>
-      {/* 1. 컴플라이언스 보호 안내 배너 */}
+    <div style={{ background: '#F8FAFC', minHeight: '100vh', display: 'flex', flexDirection: 'column', paddingBottom: '90px' }}>
+      
+      {/* 1. 협력사 관리인 상단 포털 헤더 */}
       <div style={{
-        background: '#E8F8F0',
-        border: '1px solid #B7EB8F',
-        borderRadius: '12px',
-        padding: '14px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '4px'
+        background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
+        padding: '20px 18px 16px 18px',
+        color: '#FFFFFF',
+        borderBottom: '1px solid #334155'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#135200', fontSize: '13px', fontWeight: 800 }}>
-          <ShieldCheck size={18} color="#52C41A" />
-          <span>파견법·노란봉투법 대응 협력사 전용 노무관리 포털</span>
-        </div>
-        <p style={{ fontSize: '11.5px', color: '#389E0D', lineHeight: 1.4 }}>
-          본 포털의 모든 결재 권한은 <strong>협력사 현장대리인(김협력 PM)</strong>에게 독점 귀속되며, 발주사(신한DS)의 직접적인 지휘·명령은 시스템적으로 원천 차단됩니다.
-        </p>
-      </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+          <div>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              background: 'rgba(56, 189, 248, 0.15)',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              color: '#38BDF8',
+              fontSize: '11px',
+              fontWeight: 800,
+              padding: '2px 8px',
+              borderRadius: '12px',
+              marginBottom: '4px'
+            }}>
+              <ShieldCheck size={12} />
+              <span>협력사 관리인 전용 관제 포털</span>
+            </div>
+            <h1 style={{ fontSize: '20px', fontWeight: 900, color: '#FFFFFF', margin: 0 }}>
+              [{selectedPartner}] 도급 사업 관리 포털
+            </h1>
+          </div>
 
-      {toastMsg && (
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.08)',
+            padding: '6px 10px',
+            borderRadius: '8px',
+            textAlign: 'right'
+          }}>
+            <div style={{ fontSize: '10px', color: '#94A3B8' }}>영업대표/관리자</div>
+            <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#38BDF8' }}>
+              {currentUser.name.split(' ')[0] || '박영업 대표'}
+            </div>
+          </div>
+        </div>
+
+        {/* 협력사 전환 칩 (다중 협력사 관제 지원) */}
         <div style={{
-          background: '#191F28',
-          color: '#FFFFFF',
-          padding: '10px 14px',
-          borderRadius: '8px',
-          fontSize: '12.5px',
-          fontWeight: 600
+          display: 'flex',
+          gap: '6px',
+          overflowX: 'auto',
+          paddingTop: '8px',
+          scrollbarWidth: 'none'
         }}>
-          {toastMsg}
-        </div>
-      )}
-
-      {/* 2. 협력사 인력 및 공수 KPI 현황 */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-        <div style={kpiBoxStyle}>
-          <div style={{ fontSize: '11px', color: '#6B7684', fontWeight: 600 }}>소속 상주인력</div>
-          <div style={{ fontSize: '18px', fontWeight: 800, color: '#191F28', marginTop: '4px' }}>8명</div>
-        </div>
-        <div style={kpiBoxStyle}>
-          <div style={{ fontSize: '11px', color: '#6B7684', fontWeight: 600 }}>결재 대기</div>
-          <div style={{ fontSize: '18px', fontWeight: 800, color: themeMode === 'ddangyo' ? '#FF462D' : '#0066FF', marginTop: '4px' }}>
-            {requests.filter(r => r.status === 'PENDING').length}건
-          </div>
-        </div>
-        <div style={kpiBoxStyle}>
-          <div style={{ fontSize: '11px', color: '#6B7684', fontWeight: 600 }}>금월 투입공수</div>
-          <div style={{ fontSize: '18px', fontWeight: 800, color: '#12B76A', marginTop: '4px' }}>11.9 M/M</div>
-        </div>
-      </div>
-
-      {/* 3. 소속 직원 근태 신청 결재 대기 목록 */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <div style={{ fontSize: '15px', fontWeight: 800, color: '#191F28', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Clock size={18} color="#4E5968" />
-          <span>소속 직원 근태 결재 목록 (현장대리인 전결)</span>
-        </div>
-
-        {requests.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '30px', background: '#FFFFFF', borderRadius: '12px', color: '#8B95A1', fontSize: '13px' }}>
-            결재 대상 신청 내역이 없습니다.
-          </div>
-        ) : (
-          requests.map(req => (
-            <div
-              key={req.id}
+          {partnerCompanies.map((comp) => (
+            <button
+              key={comp}
+              type="button"
+              onClick={() => setSelectedPartner(comp)}
               style={{
-                background: '#FFFFFF',
-                borderRadius: '12px',
-                padding: '16px',
-                border: '1px solid #ECEFF2',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+                flexShrink: 0,
+                padding: '4px 10px',
+                borderRadius: '14px',
+                border: selectedPartner === comp ? '1.5px solid #38BDF8' : '1px solid rgba(255, 255, 255, 0.15)',
+                background: selectedPartner === comp ? '#0284C7' : 'rgba(255, 255, 255, 0.05)',
+                color: selectedPartner === comp ? '#FFFFFF' : '#94A3B8',
+                fontSize: '11px',
+                fontWeight: selectedPartner === comp ? 800 : 600,
+                cursor: 'pointer'
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '15px', fontWeight: 800, color: '#191F28' }}>{req.userName}</span>
-                  <span style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    color: req.requestType === 'VACATION' ? '#0066FF' : '#FF462D',
-                    background: req.requestType === 'VACATION' ? '#EDF3FF' : '#FFF0ED',
-                    padding: '2px 6px',
-                    borderRadius: '4px'
-                  }}>
-                    {req.requestType === 'VACATION' ? '휴가 신청' : req.requestType === 'OVERTIME' ? '연장근무 신청' : '누락 소명'}
+              {comp}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 2. 핵심 2개 메뉴 탭 바 (불필요한 메뉴 완전 제거!) */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        background: '#FFFFFF',
+        borderBottom: '1px solid #E2E8F0',
+        padding: '0 16px'
+      }}>
+        {/* 메뉴 1: 소속 인력 투입 현황 */}
+        <button
+          type="button"
+          onClick={() => setActiveTab('roster')}
+          style={{
+            padding: '14px 0',
+            background: 'none',
+            border: 'none',
+            borderBottom: activeTab === 'roster' ? '3px solid #0052FF' : '3px solid transparent',
+            color: activeTab === 'roster' ? '#0052FF' : '#64748B',
+            fontSize: '14px',
+            fontWeight: activeTab === 'roster' ? 900 : 600,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            cursor: 'pointer'
+          }}
+        >
+          <Users size={17} />
+          <span>소속인력 투입현황 ({myWorkers.length})</span>
+        </button>
+
+        {/* 메뉴 2: 원청 소명 접수 및 처리 */}
+        <button
+          type="button"
+          onClick={() => setActiveTab('clarifications')}
+          style={{
+            padding: '14px 0',
+            background: 'none',
+            border: 'none',
+            borderBottom: activeTab === 'clarifications' ? '3px solid #0052FF' : '3px solid transparent',
+            color: activeTab === 'clarifications' ? '#0052FF' : '#64748B',
+            fontSize: '14px',
+            fontWeight: activeTab === 'clarifications' ? 900 : 600,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            cursor: 'pointer',
+            position: 'relative'
+          }}
+        >
+          <Send size={16} />
+          <span>원청 소명 관리</span>
+          {pendingClarifications.length > 0 && (
+            <span style={{
+              background: '#EF4444',
+              color: '#FFFFFF',
+              fontSize: '10px',
+              fontWeight: 800,
+              padding: '1px 6px',
+              borderRadius: '10px'
+            }}>
+              {pendingClarifications.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* 3. 탭별 컨텐츠 영역 */}
+      <div style={{ padding: '16px' }}>
+
+        {/* ========================================================================= */}
+        {/* 탭 1: 소속 인력 투입 현황 (1 M/D 투입 확인 및 정산 공수) */}
+        {/* ========================================================================= */}
+        {activeTab === 'roster' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* 상단 핵심 KPI 요약 */}
+            <div style={{
+              background: '#FFFFFF',
+              borderRadius: '14px',
+              padding: '14px 16px',
+              border: '1px solid #E2E8F0',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: '8px',
+              textAlign: 'center'
+            }}>
+              <div>
+                <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>총 투입 인원</div>
+                <div style={{ fontSize: '18px', fontWeight: 900, color: '#0F172A', marginTop: '2px' }}>
+                  {myWorkers.length}명
+                </div>
+              </div>
+              <div style={{ borderLeft: '1px solid #F1F5F9', borderRight: '1px solid #F1F5F9' }}>
+                <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>정상 1 M/D 투입</div>
+                <div style={{ fontSize: '18px', fontWeight: 900, color: '#16A34A', marginTop: '2px' }}>
+                  {myWorkers.filter(w => !w.isSlaBreach).length}명
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>지연/소명 필요</div>
+                <div style={{ fontSize: '18px', fontWeight: 900, color: myWorkers.some(w => w.isSlaBreach) ? '#EF4444' : '#64748B', marginTop: '2px' }}>
+                  {myWorkers.filter(w => w.isSlaBreach).length}건
+                </div>
+              </div>
+            </div>
+
+            {/* 인력별 1 M/D 투입 카드 리스트 */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#1E293B', paddingLeft: '2px' }}>
+                [{selectedPartner}] 소속 직원 일일 투입 목록
+              </div>
+
+              {myWorkers.map((worker) => (
+                <div
+                  key={worker.recordId}
+                  style={{
+                    background: '#FFFFFF',
+                    border: worker.isSlaBreach ? '1.5px solid #FCA5A5' : '1px solid #E2E8F0',
+                    borderRadius: '12px',
+                    padding: '12px 14px',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '15px', fontWeight: 900, color: '#0F172A' }}>
+                        {worker.workerName}
+                      </span>
+                      <span style={{ fontSize: '11px', color: '#64748B', background: '#F1F5F9', padding: '1px 6px', borderRadius: '4px' }}>
+                        {worker.partName} 파트
+                      </span>
+                      {worker.isSlaBreach && (
+                        <span style={{ fontSize: '10.5px', fontWeight: 800, color: '#DC2626', background: '#FEE2E2', padding: '1px 6px', borderRadius: '4px' }}>
+                          {worker.varianceMinutes}분 편차
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#64748B', marginTop: '3px' }}>
+                      투입 시각: <strong>{worker.clockInTime}</strong> · 실적: <strong>{worker.actualInputHours}h (1 M/D)</strong>
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      color: worker.isSlaBreach ? '#D97706' : '#16A34A',
+                      background: worker.isSlaBreach ? '#FEF3C7' : '#DCFCE7',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      display: 'inline-block'
+                    }}>
+                      {worker.isSlaBreach ? '소명 진행' : '정산 확정 ✓'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* 탭 2: 원청 소명 접수 및 처리 (DS PM 소명 요구 대응) */}
+        {/* ========================================================================= */}
+        {activeTab === 'clarifications' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{
+              background: '#EFF6FF',
+              border: '1px solid #BFDBFE',
+              borderRadius: '12px',
+              padding: '12px 14px',
+              fontSize: '12px',
+              color: '#1E40AF',
+              lineHeight: 1.45
+            }}>
+              🛡️ <strong>도급 검수 합법 절차 안내</strong>: 원청(신한DS PM)은 개별 근로자에게 직접 지시하지 않으며, 협력사 관리인 앞으로 소명 요구를 발송합니다. 아래 공문을 확인하시고 사유를 작성하여 제출해주세요.
+            </div>
+
+            {/* 소명 요청 목록 */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{
+                background: '#FFFFFF',
+                border: '1.5px solid #F97316',
+                borderRadius: '14px',
+                padding: '16px',
+                boxShadow: '0 4px 12px rgba(249, 115, 22, 0.1)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#EA580C', fontSize: '14px', fontWeight: 800 }}>
+                    <AlertTriangle size={17} />
+                    <span>[SLA 미달 통보 및 소명 요청]</span>
+                  </div>
+                  <span style={{ fontSize: '11px', color: '#EA580C', background: '#FFEDD5', padding: '2px 8px', borderRadius: '6px', fontWeight: 800 }}>
+                    답변 대기
                   </span>
                 </div>
 
-                <span style={{
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  color: req.status === 'APPROVED' ? '#12B76A' : req.status === 'REJECTED' ? '#F04438' : '#FF9500'
-                }}>
-                  {req.status === 'APPROVED' ? '● 승인완료' : req.status === 'REJECTED' ? '● 반려' : '● 현장대리인 결재대기'}
-                </span>
-              </div>
-
-              <div style={{ fontSize: '13px', color: '#333D4B', marginBottom: '4px' }}>
-                <strong>신청 사유:</strong> {req.reason}
-              </div>
-
-              <div style={{ fontSize: '12px', color: '#6B7684' }}>
-                대상 일자: {req.targetDate} {req.startTime ? `(${req.startTime} ~ ${req.endTime})` : ''}
-              </div>
-
-              {req.approvalMemo && (
-                <div style={{ fontSize: '11.5px', color: '#12B76A', marginTop: '6px', background: '#F8F9FA', padding: '6px 8px', borderRadius: '6px' }}>
-                  결재 의견: {req.approvalMemo}
+                <div style={{ fontSize: '12.5px', color: '#334155', background: '#F8FAFC', padding: '10px 12px', borderRadius: '8px', lineHeight: 1.45, marginBottom: '12px' }}>
+                  <strong>수신</strong>: {selectedPartner} 현장관리인 (영업대표) 귀하<br />
+                  <strong>발신</strong>: 신한DS 상담 파트 전담 PM (조경훈)<br />
+                  <strong>내용</strong>: 귀사 소속 <strong>이하은</strong> 인원의 투입 지연(45분)이 감지되었습니다. 도급 계약서 제8조에 의거하여 공식 지연 사유 소명 및 대체 공수 계획을 제출해 주시기 바랍니다.
                 </div>
-              )}
 
-              {/* 결재 버튼 영역 */}
-              {req.status === 'PENDING' && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid #F1F3F5' }}>
-                  <button
-                    onClick={() => handleReject(req.id)}
-                    style={{
-                      height: '38px',
-                      background: '#FFF1F0',
-                      border: '1px solid #FFA39E',
-                      borderRadius: '8px',
-                      color: '#F5222D',
-                      fontSize: '13px',
-                      fontWeight: 700,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    <XCircle size={16} />
-                    <span>반려</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleApprove(req.id)}
-                    style={{
-                      height: '38px',
-                      background: '#12B76A',
-                      borderRadius: '8px',
-                      color: '#FFFFFF',
-                      fontSize: '13px',
-                      fontWeight: 700,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    <CheckCircle2 size={16} />
-                    <span>승인 확정</span>
-                  </button>
-                </div>
-              )}
+                <button
+                  type="button"
+                  onClick={() => handleOpenAnswerModal({
+                    id: 1,
+                    recordId: 'rec-c-07',
+                    partName: '상담',
+                    partnerCompany: selectedPartner,
+                    requesterId: 'DS_PM',
+                    officialTitle: '투입 지연 소명 요청',
+                    messageContent: '이하은 45분 지연',
+                    status: 'REQUESTED',
+                    createdAt: '2026-08-16 09:40'
+                  })}
+                  style={{
+                    width: '100%',
+                    height: '44px',
+                    background: 'linear-gradient(90deg, #EA580C 0%, #F97316 100%)',
+                    border: 'none',
+                    borderRadius: '10px',
+                    color: '#FFFFFF',
+                    fontSize: '14px',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    boxShadow: '0 4px 12px rgba(234, 88, 12, 0.3)'
+                  }}
+                >
+                  <FileText size={16} />
+                  <span>소명서 작성 및 원청 제출</span>
+                </button>
+              </div>
             </div>
-          ))
+          </div>
         )}
       </div>
 
-      {/* 4. 원청 제출용 도급 이행 실적 리포트 생성 버튼 */}
-      <button
-        onClick={() => alert('📄 2026년 8월 협력사 도급 이행 공수(Man-Month: 11.9 M/M) 보고서가 원청(신한DS) 검수함으로 안전하게 제출되었습니다.')}
-        style={{
-          height: '48px',
-          background: themeMode === 'ddangyo' ? 'linear-gradient(135deg, #FF5538 0%, #FF381E 100%)' : '#19315A',
-          color: '#FFFFFF',
-          borderRadius: '10px',
-          fontSize: '14px',
-          fontWeight: 700,
+      {/* 소명서 작성 모달 */}
+      {isAnswerModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(6px)',
+          zIndex: 1000,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '8px',
-          marginTop: '6px'
-        }}
-      >
-        <FileText size={18} />
-        <span>원청(신한DS) 제출용 월간 도급 공수 실적서 생성</span>
-      </button>
+          padding: '16px'
+        }}>
+          <div style={{
+            width: '100%',
+            maxWidth: '400px',
+            background: '#FFFFFF',
+            borderRadius: '16px',
+            padding: '20px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            <div style={{ fontSize: '16px', fontWeight: 900, color: '#0F172A', marginBottom: '8px' }}>
+              공식 소명서 작성 (원청 PM 제출)
+            </div>
+            <div style={{ fontSize: '12px', color: '#64748B', marginBottom: '12px' }}>
+              수신: 신한DS 파트 PM | 발신: {selectedPartner} 현장관리자
+            </div>
+
+            <textarea
+              value={answerText}
+              onChange={e => setAnswerText(e.target.value)}
+              rows={4}
+              style={{
+                width: '100%',
+                background: '#F8FAFC',
+                border: '1px solid #CBD5E1',
+                borderRadius: '8px',
+                padding: '10px',
+                fontSize: '13px',
+                outline: 'none',
+                resize: 'none',
+                boxSizing: 'border-box',
+                lineHeight: 1.45,
+                marginBottom: '14px'
+              }}
+            />
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setIsAnswerModalOpen(false)}
+                style={{
+                  flex: 1,
+                  height: '42px',
+                  borderRadius: '8px',
+                  background: '#F1F5F9',
+                  border: 'none',
+                  color: '#475569',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitAnswer}
+                style={{
+                  flex: 2,
+                  height: '42px',
+                  borderRadius: '8px',
+                  background: '#0052FF',
+                  border: 'none',
+                  color: '#FFFFFF',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Send size={14} />
+                <span>소명서 원청 전송</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
-
-const kpiBoxStyle: React.CSSProperties = {
-  background: '#FFFFFF',
-  padding: '12px 10px',
-  borderRadius: '10px',
-  border: '1px solid #ECEFF2',
-  textAlign: 'center'
 };

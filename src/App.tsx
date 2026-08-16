@@ -124,25 +124,25 @@ export function App() {
       setCurrentPage('principal_portal');
     } else if (roleKey === 'PARTNER_MANAGER') {
       const managerUser: User = {
-        id: 'MGR-YG-001',
-        name: '박영업 (유브갓 영업대표)',
+        id: 'usr-002',
+        name: '박영업',
         firstName: '영업',
         lastName: '박',
-        companyName: '유브갓',
+        companyName: '유브갓 (신한DS 협력사)',
         partnerCompany: '유브갓',
-        deptName: '영업총괄본부',
+        deptName: '영업총괄팀',
         partName: '상담',
         role: 'PARTNER_PART_LEADER',
-        roleTitle: '유브갓 신한DS 도급사업 전담 영업대표',
+        roleTitle: '협력사 파트관리인 (영업대표)',
         location: '파인에비뉴(상담센터)',
-        phone: '010-3390-1120',
-        email: 'sales.ubgot@partner.com',
+        phone: '010-9876-5432',
+        email: 'sales.park@ubgot.co.kr',
         language: '한국어',
         timezone: 'Asia/Seoul (GMT+9)'
       };
       dbService.setCurrentUser(managerUser);
       setCurrentUser(managerUser);
-      setCurrentPage('attendance_report');
+      setCurrentPage('partner_portal');
     } else {
       const partnerUser: User = {
         id: 'usr-001',
@@ -490,8 +490,8 @@ export function App() {
               )}
             </main>
 
-            {/* 하단 네비게이션 바 */}
-            {(isTabActive || hideHeaderPages.includes(currentPage)) && (
+            {/* 하단 네비게이션 바 (개인 근로자 전용: 협력사 관리인 및 DS PM 포털에서는 숨김) */}
+            {currentUser.role === 'PARTNER_WORKER' && (isTabActive || hideHeaderPages.includes(currentPage)) && (
               <BottomNavigation
                 activeTab={isTabActive ? (currentPage as TabType) : 'home'}
                 onTabChange={tab => setCurrentPage(tab)}

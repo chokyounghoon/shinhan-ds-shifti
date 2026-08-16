@@ -121,6 +121,7 @@ export interface DbSlaClarification {
   messageContent: string;
   status: 'REQUESTED' | 'ANSWERED' | 'ACCEPTED';
   answerContent?: string;
+  answeredAt?: string;
   createdAt: string;
 }
 
@@ -649,6 +650,39 @@ export class PureDatabaseEngine {
       systemLabel: '도급 계약 이행 확인',
       details: `수신: ${record.partnerCompany} 관리자 앞 - "${message}"`,
       createdAt: nowStr
+    });
+
+    this.sync();
+    return true;
+  }
+
+  public getSlaClarifications(): DbSlaClarification[] {
+    return [...this.slaClarifications];
+  }
+
+  public answerClarification(id: number, answer: string): boolean {
+    const item = this.slaClarifications.find(c => c.id === id);
+    if (!item) return false;
+    item.status = 'ANSWERED';
+    item.answerContent = answer;
+    item.answeredAt = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+    const rec = this.manpowerInputs.find(r => r.recordId === item.recordId);
+    if (rec) {
+      rec.partnerClarification = answer;
+      rec.gapReason = `[협력사 소명 접수] ${answer}`;
+    }
+
+    this.auditTrails.push({
+      id: Date.now(),
+      recordId: item.recordId,
+      actorId: this.currentUser?.id || 'PARTNER_MGR',
+      actorName: this.currentUser?.name || '협력사 관리인',
+      actorRole: '협력사 현장관리인 (영업대표)',
+      action: '도급 계약 이행 확인 - 지연 사유 소명서 제출',
+      systemLabel: '도급 계약 이행 확인',
+      details: answer,
+      createdAt: item.answeredAt
     });
 
     this.sync();
