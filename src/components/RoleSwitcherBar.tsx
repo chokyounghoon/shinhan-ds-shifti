@@ -1,10 +1,10 @@
 import React from 'react';
-import { ShieldCheck, UserCheck, Briefcase, Building } from 'lucide-react';
+import { ShieldCheck, Briefcase, Building } from 'lucide-react';
 import { User } from '../types';
 
 interface RoleSwitcherBarProps {
   currentUser: User;
-  onSwitchUser: (userId: string) => void;
+  onSwitchUser: (roleKey: 'PARTNER' | 'DS_PM') => void;
   themeMode: 'ddangyo' | 'shinhan';
 }
 
@@ -13,6 +13,8 @@ export const RoleSwitcherBar: React.FC<RoleSwitcherBarProps> = ({
   onSwitchUser,
   themeMode
 }) => {
+  const isDsPm = currentUser.role === 'DS_PRINCIPAL_PM' || currentUser.role === 'PRINCIPAL_INSPECTOR';
+
   return (
     <div style={{
       background: '#191F28',
@@ -26,78 +28,60 @@ export const RoleSwitcherBar: React.FC<RoleSwitcherBarProps> = ({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 700, color: '#00E5FF' }}>
           <ShieldCheck size={14} />
-          <span>도급 인력 투입 및 공정 검수 모드 (30인)</span>
+          <span>도급 인력 투입 및 공정 검수 모드</span>
         </div>
         <span style={{ fontSize: '10px', color: '#8B95A1' }}>
           권한 시뮬레이션
         </span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
-        {/* 1. DS 상담전담 PM (귀하) */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+        {/* 1. 협력사 */}
         <button
-          onClick={() => onSwitchUser('usr-ds-pm')}
+          type="button"
+          onClick={() => onSwitchUser('PARTNER')}
           style={{
-            padding: '6px 4px',
-            borderRadius: '6px',
-            background: currentUser.id === 'usr-ds-pm' ? '#0066FF' : 'rgba(255, 255, 255, 0.08)',
+            padding: '8px 6px',
+            borderRadius: '8px',
+            background: !isDsPm ? '#0066FF' : 'rgba(255, 255, 255, 0.08)',
             color: '#FFFFFF',
-            fontSize: '11px',
-            fontWeight: currentUser.id === 'usr-ds-pm' ? 800 : 500,
+            fontSize: '12.5px',
+            fontWeight: !isDsPm ? 800 : 500,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '4px',
+            gap: '6px',
             cursor: 'pointer',
-            border: 'none'
+            border: !isDsPm ? '1px solid #00E5FF' : '1px solid transparent',
+            transition: 'all 0.15s ease'
           }}
         >
-          <Building size={12} />
-          <span>DS PM (상담전담)</span>
+          <Briefcase size={14} color={!isDsPm ? '#00E5FF' : '#90A4AE'} />
+          <span>협력사</span>
         </button>
 
-        {/* 2. 협력업체 관리자 (유브갓) */}
+        {/* 2. DS현장대리인 */}
         <button
-          onClick={() => onSwitchUser('usr-part-lead-1')}
+          type="button"
+          onClick={() => onSwitchUser('DS_PM')}
           style={{
-            padding: '6px 4px',
-            borderRadius: '6px',
-            background: currentUser.id === 'usr-part-lead-1' ? '#FF9500' : 'rgba(255, 255, 255, 0.08)',
+            padding: '8px 6px',
+            borderRadius: '8px',
+            background: isDsPm ? '#0066FF' : 'rgba(255, 255, 255, 0.08)',
             color: '#FFFFFF',
-            fontSize: '11px',
-            fontWeight: currentUser.id === 'usr-part-lead-1' ? 800 : 500,
+            fontSize: '12.5px',
+            fontWeight: isDsPm ? 800 : 500,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '4px',
+            gap: '6px',
             cursor: 'pointer',
-            border: 'none'
+            border: isDsPm ? '1px solid #00E5FF' : '1px solid transparent',
+            transition: 'all 0.15s ease'
           }}
         >
-          <Briefcase size={12} />
-          <span>유브갓 관리자</span>
-        </button>
-
-        {/* 3. 협력업체 근로자 (송무준) */}
-        <button
-          onClick={() => onSwitchUser('usr-worker-01')}
-          style={{
-            padding: '6px 4px',
-            borderRadius: '6px',
-            background: currentUser.id === 'usr-worker-01' ? '#12B76A' : 'rgba(255, 255, 255, 0.08)',
-            color: '#FFFFFF',
-            fontSize: '11px',
-            fontWeight: currentUser.id === 'usr-worker-01' ? 800 : 500,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '4px',
-            cursor: 'pointer',
-            border: 'none'
-          }}
-        >
-          <UserCheck size={12} />
-          <span>협력 근로자</span>
+          <Building size={14} color={isDsPm ? '#00E5FF' : '#90A4AE'} />
+          <span>DS현장대리인</span>
         </button>
       </div>
     </div>

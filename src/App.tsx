@@ -100,15 +100,48 @@ export function App() {
     setStats(dbService.getWeeklyStats());
   };
 
-  const handleSwitchUser = (userId: string) => {
-    const newUser = dbService.switchUserRole(userId);
-    setCurrentUser(newUser);
-
-    if (newUser.role === 'DS_PRINCIPAL_PM' || newUser.role === 'PRINCIPAL_INSPECTOR') {
+  const handleSwitchUser = (roleKey: 'PARTNER' | 'DS_PM') => {
+    if (roleKey === 'DS_PM') {
+      const dsUser: User = {
+        id: 'S18121020',
+        name: '조경훈 (DS PM)',
+        firstName: '경훈',
+        lastName: '조',
+        companyName: '신한DS',
+        partnerCompany: '신한DS',
+        deptName: '상담팀',
+        partName: '상담',
+        role: 'DS_PRINCIPAL_PM',
+        roleTitle: '신한DS 상담파트 전담 현장관리인',
+        location: '파인에비뉴(상담센터)',
+        phone: '010-4421-8890',
+        email: 'khcho0421@gmail.com',
+        language: '한국어',
+        timezone: 'Asia/Seoul (GMT+9)'
+      };
+      dbService.setCurrentUser(dsUser);
+      setCurrentUser(dsUser);
       setCurrentPage('principal_portal');
-    } else if (newUser.role === 'PARTNER_PART_LEADER' || newUser.role === 'PARTNER_SITE_MANAGER') {
-      setCurrentPage('partner_portal');
     } else {
+      const partnerUser: User = {
+        id: 'usr-001',
+        name: '조경훈',
+        firstName: '경훈',
+        lastName: '조',
+        companyName: '유브갓 (신한DS 협력사)',
+        partnerCompany: '유브갓',
+        deptName: '상담팀',
+        partName: '상담',
+        role: 'PARTNER_WORKER',
+        roleTitle: '협력사 상담원',
+        location: '파인에비뉴(상담센터)',
+        phone: '010-4732-8880',
+        email: 'khcho0421@gmail.com',
+        language: '한국어',
+        timezone: 'Asia/Seoul (GMT+9)'
+      };
+      dbService.setCurrentUser(partnerUser);
+      setCurrentUser(partnerUser);
       setCurrentPage('home');
     }
   };
@@ -146,7 +179,12 @@ export function App() {
           <SGuardLoginView
             onLoginSuccess={(user) => {
               setIsLoggedIn(true);
-              handleSwitchUser(user.id);
+              setCurrentUser(user);
+              if (user.role === 'DS_PRINCIPAL_PM') {
+                setCurrentPage('principal_portal');
+              } else {
+                setCurrentPage('home');
+              }
             }}
             themeMode={themeMode}
           />
