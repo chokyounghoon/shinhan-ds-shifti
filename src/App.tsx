@@ -68,9 +68,28 @@ type PageView =
   | 'add_schedule_template'
   | 'vacation_type_select';
 
+const SESSION_STORAGE_KEY = 'SGUARD_AUTH_SESSION';
+
 export function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(true); // 로그인 화면 건너뛰기 (기본 true: 메인 대시보드 즉시 진입)
-  const [currentUser, setCurrentUser] = useState<User>(dbService.getCurrentUser());
+  // 세션 연결 여부 검사 (세션이 있으면 바로 메인화면, 없으면 로그인 화면 우선 표출)
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    try {
+      const savedSession = localStorage.getItem(SESSION_STORAGE_KEY);
+      return !!savedSession;
+    } catch (e) {
+      return false;
+    }
+  });
+
+  const [currentUser, setCurrentUser] = useState<User>(() => {
+    try {
+      const savedSession = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (savedSession) {
+        return JSON.parse(savedSession);
+      }
+    } catch (e) {}
+    return dbService.getCurrentUser();
+  });
   const [schedules, setSchedules] = useState<DaySchedule[]>(dbService.getWeeklySchedules());
   const [requests, setRequests] = useState<AttendanceRequest[]>(dbService.getRequests());
   const [stats, setStats] = useState<WeeklyWorkStat>(dbService.getWeeklyStats());
@@ -201,10 +220,15 @@ export function App() {
         {!isLoggedIn ? (
           <SGuardLoginView
             onLoginSuccess={(user) => {
+              try {
+                localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(user));
+              } catch (e) {}
               setIsLoggedIn(true);
               setCurrentUser(user);
               if (user.role === 'DS_PRINCIPAL_PM') {
                 setCurrentPage('principal_portal');
+              } else if (user.role === 'PARTNER_PART_LEADER' || (user as any).role === 'PARTNER_MANAGER') {
+                setCurrentPage('partner_portal');
               } else {
                 setCurrentPage('home');
               }
@@ -513,7 +537,13 @@ export function App() {
               onToggleTheme={handleToggleTheme}
               isMobileFrame={isMobileFrame}
               onToggleFrame={() => setIsMobileFrame(!isMobileFrame)}
-              onLogout={() => setIsLoggedIn(false)}
+              onLogout={() => {
+                try {
+                  localStorage.removeItem(SESSION_STORAGE_KEY);
+                } catch (e) {}
+                setIsLoggedIn(false);
+                setCurrentPage('home');
+              }}
               onOpenReport={() => setCurrentPage('attendance_report')}
               onOpenMissedPunch={() => setCurrentPage('missed_punch_records')}
               onOpenRequests={() => setCurrentPage('request')}
