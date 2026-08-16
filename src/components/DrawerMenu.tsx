@@ -61,13 +61,13 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
       return;
     }
 
-    if (menuTitle === '출퇴근 장소') {
+    if (menuTitle === '도급 투입 장소' || menuTitle === '출퇴근 장소') {
       onClose();
       onOpenWorkLocations();
       return;
     }
 
-    if (menuTitle === '근무일정 템플릿') {
+    if (menuTitle === '약정 투입 계획 템플릿' || menuTitle === '근무일정 템플릿') {
       onClose();
       onOpenScheduleTemplates();
       return;
@@ -172,8 +172,8 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
             <span>조직</span>
           </button>
 
-          {/* 출퇴근 장소 */}
-          <button style={menuItemStyle} onClick={() => handleMenuClick('출퇴근 장소')}>
+          {/* 도급 투입 장소 */}
+          <button style={menuItemStyle} onClick={() => handleMenuClick('도급 투입 장소')}>
             <MapPin size={19} color="#4E5968" strokeWidth={1.8} />
             <span>출퇴근 장소</span>
           </button>

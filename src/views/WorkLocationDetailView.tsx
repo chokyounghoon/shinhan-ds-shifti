@@ -18,7 +18,7 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
 
   return (
     <div style={{ background: '#FFFFFF', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* 1. 상단 헤더 (← 출퇴근 장소) */}
+      {/* 1. 상단 헤더 (← 도급 투입 장소) */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -27,27 +27,27 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
         background: '#FFFFFF',
         gap: '14px'
       }}>
-        <button onClick={onBack} style={{ color: '#191F28', display: 'flex', alignItems: 'center' }}>
+        <button onClick={onBack} style={{ color: '#191F28', display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer' }}>
           <ArrowLeft size={24} />
         </button>
-        <span style={{ fontSize: '18px', fontWeight: 800, color: '#191F28' }}>출퇴근 장소</span>
+        <span style={{ fontSize: '18px', fontWeight: 800, color: '#191F28' }}>도급 투입 장소</span>
       </div>
 
-      {/* 2. 기본 정보 3개 행 (스크린샷 일치) */}
+      {/* 2. 기본 정보 3개 행 */}
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         <div style={infoRowStyle}>
-          <span style={labelStyle}>출퇴근 장소명</span>
+          <span style={labelStyle}>약정 도급 장소명</span>
           <span style={valueStyle}>{locName}</span>
         </div>
 
         <div style={infoRowStyle}>
-          <span style={labelStyle}>근무지 주소</span>
+          <span style={labelStyle}>도급 수행지 주소</span>
           <span style={valueStyle}>{locAddress}</span>
         </div>
 
         <div style={infoRowStyle}>
-          <span style={labelStyle}>출퇴근 수단</span>
-          <span style={valueStyle}>좌표</span>
+          <span style={labelStyle}>투입 인증 수단</span>
+          <span style={valueStyle}>카카오 맵 GPS 좌표</span>
         </div>
       </div>
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Calendar, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Calendar, ChevronDown, CheckCircle2, AlertCircle, FileEdit } from 'lucide-react';
 
 interface MissedPunchRecordsViewProps {
   onBack: () => void;
@@ -10,12 +10,12 @@ export const MissedPunchRecordsView: React.FC<MissedPunchRecordsViewProps> = ({
   onBack,
   themeMode
 }) => {
-  const [activeTab, setActiveTab] = useState<'checkin' | 'checkout'>('checkin');
+  const [activeTab, setActiveTab] = useState<'pending' | 'completed'>('pending');
   const [dateRange, setDateRange] = useState('08.14 - 08.23');
 
   return (
     <div style={{ background: '#FFFFFF', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* 1. 상단 헤더 (← 출근/퇴근 누락 기록) */}
+      {/* 1. 상단 헤더 */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -24,13 +24,13 @@ export const MissedPunchRecordsView: React.FC<MissedPunchRecordsViewProps> = ({
         background: '#FFFFFF',
         gap: '14px'
       }}>
-        <button onClick={onBack} style={{ color: '#191F28', display: 'flex', alignItems: 'center' }}>
+        <button onClick={onBack} style={{ color: '#191F28', display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer' }}>
           <ArrowLeft size={24} />
         </button>
-        <span style={{ fontSize: '18px', fontWeight: 800, color: '#191F28' }}>출근/퇴근 누락 기록</span>
+        <span style={{ fontSize: '18px', fontWeight: 800, color: '#191F28' }}>도급 투입 누락/보정 기록</span>
       </div>
 
-      {/* 2. 날짜 선택기 & [출근 누락 / 퇴근 누락] 탭 (스크린샷 일치) */}
+      {/* 2. 날짜 선택기 & [미인증 건 / 소명 완료] 탭 */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -49,138 +49,79 @@ export const MissedPunchRecordsView: React.FC<MissedPunchRecordsViewProps> = ({
           <ChevronDown size={15} color="#6B7684" />
         </div>
 
-        {/* 출근 누락 / 퇴근 누락 탭 */}
-        <div style={{ display: 'flex', width: '200px' }}>
+        {/* 탭: 미인증 건 / 소명 완료 건 */}
+        <div style={{ display: 'flex', width: '220px' }}>
           <button
-            onClick={() => setActiveTab('checkin')}
+            onClick={() => setActiveTab('pending')}
             style={{
               flex: 1,
               padding: '14px 0',
-              fontSize: '14px',
-              fontWeight: activeTab === 'checkin' ? 800 : 600,
-              color: activeTab === 'checkin' ? '#191F28' : '#8B95A1',
-              textAlign: 'center',
-              position: 'relative'
+              fontSize: '13.5px',
+              fontWeight: activeTab === 'pending' ? 800 : 600,
+              color: activeTab === 'pending' ? '#0052FF' : '#8B95A1',
+              borderBottom: activeTab === 'pending' ? '2.5px solid #0052FF' : 'none',
+              background: 'none',
+              borderTop: 'none',
+              borderLeft: 'none',
+              borderRight: 'none',
+              cursor: 'pointer'
             }}
           >
-            <span>출근 누락</span>
-            {activeTab === 'checkin' && (
-              <div style={{
-                position: 'absolute',
-                bottom: 0,
-                left: '15%',
-                right: '15%',
-                height: '2.5px',
-                background: '#191F28'
-              }} />
-            )}
+            투입 미인증 (0)
           </button>
-
           <button
-            onClick={() => setActiveTab('checkout')}
+            onClick={() => setActiveTab('completed')}
             style={{
               flex: 1,
               padding: '14px 0',
-              fontSize: '14px',
-              fontWeight: activeTab === 'checkout' ? 800 : 600,
-              color: activeTab === 'checkout' ? '#191F28' : '#8B95A1',
-              textAlign: 'center',
-              position: 'relative'
+              fontSize: '13.5px',
+              fontWeight: activeTab === 'completed' ? 800 : 600,
+              color: activeTab === 'completed' ? '#0052FF' : '#8B95A1',
+              borderBottom: activeTab === 'completed' ? '2.5px solid #0052FF' : 'none',
+              background: 'none',
+              borderTop: 'none',
+              borderLeft: 'none',
+              borderRight: 'none',
+              cursor: 'pointer'
             }}
           >
-            <span>퇴근 누락</span>
-            {activeTab === 'checkout' && (
-              <div style={{
-                position: 'absolute',
-                bottom: 0,
-                left: '15%',
-                right: '15%',
-                height: '2.5px',
-                background: '#191F28'
-              }} />
-            )}
+            소명 완료 (0)
           </button>
         </div>
       </div>
 
-      {/* 3. 중앙 빈 상태 일러스트 & 텍스트 (스크린샷 100% 일치) */}
+      {/* 3. 본문 영역 */}
       <div style={{
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingBottom: '120px'
+        padding: '40px 20px',
+        color: '#8B95A1',
+        textAlign: 'center'
       }}>
-        {/* 시계 & 체크 배지 그래픽 */}
-        <div style={{ position: 'relative', width: '120px', height: '120px', marginBottom: '20px' }}>
-          {/* 구름/배경 블러 */}
-          <div style={{
-            position: 'absolute',
-            inset: '10px',
-            background: '#EEF2F6',
-            borderRadius: '50%',
-            filter: 'blur(8px)',
-            opacity: 0.8
-          }} />
-
-          {/* 시계 원형 바디 */}
-          <div style={{
-            position: 'absolute',
-            top: '20px',
-            left: '26px',
-            width: '68px',
-            height: '68px',
-            borderRadius: '50%',
-            background: '#D9E0EA',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            {/* 시계 바늘 (L자) */}
-            <div style={{
-              width: '26px',
-              height: '26px',
-              borderLeft: '4.5px solid #FFFFFF',
-              borderBottom: '4.5px solid #FFFFFF',
-              borderRadius: '2px',
-              transform: 'translate(4px, -4px)'
-            }} />
-          </div>
-
-          {/* 좌측 체크 배지 */}
-          <div style={{
-            position: 'absolute',
-            bottom: '24px',
-            left: '20px',
-            width: '28px',
-            height: '28px',
-            borderRadius: '50%',
-            background: '#758092',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
-          }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          </div>
-
-          {/* 반짝이 별 */}
-          <div style={{ position: 'absolute', top: '24px', left: '16px', color: '#B0B8C1', fontSize: '11px' }}>✦</div>
-          <div style={{ position: 'absolute', bottom: '38px', left: '8px', color: '#B0B8C1', fontSize: '8px' }}>✦</div>
+        <CheckCircle2 size={48} color="#0052FF" style={{ opacity: 0.8, marginBottom: '12px' }} />
+        <div style={{ fontSize: '16px', fontWeight: 800, color: '#191F28', marginBottom: '6px' }}>
+          누락된 도급 투입 실적이 없습니다
         </div>
+        <p style={{ fontSize: '13px', color: '#6B7684', lineHeight: 1.5, margin: 0, maxWidth: '280px' }}>
+          해당 기간 내 모든 지정 공정에 1 M/D 투입 인증이 정상 완료되었습니다.
+        </p>
+      </div>
 
-        {/* 결근 기록이 없습니다 텍스트 */}
-        <div style={{
-          fontSize: '16px',
-          fontWeight: 700,
-          color: '#333D4B',
-          letterSpacing: '-0.3px'
-        }}>
-          결근 기록이 없습니다.
-        </div>
+      {/* 4. 법적 안내 배너 */}
+      <div style={{
+        margin: '16px',
+        padding: '12px 14px',
+        background: '#F0FDF4',
+        border: '1px solid #BBF7D0',
+        borderRadius: '10px',
+        fontSize: '11.5px',
+        color: '#166534',
+        lineHeight: 1.45
+      }}>
+        ※ 도급 계약 원칙에 따라 <strong>일일 출근(투입) 1회 인증</strong>만 집계되며, 퇴근 시간은 기록 및 검수 대상이 아닙니다.
       </div>
     </div>
   );
