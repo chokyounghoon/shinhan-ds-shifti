@@ -18,7 +18,9 @@ import {
   X,
   MessageSquare,
   AlertCircle,
-  Check
+  Check,
+  PlusCircle,
+  UserPlus
 } from 'lucide-react';
 import { dbService } from '../services/db';
 import { User, ManpowerInputRecord, PartFulfillmentSummary } from '../types';
@@ -40,9 +42,26 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
   // 모달 상태
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [isClarificationModalOpen, setIsClarificationModalOpen] = useState(false);
+  const [isAddWorkerModalOpen, setIsAddWorkerModalOpen] = useState(false);
   const [selectedGapRecord, setSelectedGapRecord] = useState<ManpowerInputRecord | null>(null);
   const [clarificationMessage, setClarificationMessage] = useState('');
   const [selectedAuditRecord, setSelectedAuditRecord] = useState<ManpowerInputRecord | null>(null);
+
+  // 신규 투입 인력 등록 폼 (실제 DB INSERT용)
+  const [newWorkerForm, setNewWorkerForm] = useState({
+    workerName: '',
+    employeeId: '',
+    partnerCompany: activePart === '상담' ? '유브갓' : activePart === '오토' ? '오토시스' : '파이낸스ITS',
+    workDate: new Date().toISOString().substring(0, 10),
+    clockInTime: '08:50',
+    clockOutTime: '18:00',
+    contractedHours: 8.0,
+    actualHours: 8.0,
+    taskSummary: '',
+    isSlaBreach: false,
+    varianceMinutes: 0,
+    gapReason: ''
+  });
 
   const loadData = () => {
     const partRecords = dbService.getManpowerRecordsByPart(activePart);
@@ -58,6 +77,10 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
 
   useEffect(() => {
     loadData();
+    setNewWorkerForm(prev => ({
+      ...prev,
+      partnerCompany: activePart === '상담' ? '유브갓' : activePart === '오토' ? '오토시스' : '파이낸스ITS'
+    }));
   }, [activePart]);
 
   const handleSelectAll = () => {
@@ -76,7 +99,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
     }
   };
 
-  // DS PM 최종 정산 확정 핸들러
+  // DS PM 최종 정산 확정 핸들러 (실제 DB UPDATE)
   const handleExecuteSettlement = () => {
     if (selectedRecordIds.length === 0) {
       alert('검수 확정할 인원을 1명 이상 선택해주세요.');
@@ -89,23 +112,70 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
     alert(`✅ 선택된 ${selectedRecordIds.length}명의 일일 투입 공수 검수가 완료되어 [도급 정산 확정] 처리되었습니다.`);
   };
 
+  // 신규 투입 인력 실제 DB INSERT
+  const handleAddWorkerSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newWorkerForm.workerName.trim() || !newWorkerForm.employeeId.trim()) {
+      alert('성명과 사번을 입력해 주세요.');
+      return;
+    }
+
+    const res = dbService.insertManpowerRecord({
+      recordId: `rec-${Date.now()}`,
+      employeeId: newWorkerForm.employeeId.trim(),
+      workerName: newWorkerForm.workerName.trim(),
+      partName: activePart,
+      partnerCompany: newWorkerForm.partnerCompany,
+      workDate: newWorkerForm.workDate,
+      contractedHours: Number(newWorkerForm.contractedHours),
+      actualInputHours: Number(newWorkerForm.actualHours),
+      clockInTime: newWorkerForm.clockInTime,
+      clockOutTime: newWorkerForm.clockOutTime,
+      taskSummary: newWorkerForm.taskSummary || `${activePart} 파트 일일 도급 업무 수행`,
+      varianceMinutes: Number(newWorkerForm.varianceMinutes),
+      isSlaBreach: Boolean(newWorkerForm.isSlaBreach),
+      gapReason: newWorkerForm.gapReason || undefined,
+      verificationStatus: 'PARTNER_CONFIRMED'
+    });
+
+    if (res.success) {
+      alert(`🎉 [${newWorkerForm.workerName}] 투입 실적이 실제 DB(manpower_inputs)에 등록되었습니다.`);
+      setIsAddWorkerModalOpen(false);
+      setNewWorkerForm({
+        workerName: '',
+        employeeId: '',
+        partnerCompany: activePart === '상담' ? '유브갓' : activePart === '오토' ? '오토시스' : '파이낸스ITS',
+        workDate: new Date().toISOString().substring(0, 10),
+        clockInTime: '08:50',
+        clockOutTime: '18:00',
+        contractedHours: 8.0,
+        actualHours: 8.0,
+        taskSummary: '',
+        isSlaBreach: false,
+        varianceMinutes: 0,
+        gapReason: ''
+      });
+      loadData();
+    }
+  };
+
   // 소명 요구 / 개선 요청 모달 열기
   const handleOpenClarification = (record: ManpowerInputRecord) => {
     setSelectedGapRecord(record);
     setClarificationMessage(
-      `[공식 개선 요청] 귀사(${record.partnerCompany}) 소속 ${record.workerName} 상담원의 2026-08-16일자 투입 공백(편차 ${record.varianceMinutes}분)에 대하여 SLA 계약 기준에 따른 원인 분석 및 재발 방지 개선 대책서 제출을 요청합니다.`
+      `[공식 개선 요청] 귀사(${record.partnerCompany}) 소속 ${record.workerName} 상담원의 ${record.workDate}일자 투입 공백(편차 ${record.varianceMinutes}분)에 대하여 SLA 계약 기준에 따른 원인 분석 및 재발 방지 개선 대책서 제출을 요청합니다.`
     );
     setIsClarificationModalOpen(true);
   };
 
-  // 소명 요구 메시지 전송
+  // 소명 요구 메시지 전송 (실제 DB INSERT)
   const handleSendClarification = () => {
     if (!selectedGapRecord || !clarificationMessage.trim()) return;
 
     dbService.sendClarificationRequest(selectedGapRecord.id, clarificationMessage);
     setIsClarificationModalOpen(false);
     loadData();
-    alert(`📨 협력업체(${selectedGapRecord.partnerCompany}) 관리자 앞 개선 요청(소명 요구) 공문이 공식 발송되었습니다.`);
+    alert(`📨 협력업체(${selectedGapRecord.partnerCompany}) 관리자 앞 개선 요청(소명 요구) 공문이 공식 발송되어 DB에 저장되었습니다.`);
   };
 
   const gapRecords = records.filter(r => r.isSlaBreach);
@@ -147,7 +217,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
           </span>
         </div>
 
-        {/* 메인 파트명 명시 (스크린샷 / 지침 일치: '파트명(상담)') */}
+        {/* 메인 파트명 명시 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
           <div>
             <div style={{ fontSize: '13px', color: '#90A4AE', fontWeight: 600 }}>
@@ -200,7 +270,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                 transition: 'all 0.15s ease'
               }}
             >
-              {pName} 파트 {pName === '상담' && <span style={{ fontSize: '9px', color: '#80D8FF' }}>★</span>}
+              {pName} 파트
             </button>
           ))}
         </div>
@@ -223,7 +293,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
               {activePart} 파트 실시간 가동률
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '2px' }}>
-              <span style={{ fontSize: '32px', fontWeight: 900, color: summary.fulfillmentRate >= 100 ? '#00E676' : '#FF9100' }}>
+              <span style={{ fontSize: '32px', fontWeight: 900, color: summary.fulfillmentRate >= 100 ? '#00E676' : summary.fulfillmentRate > 0 ? '#FF9100' : '#90A4AE' }}>
                 {summary.fulfillmentRate.toFixed(1)}%
               </span>
               <span style={{ fontSize: '12.5px', color: '#90A4AE' }}>
@@ -235,7 +305,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
             </div>
           </div>
 
-          {/* 가동률 원형 링 게이지 시각화 */}
+          {/* 가동률 원형 링 게이지 */}
           <div style={{
             width: '64px',
             height: '64px',
@@ -263,7 +333,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
           </div>
         </div>
 
-        {/* 3. 위반 사례 리포트: '파트 내 투입 공백 발생 인원' (지각/징계 용어 배제) */}
+        {/* 3. 위반 사례 리포트: '파트 내 투입 공백 발생 인원' */}
         {gapRecords.length > 0 && (
           <div style={{
             background: 'rgba(255, 109, 0, 0.08)',
@@ -298,14 +368,14 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ fontSize: '14px', fontWeight: 800, color: '#FFFFFF' }}>
-                        {gapRec.workerName} 상담원
+                        {gapRec.workerName}
                       </span>
                       <span style={{ fontSize: '11px', color: '#FF8A80', background: 'rgba(255,82,82,0.15)', padding: '1px 6px', borderRadius: '4px' }}>
                         {gapRec.varianceMinutes}분 편차
                       </span>
                     </div>
                     <div style={{ fontSize: '11.5px', color: '#90A4AE', marginTop: '2px' }}>
-                      {gapRec.gapReason || '출근 시간 지연'} · {gapRec.partnerClarification || '협력사 1차 소명 접수됨'}
+                      {gapRec.gapReason || '출근 시간 지연'} · {gapRec.partnerClarification || '협력사 1차 소명 대기중'}
                     </div>
                   </div>
 
@@ -334,7 +404,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
           </div>
         )}
 
-        {/* 4. 오늘 투입 인원 리스트 헤더 & 전체선택 */}
+        {/* 4. 오늘 투입 인원 리스트 헤더 & 신규 투입 등록 버튼 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
@@ -345,165 +415,229 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={handleSelectAll}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#80D8FF',
-              fontSize: '12px',
-              fontWeight: 700,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            {selectedRecordIds.length === records.length ? (
-              <>
-                <CheckSquare size={14} color="#00E5FF" />
-                <span>선택 해제</span>
-              </>
-            ) : (
-              <>
-                <Square size={14} color="#90A4AE" />
-                <span>전체 선택</span>
-              </>
-            )}
-          </button>
-        </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={() => setIsAddWorkerModalOpen(true)}
+              style={{
+                background: 'rgba(0, 229, 255, 0.15)',
+                border: '1px solid rgba(0, 229, 255, 0.4)',
+                color: '#00E5FF',
+                fontSize: '11.5px',
+                fontWeight: 800,
+                borderRadius: '6px',
+                padding: '4px 8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              <PlusCircle size={13} />
+              <span>투입 등록</span>
+            </button>
 
-        {/* 5. 투입 인원 목록 카드 리스트 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {records.map((record) => {
-            const isSelected = selectedRecordIds.includes(record.id);
-            const isPending = record.verificationStatus === 'PARTNER_CONFIRMED';
-            const isSettled = record.verificationStatus === 'SETTLED';
-
-            return (
-              <div
-                key={record.id}
+            {records.length > 0 && (
+              <button
+                type="button"
+                onClick={handleSelectAll}
                 style={{
-                  background: isSelected ? '#12243D' : '#0F1A2C',
-                  border: isSelected ? '1px solid #00E5FF' : '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: '12px',
-                  padding: '12px 14px',
+                  background: 'none',
+                  border: 'none',
+                  color: '#80D8FF',
+                  fontSize: '12px',
+                  fontWeight: 700,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '12px',
-                  transition: 'all 0.15s ease'
+                  gap: '4px',
+                  cursor: 'pointer'
                 }}
               >
-                {/* 체크박스 */}
-                <button
-                  type="button"
-                  onClick={() => handleToggleSelect(record.id)}
-                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                >
-                  {isSelected ? (
-                    <CheckSquare size={20} color="#00E5FF" />
-                  ) : (
-                    <Square size={20} color="#90A4AE" />
-                  )}
-                </button>
+                {selectedRecordIds.length === records.length ? (
+                  <>
+                    <CheckSquare size={14} color="#00E5FF" />
+                    <span>선택 해제</span>
+                  </>
+                ) : (
+                  <>
+                    <Square size={14} color="#90A4AE" />
+                    <span>전체 선택</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
 
-                {/* 인원 정보 */}
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ fontSize: '15px', fontWeight: 800, color: '#FFFFFF' }}>
-                        {record.workerName}
-                      </span>
-                      <span style={{ fontSize: '11px', color: '#90A4AE' }}>
-                        {record.partnerCompany}
-                      </span>
+        {/* 5. 투입 인원 목록 카드 리스트 (DB Zero State 지원) */}
+        {records.length === 0 ? (
+          <div style={{
+            background: '#111E33',
+            border: '1px dashed rgba(255, 255, 255, 0.15)',
+            borderRadius: '14px',
+            padding: '36px 20px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '10px'
+          }}>
+            <UserPlus size={36} color="#90A4AE" />
+            <div style={{ fontSize: '15px', fontWeight: 800, color: '#FFFFFF' }}>
+              등록된 일일 투입 인력이 없습니다
+            </div>
+            <p style={{ fontSize: '12px', color: '#90A4AE', margin: 0, maxWidth: '280px', lineHeight: 1.4 }}>
+              실제 DB에 도급 인력 투입 실적을 등록하려면 상단의 <strong>[투입 등록]</strong> 버튼을 눌러주세요.
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsAddWorkerModalOpen(true)}
+              style={{
+                marginTop: '6px',
+                background: '#0052FF',
+                border: 'none',
+                color: '#FFFFFF',
+                fontSize: '13px',
+                fontWeight: 800,
+                padding: '8px 16px',
+                borderRadius: '8px',
+                cursor: 'pointer'
+              }}
+            >
+              + {activePart} 파트 인력 실적 등록
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {records.map((record) => {
+              const isSelected = selectedRecordIds.includes(record.id);
+              const isPending = record.verificationStatus === 'PARTNER_CONFIRMED';
+              const isSettled = record.verificationStatus === 'SETTLED';
+
+              return (
+                <div
+                  key={record.id}
+                  style={{
+                    background: isSelected ? '#12243D' : '#0F1A2C',
+                    border: isSelected ? '1px solid #00E5FF' : '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: '12px',
+                    padding: '12px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {/* 체크박스 */}
+                  <button
+                    type="button"
+                    onClick={() => handleToggleSelect(record.id)}
+                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                  >
+                    {isSelected ? (
+                      <CheckSquare size={20} color="#00E5FF" />
+                    ) : (
+                      <Square size={20} color="#90A4AE" />
+                    )}
+                  </button>
+
+                  {/* 인원 정보 */}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '15px', fontWeight: 800, color: '#FFFFFF' }}>
+                          {record.workerName}
+                        </span>
+                        <span style={{ fontSize: '11px', color: '#90A4AE' }}>
+                          {record.partnerCompany}
+                        </span>
+                      </div>
+
+                      {/* 상태 배지 */}
+                      {isSettled ? (
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          color: '#00E676',
+                          background: 'rgba(0, 230, 118, 0.15)',
+                          border: '1px solid rgba(0, 230, 118, 0.3)',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '3px'
+                        }}>
+                          <Check size={12} strokeWidth={3} />
+                          <span>정산 확정</span>
+                        </span>
+                      ) : isPending ? (
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          color: '#00E5FF',
+                          background: 'rgba(0, 229, 255, 0.15)',
+                          border: '1px solid rgba(0, 229, 255, 0.3)',
+                          padding: '2px 8px',
+                          borderRadius: '12px'
+                        }}>
+                          검수 대기 (1차 확인완료)
+                        </span>
+                      ) : (
+                        <span style={{
+                          fontSize: '11px',
+                          color: '#FFB74D',
+                          background: 'rgba(255, 183, 77, 0.12)',
+                          padding: '2px 8px',
+                          borderRadius: '12px'
+                        }}>
+                          미검증 (협력사 확인전)
+                        </span>
+                      )}
                     </div>
 
-                    {/* 상태 배지 (지침 일치: 검수 대기 vs 정산 확정) */}
-                    {isSettled ? (
-                      <span style={{
-                        fontSize: '11px',
-                        fontWeight: 800,
-                        color: '#00E676',
-                        background: 'rgba(0, 230, 118, 0.15)',
-                        border: '1px solid rgba(0, 230, 118, 0.3)',
-                        padding: '2px 8px',
-                        borderRadius: '12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '3px'
-                      }}>
-                        <Check size={12} strokeWidth={3} />
-                        <span>정산 확정</span>
+                    <div style={{ fontSize: '12.5px', color: '#CFD8DC', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: '#80D8FF', fontWeight: 700 }}>
+                        🕒 {record.clockInTime} ~ {record.clockOutTime}
                       </span>
-                    ) : isPending ? (
-                      <span style={{
-                        fontSize: '11px',
-                        fontWeight: 800,
-                        color: '#00E5FF',
-                        background: 'rgba(0, 229, 255, 0.15)',
-                        border: '1px solid rgba(0, 229, 255, 0.3)',
-                        padding: '2px 8px',
-                        borderRadius: '12px'
-                      }}>
-                        검수 대기 (1차 확인완료)
-                      </span>
-                    ) : (
-                      <span style={{
-                        fontSize: '11px',
-                        color: '#FFB74D',
-                        background: 'rgba(255, 183, 77, 0.12)',
-                        padding: '2px 8px',
-                        borderRadius: '12px'
-                      }}>
-                        미검증 (협력사 확인전)
-                      </span>
+                      <span>실투입: <strong>{record.actualInputHours}h</strong> / 약정 {record.contractedHours}h</span>
+                    </div>
+
+                    <div style={{ fontSize: '11.5px', color: '#90A4AE', marginTop: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      작업내역: {record.taskSummary}
+                    </div>
+
+                    {/* 감사 이력 조회 버튼 */}
+                    {record.auditTrails && record.auditTrails.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedAuditRecord(record)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#82B1FF',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          padding: 0,
+                          marginTop: '4px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '3px'
+                        }}
+                      >
+                        <History size={12} />
+                        <span>검수 이력 ({record.auditTrails.length}건)</span>
+                      </button>
                     )}
                   </div>
-
-                  <div style={{ fontSize: '12.5px', color: '#CFD8DC', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ color: '#80D8FF', fontWeight: 700 }}>
-                      🕒 {record.clockInTime} ~ {record.clockOutTime}
-                    </span>
-                    <span>실투입: <strong>{record.actualInputHours}h</strong> / 약정 {record.contractedHours}h</span>
-                  </div>
-
-                  <div style={{ fontSize: '11.5px', color: '#90A4AE', marginTop: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    작업내역: {record.taskSummary}
-                  </div>
-
-                  {/* 감사 이력 조회 버튼 */}
-                  {record.auditTrails && record.auditTrails.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedAuditRecord(record)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#82B1FF',
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        padding: 0,
-                        marginTop: '4px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '3px'
-                      }}
-                    >
-                      <History size={12} />
-                      <span>검수 이력 ({record.auditTrails.length}건)</span>
-                    </button>
-                  )}
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* 6. 하단 Action Zone: '근태 승인'이 아닌 [일일 투입 공수 검수] 버튼 (지침 일치) */}
+      {/* 6. 하단 Action Zone: [일일 투입 공수 검수] 버튼 */}
       <div style={{
         position: 'fixed',
         bottom: 0,
@@ -554,7 +688,151 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
       </div>
 
       {/* ========================================================================= */}
-      {/* 팝업 1: [일일 투입 공수 검수] 최종 정산 확정 팝업 (지침 일치 문구) */}
+      {/* 팝업: 신규 투입 인력 등록 모달 (실제 DB INSERT) */}
+      {/* ========================================================================= */}
+      {isAddWorkerModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.8)',
+          backdropFilter: 'blur(6px)',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px'
+        }}>
+          <div style={{
+            width: '100%',
+            maxWidth: '400px',
+            background: '#132035',
+            border: '1.5px solid #00E5FF',
+            borderRadius: '18px',
+            padding: '20px',
+            color: '#FFFFFF',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#00E5FF', fontSize: '16px', fontWeight: 800 }}>
+                <UserPlus size={18} />
+                <span>[{activePart}] 신규 투입 실적 등록 (DB)</span>
+              </div>
+              <button onClick={() => setIsAddWorkerModalOpen(false)} style={{ background: 'none', border: 'none', color: '#90A4AE', cursor: 'pointer' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddWorkerSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div>
+                <label style={{ fontSize: '11.5px', color: '#90A4AE', display: 'block', marginBottom: '3px' }}>근로자 성명 *</label>
+                <input
+                  type="text"
+                  placeholder="예: 홍길동"
+                  value={newWorkerForm.workerName}
+                  onChange={e => setNewWorkerForm({ ...newWorkerForm, workerName: e.target.value })}
+                  style={formInputStyle}
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '11.5px', color: '#90A4AE', display: 'block', marginBottom: '3px' }}>사원번호 *</label>
+                <input
+                  type="text"
+                  placeholder="예: S20260099"
+                  value={newWorkerForm.employeeId}
+                  onChange={e => setNewWorkerForm({ ...newWorkerForm, employeeId: e.target.value })}
+                  style={formInputStyle}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div>
+                  <label style={{ fontSize: '11.5px', color: '#90A4AE', display: 'block', marginBottom: '3px' }}>출근 투입 시각</label>
+                  <input
+                    type="time"
+                    value={newWorkerForm.clockInTime}
+                    onChange={e => setNewWorkerForm({ ...newWorkerForm, clockInTime: e.target.value })}
+                    style={formInputStyle}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11.5px', color: '#90A4AE', display: 'block', marginBottom: '3px' }}>퇴근 투입 시각</label>
+                  <input
+                    type="time"
+                    value={newWorkerForm.clockOutTime}
+                    onChange={e => setNewWorkerForm({ ...newWorkerForm, clockOutTime: e.target.value })}
+                    style={formInputStyle}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '11.5px', color: '#90A4AE', display: 'block', marginBottom: '3px' }}>수행 작업 내역</label>
+                <input
+                  type="text"
+                  placeholder="예: 카드 분실 재발급 및 이상금융거래 상담"
+                  value={newWorkerForm.taskSummary}
+                  onChange={e => setNewWorkerForm({ ...newWorkerForm, taskSummary: e.target.value })}
+                  style={formInputStyle}
+                />
+              </div>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#FFB74D', cursor: 'pointer', marginTop: '4px' }}>
+                <input
+                  type="checkbox"
+                  checked={newWorkerForm.isSlaBreach}
+                  onChange={e => setNewWorkerForm({ ...newWorkerForm, isSlaBreach: e.target.checked, varianceMinutes: e.target.checked ? 50 : 0 })}
+                  style={{ accentColor: '#FF9100' }}
+                />
+                <span>투입 공백(SLA 편차) 발생 인원으로 등록</span>
+              </label>
+
+              {newWorkerForm.isSlaBreach && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '8px' }}>
+                  <input
+                    type="number"
+                    placeholder="편차(분)"
+                    value={newWorkerForm.varianceMinutes}
+                    onChange={e => setNewWorkerForm({ ...newWorkerForm, varianceMinutes: Number(e.target.value) })}
+                    style={formInputStyle}
+                  />
+                  <input
+                    type="text"
+                    placeholder="공백 사유 (예: VPN 장애)"
+                    value={newWorkerForm.gapReason}
+                    onChange={e => setNewWorkerForm({ ...newWorkerForm, gapReason: e.target.value })}
+                    style={formInputStyle}
+                  />
+                </div>
+              )}
+
+              <button
+                type="submit"
+                style={{
+                  width: '100%',
+                  height: '44px',
+                  borderRadius: '10px',
+                  background: '#0052FF',
+                  border: 'none',
+                  color: '#FFFFFF',
+                  fontSize: '14.5px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  marginTop: '10px'
+                }}
+              >
+                실제 DB(manpower_inputs)에 등록 ›
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 팝업: [일일 투입 공수 검수] 최종 정산 확정 팝업 */}
       {/* ========================================================================= */}
       {isConfirmModalOpen && (
         <div style={{
@@ -596,7 +874,6 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
               도급 투입 공수 정산 검수
             </h3>
 
-            {/* 고정 지침 팝업 문구 */}
             <p style={{
               fontSize: '14px',
               lineHeight: 1.55,
@@ -608,7 +885,6 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
               "선택한 인원들의 오늘자 투입 실적을 도급 정산 자료로 최종 확정하시겠습니까?"
             </p>
 
-            {/* HR 근태 승인이 아님을 명시하는 법적 고지 배너 */}
             <div style={{
               background: 'rgba(0, 82, 255, 0.15)',
               border: '1px solid rgba(0, 229, 255, 0.3)',
@@ -665,7 +941,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
       )}
 
       {/* ========================================================================= */}
-      {/* 팝업 2: 협력업체 관리자 대상 [개선 요청(소명 요구)] 발송 모달 */}
+      {/* 팝업: 협력업체 관리자 대상 [개선 요청(소명 요구)] 발송 모달 */}
       {/* ========================================================================= */}
       {isClarificationModalOpen && selectedGapRecord && (
         <div style={{
@@ -706,7 +982,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
             </div>
 
             <label style={{ fontSize: '12px', fontWeight: 700, color: '#CFD8DC', display: 'block', marginBottom: '6px' }}>
-              공식 요청 공문 내용
+              공식 요청 공문 내용 (DB 저장)
             </label>
             <textarea
               value={clarificationMessage}
@@ -774,7 +1050,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
       )}
 
       {/* ========================================================================= */}
-      {/* 팝업 3: 감사 로그 (Audit Trail Viewer) */}
+      {/* 팝업: 감사 로그 (Audit Trail Viewer) */}
       {/* ========================================================================= */}
       {selectedAuditRecord && (
         <div style={{
@@ -800,7 +1076,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#00E5FF', fontSize: '15px', fontWeight: 800 }}>
                 <History size={17} />
-                <span>{selectedAuditRecord.workerName} 검수 감사 로그</span>
+                <span>{selectedAuditRecord.workerName} 검수 감사 로그 (DB)</span>
               </div>
               <button onClick={() => setSelectedAuditRecord(null)} style={{ background: 'none', border: 'none', color: '#90A4AE', cursor: 'pointer' }}>
                 <X size={18} />
@@ -843,4 +1119,17 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
       )}
     </div>
   );
+};
+
+const formInputStyle: React.CSSProperties = {
+  width: '100%',
+  height: '42px',
+  background: '#0D1726',
+  border: '1px solid rgba(255, 255, 255, 0.15)',
+  borderRadius: '8px',
+  color: '#FFFFFF',
+  fontSize: '13px',
+  padding: '0 10px',
+  outline: 'none',
+  boxSizing: 'border-box'
 };

@@ -462,78 +462,23 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
         {/* ── [STEP 1: 사번 확인] ── */}
         {step === 'ID' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-            {/* 빠른 역할 프리셋 선택기 */}
-            <div>
-              <label style={{ fontSize: '12px', fontWeight: 700, color: '#00E5FF', display: 'block', marginBottom: '8px' }}>
-                👤 로그인 역할 선택 (테스트 프리셋)
-              </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedUserPreset('usr-ds-pm');
-                    setEmpId('S18121020');
-                  }}
-                  style={{
-                    padding: '8px 4px',
-                    borderRadius: '8px',
-                    border: selectedUserPreset === 'usr-ds-pm' ? '1.5px solid #0052FF' : '1px solid rgba(255,255,255,0.1)',
-                    background: selectedUserPreset === 'usr-ds-pm' ? 'rgba(0,82,255,0.25)' : 'rgba(255,255,255,0.04)',
-                    color: '#FFFFFF',
-                    textAlign: 'center',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <div style={{ fontSize: '11px', fontWeight: 800 }}>DS PM (상담)</div>
-                  <div style={{ fontSize: '9.5px', color: '#82B1FF' }}>S18121020</div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedUserPreset('usr-part-lead-1');
-                    setEmpId('S20240012');
-                  }}
-                  style={{
-                    padding: '8px 4px',
-                    borderRadius: '8px',
-                    border: selectedUserPreset === 'usr-part-lead-1' ? '1.5px solid #FF9500' : '1px solid rgba(255,255,255,0.1)',
-                    background: selectedUserPreset === 'usr-part-lead-1' ? 'rgba(255,149,0,0.25)' : 'rgba(255,255,255,0.04)',
-                    color: '#FFFFFF',
-                    textAlign: 'center',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <div style={{ fontSize: '11px', fontWeight: 800 }}>유브갓 관리자</div>
-                  <div style={{ fontSize: '9.5px', color: '#FFB74D' }}>S20240012</div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedUserPreset('usr-worker-01');
-                    setEmpId('S20260031');
-                  }}
-                  style={{
-                    padding: '8px 4px',
-                    borderRadius: '8px',
-                    border: selectedUserPreset === 'usr-worker-01' ? '1.5px solid #12B76A' : '1px solid rgba(255,255,255,0.1)',
-                    background: selectedUserPreset === 'usr-worker-01' ? 'rgba(18,183,106,0.25)' : 'rgba(255,255,255,0.04)',
-                    color: '#FFFFFF',
-                    textAlign: 'center',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <div style={{ fontSize: '11px', fontWeight: 800 }}>협력 근로자</div>
-                  <div style={{ fontSize: '9.5px', color: '#81C784' }}>S20260031</div>
-                </button>
-              </div>
+            {/* 안내 배너 (100% 실제 DB 기반) */}
+            <div style={{
+              background: 'rgba(0, 82, 255, 0.1)',
+              border: '1px solid rgba(0, 229, 255, 0.2)',
+              borderRadius: '10px',
+              padding: '10px 14px',
+              fontSize: '12px',
+              color: '#80D8FF',
+              lineHeight: 1.4
+            }}>
+              💡 <strong>DB 인증 안내</strong>: DB에 등록된 사번을 입력하여 로그인하거나, 처음이신 경우 하단의 <strong>[회원가입]</strong> 버튼을 눌러 계정을 생성해 주세요.
             </div>
 
             {/* 사번 입력 필드 */}
             <div>
               <label style={{ fontSize: '12px', fontWeight: 600, color: '#90A4AE', display: 'block', marginBottom: '6px' }}>
-                사원번호 (S로 시작)
+                사원번호 (S로 시작하는 사번)
               </label>
               <div style={{
                 background: '#101B2B',
@@ -560,6 +505,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                     fontWeight: 700
                   }}
                   onKeyDown={e => { if (e.key === 'Enter') handleInitAuth(); }}
+                  autoFocus
                 />
               </div>
             </div>
