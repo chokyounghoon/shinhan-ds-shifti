@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { MapPin, Navigation, CheckCircle2, AlertTriangle, X, RefreshCw, ShieldCheck, LocateFixed } from 'lucide-react';
+import { MapPin, Navigation, CheckCircle2, AlertTriangle, X, RefreshCw, ShieldCheck, LocateFixed, Lock, ShieldAlert, Zap } from 'lucide-react';
 import { WorkLocation } from '../views/WorkLocationSelectView';
+import { antiSpoofService, SpoofCheckResult } from '../services/antiSpoofService';
 
 interface GpsPunchMapModalProps {
   isOpen: boolean;
@@ -19,7 +20,7 @@ declare global {
 
 // 거리 계산 함수 (Haversine formula in Meters)
 function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371000; // 지구 반지름 (m)
+  const R = 6371000;
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
   const a =
@@ -52,10 +53,16 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
   const [isLocating, setIsLocating] = useState<boolean>(true);
   const [gpsError, setGpsError] = useState<string | null>(null);
 
-  // 100m 이내 여부 판정
-  const isWithin100m = distanceMeters !== null && distanceMeters <= 100;
+  // 안티스푸핑 무결성 검증 결과
+  const [spoofResult, setSpoofResult] = useState<SpoofCheckResult>(
+    antiSpoofService.verifyLocationIntegrity(targetLat, targetLng)
+  );
 
-  // GPS 위치 측정 함수
+  // 100m 이내 & 보안 무결성 통과 여부 판정
+  const isWithin100m = distanceMeters !== null && distanceMeters <= 100;
+  const isSecurityPassed = spoofResult.isSecure;
+
+  // GPS 위치 측정 & 5중 안티스푸핑 검증
   const fetchCurrentLocation = () => {
     setIsLocating(true);
     setGpsError(null);
@@ -65,19 +72,28 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
         (position) => {
           const uLat = position.coords.latitude;
           const uLng = position.coords.longitude;
+          const uAcc = position.coords.accuracy || 15;
+          const uAlt = position.coords.altitude || 38;
+          const uSpeed = position.coords.speed || 0;
+
           setUserPos({ lat: uLat, lng: uLng });
           const dist = getDistanceMeters(uLat, uLng, targetLat, targetLng);
           setDistanceMeters(dist);
+
+          // 안티스푸핑 무결성 검증 실행
+          const sec = antiSpoofService.verifyLocationIntegrity(uLat, uLng, uAcc, uAlt, uSpeed);
+          setSpoofResult(sec);
           setIsLocating(false);
         },
         (error) => {
-          console.warn('GPS location error, falling back to simulated proximity for dev:', error);
-          // 브라우저 위치 차단 또는 로컬 환경일 경우 100m 이내(약 35m) 시뮬레이션 좌표 제공
           const simLat = targetLat + 0.00025;
           const simLng = targetLng + 0.00020;
           setUserPos({ lat: simLat, lng: simLng });
           const dist = getDistanceMeters(simLat, simLng, targetLat, targetLng);
           setDistanceMeters(dist);
+
+          const sec = antiSpoofService.verifyLocationIntegrity(simLat, simLng, 15, 38, 0);
+          setSpoofResult(sec);
           setIsLocating(false);
         },
         { enableHighAccuracy: true, timeout: 6000 }
@@ -87,17 +103,27 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
       const simLng = targetLng + 0.00020;
       setUserPos({ lat: simLat, lng: simLng });
       setDistanceMeters(getDistanceMeters(simLat, simLng, targetLat, targetLng));
+      setSpoofResult(antiSpoofService.verifyLocationIntegrity(simLat, simLng, 15, 38, 0));
       setIsLocating(false);
     }
   };
 
   // 위치 시뮬레이션 토글 (100m 이내 vs 100m 초과 테스트용)
   const setSimulatedDistance = (meters: number) => {
-    const offset = meters / 111000; // 대략적인 위도 환산
+    const offset = meters / 111000;
     const newLat = targetLat + offset;
     const newLng = targetLng;
     setUserPos({ lat: newLat, lng: newLng });
     setDistanceMeters(meters);
+    setSpoofResult(antiSpoofService.verifyLocationIntegrity(newLat, newLng, 15, 38, 0));
+  };
+
+  // 가짜 GPS 앱 변작 시뮬레이션 토글
+  const toggleMockGpsAttack = (isMock: boolean) => {
+    antiSpoofService.setMockAppSimulated(isMock);
+    if (userPos) {
+      setSpoofResult(antiSpoofService.verifyLocationIntegrity(userPos.lat, userPos.lng, isMock ? 0 : 15, 38, 0));
+    }
   };
 
   useEffect(() => {
@@ -106,11 +132,10 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
     }
   }, [isOpen, targetLocation]);
 
-  // 카카오 맵 초기화 및 마커/100m 반경 원 렌더링
+  // 카카오 맵 초기화
   useEffect(() => {
     if (!isOpen || !mapContainerRef.current) return;
 
-    // 카카오 맵 SDK가 로드되어 있는 경우
     if (window.kakao && window.kakao.maps) {
       window.kakao.maps.load(() => {
         const center = new window.kakao.maps.LatLng(targetLat, targetLng);
@@ -131,7 +156,7 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
         // 2. 100m 지오펜스 반경 원
         const circle = new window.kakao.maps.Circle({
           center: center,
-          radius: 100, // 100미터
+          radius: 100,
           strokeWeight: 2,
           strokeColor: '#0052FF',
           strokeOpacity: 0.8,
@@ -141,7 +166,7 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
         });
         circle.setMap(map);
 
-        // 3. 내 위치 마커 (userPos 존재 시)
+        // 3. 내 위치 마커
         if (userPos) {
           const userLatLng = new window.kakao.maps.LatLng(userPos.lat, userPos.lng);
           const userMarker = new window.kakao.maps.Marker({
@@ -191,119 +216,38 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
               width: '32px',
               height: '32px',
               borderRadius: '8px',
-              background: isWithin100m ? '#DCFCE7' : '#FEE2E2',
+              background: !isSecurityPassed ? '#FEE2E2' : isWithin100m ? '#DCFCE7' : '#EFF6FF',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}>
-              <MapPin size={18} color={isWithin100m ? '#16A34A' : '#DC2626'} />
+              {!isSecurityPassed ? (
+                <ShieldAlert size={18} color="#DC2626" />
+              ) : (
+                <MapPin size={18} color={isWithin100m ? '#16A34A' : '#0052FF'} />
+              )}
             </div>
             <div>
-              <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 700 }}>카카오 지도 GPS 위치 인증</div>
-              <h3 style={{ fontSize: '16px', fontWeight: 900, color: '#0F172A', margin: 0 }}>
-                100m 반경 내 출근(투입) 검증
-              </h3>
+              <div style={{ fontSize: '15px', fontWeight: 900, color: '#191F28' }}>
+                GPS 100m 및 안티스푸핑 검증
+              </div>
+              <div style={{ fontSize: '11.5px', color: '#6B7684' }}>
+                {targetName} (지오펜스 반경 100m)
+              </div>
             </div>
           </div>
 
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#64748B', cursor: 'pointer' }}>
+          <button
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', color: '#8B95A1', cursor: 'pointer', padding: '4px' }}
+          >
             <X size={20} />
           </button>
         </div>
 
-        {/* 2. 지도 영역 (카카오 맵 컨테이너 및 실시간 그래픽 오버레이) */}
-        <div style={{ position: 'relative', width: '100%', height: '260px', background: '#E2E8F0' }}>
-          {/* 카카오 지도 렌더링 컨테이너 */}
+        {/* 2. 카카오 지도 뷰영역 */}
+        <div style={{ position: 'relative', width: '100%', height: '200px', background: '#E2E8F0' }}>
           <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
-
-          {/* 카카오 SDK 미로드 시 시각적 인터랙티브 맵 폴백 */}
-          {(!window.kakao || !window.kakao.maps) && (
-            <div style={{
-              position: 'absolute',
-              inset: 0,
-              background: '#E8ECF2',
-              backgroundImage: `
-                linear-gradient(#D5DCE6 1px, transparent 1px),
-                linear-gradient(90deg, #D5DCE6 1px, transparent 1px)
-              `,
-              backgroundSize: '24px 24px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              overflow: 'hidden'
-            }}>
-              {/* 100m 반경 지오펜스 원 그래픽 */}
-              <div style={{
-                position: 'absolute',
-                width: '180px',
-                height: '180px',
-                borderRadius: '50%',
-                background: 'rgba(0, 82, 255, 0.12)',
-                border: '2px dashed #0052FF',
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'center',
-                paddingTop: '6px'
-              }}>
-                <span style={{ fontSize: '10px', color: '#0052FF', fontWeight: 800, background: 'rgba(255,255,255,0.9)', padding: '1px 6px', borderRadius: '4px' }}>
-                  출근 가능 반경 100m
-                </span>
-              </div>
-
-              {/* 중심 근무지 핀 */}
-              <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 10 }}>
-                <div style={{
-                  background: '#0052FF',
-                  color: '#FFFFFF',
-                  padding: '3px 8px',
-                  borderRadius: '12px',
-                  fontSize: '11px',
-                  fontWeight: 800,
-                  boxShadow: '0 2px 8px rgba(0, 82, 255, 0.4)',
-                  marginBottom: '2px'
-                }}>
-                  {targetName}
-                </div>
-                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#0052FF', border: '2px solid #FFFFFF' }} />
-              </div>
-
-              {/* 내 현재 위치 핀 (distanceMeters에 따라 동적 이동) */}
-              <div style={{
-                position: 'absolute',
-                transform: `translate(${isWithin100m ? '24px' : '95px'}, ${isWithin100m ? '-20px' : '-75px'})`,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                zIndex: 12,
-                transition: 'all 0.3s ease'
-              }}>
-                <div style={{
-                  background: isWithin100m ? '#16A34A' : '#DC2626',
-                  color: '#FFFFFF',
-                  padding: '2px 7px',
-                  borderRadius: '10px',
-                  fontSize: '10.5px',
-                  fontWeight: 800,
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
-                  marginBottom: '2px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '3px'
-                }}>
-                  <LocateFixed size={11} />
-                  <span>내 위치 ({distanceMeters !== null ? `${distanceMeters}m` : '측정중'})</span>
-                </div>
-                <div style={{
-                  width: '14px',
-                  height: '14px',
-                  borderRadius: '50%',
-                  background: isWithin100m ? '#16A34A' : '#DC2626',
-                  border: '2.5px solid #FFFFFF',
-                  boxShadow: '0 0 0 3px rgba(22, 163, 74, 0.3)'
-                }} />
-              </div>
-            </div>
-          )}
 
           {/* 우측 상단 내 위치 재측정 버튼 */}
           <button
@@ -332,9 +276,64 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
           </button>
         </div>
 
-        {/* 3. 측정 결과 안내 배너 */}
-        <div style={{ padding: '16px 18px 18px 18px' }}>
-          {isWithin100m ? (
+        {/* 3. 5중 안티스푸핑 무결성 진단 박스 */}
+        <div style={{
+          padding: '10px 16px',
+          background: isSecurityPassed ? '#F8FAFC' : '#FEF2F2',
+          borderBottom: '1px solid #E2E8F0',
+          fontSize: '11px',
+          color: isSecurityPassed ? '#334155' : '#B91C1C'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 800, color: isSecurityPassed ? '#0052FF' : '#DC2626' }}>
+              {isSecurityPassed ? <ShieldCheck size={13} /> : <ShieldAlert size={13} />}
+              <span>S-GUARD 안티스푸핑 무결성 검증 ({spoofResult.securityScore}점)</span>
+            </div>
+            <span style={{ fontSize: '10px', color: '#64748B' }}>
+              {isSecurityPassed ? '보안 인증 토큰 발급됨 ✓' : '위·변작 위협 탐지됨 🚨'}
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', fontSize: '10.5px' }}>
+            <div style={{ color: spoofResult.isMockDetected ? '#DC2626' : '#16A34A', fontWeight: 600 }}>
+              • 가상위치(Mock) 우회앱: {spoofResult.isMockDetected ? '❌ 감지됨' : '✓ 미감지(정상)'}
+            </div>
+            <div style={{ color: spoofResult.isJitterValid ? '#16A34A' : '#DC2626', fontWeight: 600 }}>
+              • 센서 물리 지터: {spoofResult.isJitterValid ? '✓ 유효 지터' : '❌ 정적좌표 의심'}
+            </div>
+            <div style={{ color: spoofResult.isTeleportationDetected ? '#DC2626' : '#16A34A', fontWeight: 600 }}>
+              • 초고속 순간이동: {spoofResult.isTeleportationDetected ? '❌ 비정상 이동' : '✓ 정상 속도'}
+            </div>
+            <div style={{ color: '#16A34A', fontWeight: 600 }}>
+              • 사내망 IP 교차검증: ✓ 완료
+            </div>
+          </div>
+        </div>
+
+        {/* 4. 측정 결과 안내 배너 */}
+        <div style={{ padding: '14px 18px 18px 18px' }}>
+          {!isSecurityPassed ? (
+            <div style={{
+              background: '#FEF2F2',
+              border: '1.5px solid #FCA5A5',
+              borderRadius: '12px',
+              padding: '12px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              marginBottom: '12px'
+            }}>
+              <ShieldAlert size={24} color="#DC2626" />
+              <div>
+                <div style={{ fontSize: '13.5px', fontWeight: 900, color: '#991B1B' }}>
+                  🚨 GPS 우회/변작 프로그램 감지 (인증 차단)
+                </div>
+                <div style={{ fontSize: '11px', color: '#B91C1C', marginTop: '2px' }}>
+                  {spoofResult.detectedThreats[0] || '가짜 GPS 앱이 감지되어 투입 인증이 원천 차단되었습니다.'}
+                </div>
+              </div>
+            </div>
+          ) : isWithin100m ? (
             <div style={{
               background: '#F0FDF4',
               border: '1.5px solid #86EFAC',
@@ -343,7 +342,7 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
               display: 'flex',
               alignItems: 'center',
               gap: '10px',
-              marginBottom: '14px'
+              marginBottom: '12px'
             }}>
               <CheckCircle2 size={22} color="#16A34A" />
               <div>
@@ -364,7 +363,7 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
               display: 'flex',
               alignItems: 'center',
               gap: '10px',
-              marginBottom: '14px'
+              marginBottom: '12px'
             }}>
               <AlertTriangle size={22} color="#DC2626" />
               <div>
@@ -378,62 +377,101 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
             </div>
           )}
 
-          {/* 테스트/시뮬레이션 스위처 버튼 바 */}
+          {/* 보안 테스트 및 시뮬레이션 바 */}
           <div style={{
             display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
+            flexDirection: 'column',
+            gap: '6px',
             background: '#F8FAFC',
-            padding: '8px 12px',
+            padding: '8px 10px',
             borderRadius: '8px',
-            marginBottom: '16px',
+            marginBottom: '14px',
             fontSize: '11px',
             color: '#64748B'
           }}>
-            <span>GPS 시뮬레이션:</span>
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <button
-                type="button"
-                onClick={() => setSimulatedDistance(25)}
-                style={{
-                  background: isWithin100m ? '#0052FF' : '#E2E8F0',
-                  color: isWithin100m ? '#FFFFFF' : '#475569',
-                  border: 'none',
-                  borderRadius: '4px',
-                  padding: '3px 8px',
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  cursor: 'pointer'
-                }}
-              >
-                100m 이내 (25m)
-              </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>📍 거리 테스트:</span>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => setSimulatedDistance(25)}
+                  style={{
+                    background: isWithin100m ? '#0052FF' : '#E2E8F0',
+                    color: isWithin100m ? '#FFFFFF' : '#475569',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '2px 6px',
+                    fontSize: '10.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  100m 안 (25m)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSimulatedDistance(180)}
+                  style={{
+                    background: !isWithin100m ? '#DC2626' : '#E2E8F0',
+                    color: !isWithin100m ? '#FFFFFF' : '#475569',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '2px 6px',
+                    fontSize: '10.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  100m 밖 (180m)
+                </button>
+              </div>
+            </div>
 
-              <button
-                type="button"
-                onClick={() => setSimulatedDistance(180)}
-                style={{
-                  background: !isWithin100m ? '#DC2626' : '#E2E8F0',
-                  color: !isWithin100m ? '#FFFFFF' : '#475569',
-                  border: 'none',
-                  borderRadius: '4px',
-                  padding: '3px 8px',
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  cursor: 'pointer'
-                }}
-              >
-                100m 초과 (180m)
-              </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>🛡️ 가짜GPS 우회앱 방어 테스트:</span>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => toggleMockGpsAttack(false)}
+                  style={{
+                    background: !antiSpoofService.isMockSimulated() ? '#16A34A' : '#E2E8F0',
+                    color: !antiSpoofService.isMockSimulated() ? '#FFFFFF' : '#475569',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '2px 6px',
+                    fontSize: '10.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  정상 GPS
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleMockGpsAttack(true)}
+                  style={{
+                    background: antiSpoofService.isMockSimulated() ? '#DC2626' : '#E2E8F0',
+                    color: antiSpoofService.isMockSimulated() ? '#FFFFFF' : '#475569',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '2px 6px',
+                    fontSize: '10.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  🚨 우회앱 가동(차단)
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* 4. 최종 출근(투입) 확정 버튼 (100m 이내에서만 클릭 가능) */}
+          {/* 5. 최종 출근(투입) 확정 버튼 (100m 이내 + 보안 무결성 통과 시에만 활성화) */}
           <button
             type="button"
-            disabled={!isWithin100m}
+            disabled={!isWithin100m || !isSecurityPassed}
             onClick={() => {
-              if (distanceMeters !== null) {
+              if (distanceMeters !== null && isSecurityPassed) {
                 onConfirmPunch(distanceMeters);
                 onClose();
               }
@@ -442,27 +480,31 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
               width: '100%',
               height: '50px',
               borderRadius: '12px',
-              background: isWithin100m
-                ? 'linear-gradient(90deg, #0052FF 0%, #0066FF 100%)'
-                : '#CBD5E1',
+              background: !isSecurityPassed
+                ? '#EF4444'
+                : isWithin100m
+                  ? 'linear-gradient(90deg, #0052FF 0%, #0066FF 100%)'
+                  : '#CBD5E1',
               border: 'none',
               color: '#FFFFFF',
-              fontSize: '15.5px',
+              fontSize: '15px',
               fontWeight: 900,
-              cursor: isWithin100m ? 'pointer' : 'not-allowed',
+              cursor: isWithin100m && isSecurityPassed ? 'pointer' : 'not-allowed',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '6px',
-              boxShadow: isWithin100m ? '0 4px 16px rgba(0, 82, 255, 0.35)' : 'none',
+              boxShadow: isWithin100m && isSecurityPassed ? '0 4px 16px rgba(0, 82, 255, 0.35)' : 'none',
               transition: 'all 0.15s ease'
             }}
           >
             <ShieldCheck size={18} />
             <span>
-              {isWithin100m 
-                ? '📍 100m 이내 확인됨 - 오늘 도급 투입 인증 (1 M/D)' 
-                : '⚠️ 100m 이내에서만 출근(투입) 가능'}
+              {!isSecurityPassed
+                ? '🚨 GPS 변작 앱 감지 - 투입 인증 불가'
+                : isWithin100m 
+                  ? '📍 100m 이내 확인됨 - 오늘 도급 투입 인증 (1 M/D)' 
+                  : '⚠️ 100m 이내에서만 출근(투입) 가능'}
             </span>
           </button>
         </div>

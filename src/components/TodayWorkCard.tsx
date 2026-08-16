@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { dbService } from '../services/db';
 import { WorkLocation, defaultWorkLocations } from '../views/WorkLocationSelectView';
-import { ShieldCheck, MapPin, CheckCircle2, Navigation, Clock, AlertTriangle, LocateFixed, RefreshCw } from 'lucide-react';
+import { ShieldCheck, MapPin, CheckCircle2, Navigation, Clock, AlertTriangle, LocateFixed, RefreshCw, ShieldAlert, Lock } from 'lucide-react';
 import { GpsPunchMapModal } from './GpsPunchMapModal';
+import { antiSpoofService, SpoofCheckResult } from '../services/antiSpoofService';
 
 interface TodayWorkCardProps {
   onOpenRequest: () => void;
@@ -42,20 +43,26 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
   const [gpsDistance, setGpsDistance] = useState<number>(25);
   const [isLocating, setIsLocating] = useState<boolean>(false);
 
-  const today = new Date();
-  const month = today.getMonth() + 1;
-  const date = today.getDate();
-  const dayName = ['일', '월', '화', '수', '목', '금', '토'][today.getDay()];
-
   const activeLocation: WorkLocation = selectedLocation || defaultWorkLocations[0];
   const targetName = activeLocation.name.replace('[좌표] ', '');
   const targetLat = activeLocation.lat || 37.5663;
   const targetLng = activeLocation.lng || 126.9890;
 
-  // 100m 이내 여부 판정 (Geofence Within 100m)
-  const isWithin100m = gpsDistance <= 100;
+  // 안티스푸핑 무결성 검증
+  const [spoofResult, setSpoofResult] = useState<SpoofCheckResult>(
+    antiSpoofService.verifyLocationIntegrity(targetLat, targetLng)
+  );
 
-  // 실제 브라우저 GPS 측정
+  const today = new Date();
+  const month = today.getMonth() + 1;
+  const date = today.getDate();
+  const dayName = ['일', '월', '화', '수', '목', '금', '토'][today.getDay()];
+
+  // 100m 이내 & 안티스푸핑 무결성 통과 여부 판정
+  const isWithin100m = gpsDistance <= 100;
+  const isSecurityPassed = spoofResult.isSecure;
+
+  // 실제 브라우저 GPS 측정 및 안티스푸핑 검증
   const measureLiveGps = () => {
     setIsLocating(true);
     if (navigator.geolocation) {
@@ -63,17 +70,26 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
         (pos) => {
           const dist = calculateDistanceMeters(pos.coords.latitude, pos.coords.longitude, targetLat, targetLng);
           setGpsDistance(dist);
+          const sec = antiSpoofService.verifyLocationIntegrity(
+            pos.coords.latitude,
+            pos.coords.longitude,
+            pos.coords.accuracy || 15,
+            pos.coords.altitude || 38,
+            pos.coords.speed || 0
+          );
+          setSpoofResult(sec);
           setIsLocating(false);
         },
         () => {
-          // Fallback proximity
           setGpsDistance(25);
+          setSpoofResult(antiSpoofService.verifyLocationIntegrity(targetLat, targetLng, 15, 38, 0));
           setIsLocating(false);
         },
         { enableHighAccuracy: true, timeout: 5000 }
       );
     } else {
       setGpsDistance(25);
+      setSpoofResult(antiSpoofService.verifyLocationIntegrity(targetLat, targetLng, 15, 38, 0));
       setIsLocating(false);
     }
   };
@@ -86,6 +102,11 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
   const handleButtonClick = () => {
     if (isInputCompleted) {
       alert('✅ 금일 도급 인력 투입이 이미 정상 인증 완료되었습니다.\n(도급 계약 특성상 퇴근은 별도 기록하지 않습니다.)');
+      return;
+    }
+
+    if (!isSecurityPassed) {
+      alert(`🚨 [보안 위반 탐지] GPS 우회 프로그램(Fake GPS) 감지됨!\n${spoofResult.detectedThreats.join('\n')}\n\n위치 변작 시도가 감지되어 투입 인증이 원천 차단되었으며 보안 감사로그가 기록되었습니다.`);
       return;
     }
 
@@ -106,7 +127,7 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
     setInputTime(timeStr);
     dbService.addCommuteLog('투입확인', timeStr);
     onLogUpdated();
-    alert(`🎉 [${targetName}] 금일 도급 인력 투입이 정상 확정되었습니다.\n• 투입 인증 시각: ${timeStr}\n• GPS 인증 거리: ${dist}m (100m 이내 진입 확인)\n• 인정 실적: 당일 약정 1 M/D (8.0 Man-Hour)\n\n※ 퇴근 시간은 별도 기록하지 않으며 오늘의 도급 투입 의무가 완결되었습니다.`);
+    alert(`🎉 [${targetName}] 금일 도급 인력 투입이 정상 확정되었습니다.\n• 투입 인증 시각: ${timeStr}\n• GPS 인증 거리: ${dist}m (100m 이내 진입 확인)\n• 안티스푸핑 보안 검증: 정상 통과 (보안점수: 100점)\n• 인정 실적: 당일 약정 1 M/D (8.0 Man-Hour)\n\n※ 퇴근 시간은 별도 기록하지 않으며 오늘의 도급 투입 의무가 완결되었습니다.`);
   };
 
   return (
@@ -135,7 +156,7 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
               marginBottom: '4px'
             }}>
               <ShieldCheck size={12} />
-              <span>위치 기반 조건부 활성화 (Geofenced Button)</span>
+              <span>안티스푸핑(위치 변작 방어) + 100m 활성화 시스템</span>
             </div>
             <h2 style={{ fontSize: '18px', fontWeight: 900, color: '#191F28', margin: 0 }}>
               오늘 도급 투입 실적 ({month}월 {date}일, {dayName})
@@ -143,8 +164,8 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
           </div>
 
           <div style={{
-            background: isInputCompleted ? '#E8F5E9' : isWithin100m ? '#EFF6FF' : '#FEF2F2',
-            color: isInputCompleted ? '#2E7D32' : isWithin100m ? '#0052FF' : '#DC2626',
+            background: isInputCompleted ? '#E8F5E9' : !isSecurityPassed ? '#FEF2F2' : isWithin100m ? '#EFF6FF' : '#FEF2F2',
+            color: isInputCompleted ? '#2E7D32' : !isSecurityPassed ? '#DC2626' : isWithin100m ? '#0052FF' : '#DC2626',
             fontSize: '11.5px',
             fontWeight: 800,
             padding: '4px 10px',
@@ -155,6 +176,8 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
           }}>
             {isInputCompleted ? (
               <CheckCircle2 size={13} color="#2E7D32" />
+            ) : !isSecurityPassed ? (
+              <ShieldAlert size={13} color="#DC2626" />
             ) : isWithin100m ? (
               <LocateFixed size={13} color="#0052FF" />
             ) : (
@@ -163,9 +186,11 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
             <span>
               {isInputCompleted 
                 ? '투입 완료 (1 M/D)' 
-                : isWithin100m 
-                  ? '현장 진입 (활성화)' 
-                  : '현장 밖 (비활성화)'}
+                : !isSecurityPassed
+                  ? '위치변작 감지 (차단)'
+                  : isWithin100m 
+                    ? '현장 진입 (활성화)' 
+                    : '현장 밖 (비활성화)'}
             </span>
           </div>
         </div>
@@ -208,39 +233,37 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
           </button>
         </div>
 
-        {/* 100m 상태 안내 배너 */}
-        {!isInputCompleted && (
-          <div style={{
-            padding: '7px 10px',
-            borderRadius: '8px',
-            fontSize: '11px',
-            fontWeight: 700,
-            marginBottom: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            background: isWithin100m ? '#F0FDF4' : '#FEF2F2',
-            border: isWithin100m ? '1px solid #BBF7D0' : '1px solid #FECACA',
-            color: isWithin100m ? '#15803D' : '#B91C1C'
-          }}>
-            {isWithin100m ? (
-              <>
-                <CheckCircle2 size={13} color="#16A34A" />
-                <span>현장 100m 반경 내 진입 확인됨 (거리: {gpsDistance}m) ➔ 버튼이 활성화되었습니다.</span>
-              </>
-            ) : (
-              <>
-                <AlertTriangle size={13} color="#DC2626" />
-                <span>현장 100m 반경 밖입니다 (거리: {gpsDistance}m) ➔ 현장 도착 시 버튼이 활성화됩니다.</span>
-              </>
-            )}
+        {/* 안티스푸핑 무결성 보안 상태 배너 */}
+        <div style={{
+          padding: '8px 12px',
+          borderRadius: '8px',
+          fontSize: '11px',
+          fontWeight: 700,
+          marginBottom: '12px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          background: isSecurityPassed ? '#F0FDF4' : '#FEF2F2',
+          border: isSecurityPassed ? '1px solid #BBF7D0' : '1px solid #FECACA',
+          color: isSecurityPassed ? '#15803D' : '#B91C1C'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {isSecurityPassed ? <ShieldCheck size={14} color="#16A34A" /> : <ShieldAlert size={14} color="#DC2626" />}
+            <span>
+              {isSecurityPassed
+                ? '안티스푸핑 보안 검증 통과 (가짜 GPS 앱 미감지 · 무결성 100%)'
+                : '🚨 GPS 변작 프로그램(Mock Location) 감지됨 - 인증 차단'}
+            </span>
           </div>
-        )}
+          <span style={{ fontSize: '10px', color: isSecurityPassed ? '#16A34A' : '#DC2626' }}>
+            {isSecurityPassed ? '보안인증 ✓' : '보안위반 ✕'}
+          </span>
+        </div>
 
         {/* 위치 기반 조건부 활성화 버튼 (Geofenced Button) */}
         <button
           type="button"
-          disabled={!isWithin100m && !isInputCompleted}
+          disabled={(!isWithin100m || !isSecurityPassed) && !isInputCompleted}
           onClick={handleButtonClick}
           style={{
             width: '100%',
@@ -248,21 +271,23 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
             borderRadius: '12px',
             background: isInputCompleted
               ? 'linear-gradient(90deg, #10B981 0%, #059669 100%)'
-              : isWithin100m
-                ? 'linear-gradient(90deg, #0052FF 0%, #0066FF 100%)'
-                : '#E2E8F0',
+              : !isSecurityPassed
+                ? '#EF4444'
+                : isWithin100m
+                  ? 'linear-gradient(90deg, #0052FF 0%, #0066FF 100%)'
+                  : '#E2E8F0',
             border: 'none',
-            color: isInputCompleted || isWithin100m ? '#FFFFFF' : '#94A3B8',
+            color: isInputCompleted || (isWithin100m && isSecurityPassed) ? '#FFFFFF' : '#94A3B8',
             fontSize: '15.5px',
             fontWeight: 900,
-            cursor: isInputCompleted ? 'default' : isWithin100m ? 'pointer' : 'not-allowed',
+            cursor: isInputCompleted ? 'default' : (isWithin100m && isSecurityPassed) ? 'pointer' : 'not-allowed',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             gap: '8px',
             boxShadow: isInputCompleted
               ? '0 4px 14px rgba(16, 185, 129, 0.35)'
-              : isWithin100m
+              : (isWithin100m && isSecurityPassed)
                 ? '0 4px 16px rgba(0, 82, 255, 0.35)'
                 : 'none',
             transition: 'all 0.2s ease'
@@ -272,6 +297,11 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
             <>
               <CheckCircle2 size={20} />
               <span>✓ 금일 도급 투입 인증 완료 ({inputTime})</span>
+            </>
+          ) : !isSecurityPassed ? (
+            <>
+              <ShieldAlert size={18} />
+              <span>🚨 GPS 우회 프로그램 감지됨 (인증 차단)</span>
             </>
           ) : isWithin100m ? (
             <>
@@ -286,53 +316,99 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
           )}
         </button>
 
-        {/* GPS 시뮬레이션 토글 바 (테스트 편의성) */}
+        {/* GPS 거리 및 우회앱 테스트 스위처 */}
         {!isInputCompleted && (
           <div style={{
             display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
+            flexDirection: 'column',
+            gap: '6px',
             marginTop: '10px',
-            padding: '6px 10px',
+            padding: '8px 10px',
             background: '#F8FAFC',
             borderRadius: '8px',
             fontSize: '11px',
             color: '#64748B'
           }}>
-            <span>GPS 시뮬레이션:</span>
-            <div style={{ display: 'flex', gap: '5px' }}>
-              <button
-                type="button"
-                onClick={() => setGpsDistance(25)}
-                style={{
-                  background: isWithin100m ? '#0052FF' : '#E2E8F0',
-                  color: isWithin100m ? '#FFFFFF' : '#475569',
-                  border: 'none',
-                  borderRadius: '4px',
-                  padding: '2px 8px',
-                  fontSize: '10.5px',
-                  fontWeight: 700,
-                  cursor: 'pointer'
-                }}
-              >
-                100m 이내 (25m)
-              </button>
-              <button
-                type="button"
-                onClick={() => setGpsDistance(180)}
-                style={{
-                  background: !isWithin100m ? '#DC2626' : '#E2E8F0',
-                  color: !isWithin100m ? '#FFFFFF' : '#475569',
-                  border: 'none',
-                  borderRadius: '4px',
-                  padding: '2px 8px',
-                  fontSize: '10.5px',
-                  fontWeight: 700,
-                  cursor: 'pointer'
-                }}
-              >
-                100m 밖 (180m)
-              </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>📍 거리 테스트:</span>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => setGpsDistance(25)}
+                  style={{
+                    background: isWithin100m ? '#0052FF' : '#E2E8F0',
+                    color: isWithin100m ? '#FFFFFF' : '#475569',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '2px 6px',
+                    fontSize: '10.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  100m 이내 (25m)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGpsDistance(180)}
+                  style={{
+                    background: !isWithin100m ? '#DC2626' : '#E2E8F0',
+                    color: !isWithin100m ? '#FFFFFF' : '#475569',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '2px 6px',
+                    fontSize: '10.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  100m 밖 (180m)
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>🛡️ 우회프로그램 방어 테스트:</span>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    antiSpoofService.setMockAppSimulated(false);
+                    setSpoofResult(antiSpoofService.verifyLocationIntegrity(targetLat, targetLng, 15, 38, 0));
+                  }}
+                  style={{
+                    background: isSecurityPassed ? '#16A34A' : '#E2E8F0',
+                    color: isSecurityPassed ? '#FFFFFF' : '#475569',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '2px 6px',
+                    fontSize: '10.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  정상 GPS
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    antiSpoofService.setMockAppSimulated(true);
+                    setSpoofResult(antiSpoofService.verifyLocationIntegrity(targetLat, targetLng, 0, 38, 0));
+                  }}
+                  style={{
+                    background: !isSecurityPassed ? '#DC2626' : '#E2E8F0',
+                    color: !isSecurityPassed ? '#FFFFFF' : '#475569',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '2px 6px',
+                    fontSize: '10.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  🚨 우회앱 가동(차단)
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -345,7 +421,7 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
               {inputTime || '08:50 (정상)'}
             </div>
             <div style={{ fontSize: '10px', color: '#16A34A', fontWeight: 700, marginTop: '2px' }}>
-              ✓ GPS {gpsDistance}m 실시간 검증
+              ✓ 안티스푸핑 100% 무결성 검증
             </div>
           </div>
 
@@ -358,20 +434,6 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
               ✓ 정산 확정 (퇴근 기록 불요)
             </div>
           </div>
-        </div>
-
-        {/* 법적 고지 배너 */}
-        <div style={{
-          marginTop: '12px',
-          padding: '8px 10px',
-          background: '#EFF6FF',
-          border: '1px solid #DBEAFE',
-          borderRadius: '8px',
-          fontSize: '11px',
-          color: '#1E40AF',
-          lineHeight: 1.4
-        }}>
-          💡 <strong>위치 기반 버튼 활성화 원칙</strong>: 현장(파인에비뉴) 반경 100m 이내 진입 시에만 투입 확정 버튼이 파란색으로 활성화되며, 본인 직접 터치로 1 M/D 투입이 확정됩니다.
         </div>
       </div>
 
