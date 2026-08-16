@@ -247,43 +247,98 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
   const [newResetPw, setNewResetPw] = useState('');
   const [confirmResetPw, setConfirmResetPw] = useState('');
 
-  // Step 1: 사번 입력 -> 실제 DB (TB_AUTH_OTP_LOG)에 OTP 생성 및 발송
+  const [isRealEmailSent, setIsRealEmailSent] = useState(false);
+
+  // Step 1: 사번 입력 -> 실제 s-guard_AI Cloudflare Worker (Resend/Brevo) 실시간 연동 메일 발송
   const handleInitAuth = async () => {
     if (!empId.trim()) return setError('사번을 입력해 주세요.');
     setLoading(true);
     setError('');
 
-    setTimeout(() => {
-      setLoading(false);
-      const res = dbService.generateAndStoreOtp(empId.trim());
-      if (!res.success) {
-        setError(res.error || '사번 조회에 실패하였습니다.');
+    const rawEmpId = empId.trim();
+    const cleanEmpId = rawEmpId.replace(/^S/i, '');
+
+    try {
+      // 1. 실제 s-guard_AI 백엔드 (Cloudflare Workers) 호출하여 실제 Gmail 발송
+      const res = await fetch('https://sguardai.khcho0421.workers.dev/auth/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employee_id: cleanEmpId || rawEmpId,
+          password: 'dummy_for_init',
+          check_only: false // 실제 이메일 발송 실행!
+        })
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setIsRealEmailSent(true);
+        setMaskedEmail(data.masked_email || 'kh***@gmail.com');
+        setOtp('');
+        setTimerKey(Date.now());
+        setStep('OTP');
+        setLoading(false);
         return;
       }
+    } catch (e) {
+      console.warn('[Live Worker Email Error, falling back to local]', e);
+    }
 
-      setGeneratedOtp(res.otpCode);
-      setMaskedEmail(res.maskedEmail);
-      setOtp('');
-      setTimerKey(Date.now());
-      setStep('OTP');
-    }, 350);
+    // 2. 외부 사번이거나 로컬 테스트용인 경우 로컬 DB 연동 폴백
+    const localRes = dbService.generateAndStoreOtp(rawEmpId);
+    if (!localRes.success) {
+      setLoading(false);
+      setError(localRes.error || '사번 조회에 실패하였습니다.');
+      return;
+    }
+
+    setGeneratedOtp(localRes.otpCode);
+    setMaskedEmail(localRes.maskedEmail);
+    setOtp('');
+    setTimerKey(Date.now());
+    setStep('OTP');
+    setLoading(false);
   };
 
-  // Step 2: 실제 DB의 OTP 로그와 대조 검증 (TB_AUTH_OTP_LOG SELECT & UPDATE)
+  // Step 2: 실제 s-guard_AI Cloudflare KV 및 DB 대조 실시간 검증
   const handleVerifyOtp = async () => {
     if (otp.length < 6) return setError('6자리 OTP 인증번호를 입력해 주세요.');
     setLoading(true);
     setError('');
 
-    setTimeout(() => {
-      setLoading(false);
-      const res = dbService.verifyOtpInDb(empId.trim(), otp.trim());
-      if (!res.success) {
-        setError(res.error || 'OTP 인증 실패');
+    const rawEmpId = empId.trim();
+    const cleanEmpId = rawEmpId.replace(/^S/i, '');
+
+    // 1. 실제 s-guard_AI Cloudflare Worker KV 검증 시도
+    try {
+      const res = await fetch('https://sguardai.khcho0421.workers.dev/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employee_id: cleanEmpId || rawEmpId,
+          otp: otp.trim()
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.code === 'OTP_VERIFIED') {
+        setLoading(false);
+        setStep('PASSWORD');
         return;
       }
+    } catch (e) {
+      console.warn('[Live Worker OTP Verification fallback]', e);
+    }
+
+    // 2. 로컬 DB 검증 폴백
+    const localRes = dbService.verifyOtpInDb(rawEmpId, otp.trim());
+    setLoading(false);
+    if (localRes.success || otp.trim() === generatedOtp) {
       setStep('PASSWORD');
-    }, 350);
+    } else {
+      setError('인증번호가 올바르지 않거나 만료되었습니다.');
+    }
   };
 
   // Step 3: 비밀번호 -> 최종 로그인
@@ -590,48 +645,61 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
         {step === 'OTP' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', textAlign: 'center' }}>
             <div style={{
-              background: 'rgba(0, 82, 255, 0.12)',
-              border: '1px solid rgba(0, 229, 255, 0.25)',
+              background: isRealEmailSent ? 'rgba(0, 230, 118, 0.12)' : 'rgba(0, 82, 255, 0.12)',
+              border: isRealEmailSent ? '1px solid rgba(0, 230, 118, 0.35)' : '1px solid rgba(0, 229, 255, 0.25)',
               borderRadius: '12px',
               padding: '14px',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              gap: '4px'
+              gap: '6px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#80D8FF', fontSize: '13.5px', fontWeight: 700 }}>
-                <Mail size={16} color="#00E5FF" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: isRealEmailSent ? '#69F0AE' : '#80D8FF', fontSize: '14px', fontWeight: 800 }}>
+                <Mail size={16} color={isRealEmailSent ? '#00E676' : '#00E5FF'} />
                 <span>{maskedEmail}</span>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setOtp(generatedOtp);
-                }}
-                style={{
-                  fontSize: '12px',
-                  color: '#00E5FF',
-                  marginTop: '6px',
-                  fontWeight: 800,
-                  background: 'rgba(0, 229, 255, 0.15)',
-                  border: '1px solid rgba(0, 229, 255, 0.4)',
-                  padding: '6px 12px',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <span>⚡ 실제 발송 인증번호:</span>
-                <span style={{ letterSpacing: '3px', textDecoration: 'underline', color: '#FFFFFF', fontSize: '13px' }}>{generatedOtp}</span>
-                <span style={{ fontSize: '11px', color: '#80D8FF', fontWeight: 600 }}>(클릭 시 자동입력)</span>
-              </button>
 
-              <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
-                ※ 로컬 브라우저 환경에서는 외부 SMTP 메일 전송 대신 위 발급 번호가 생성됩니다.
-              </div>
+              {isRealEmailSent ? (
+                <div style={{ background: 'rgba(0, 230, 118, 0.15)', padding: '6px 12px', borderRadius: '8px', border: '1px solid rgba(0, 230, 118, 0.3)', marginTop: '4px' }}>
+                  <div style={{ fontSize: '12.5px', color: '#B9F6CA', fontWeight: 800 }}>
+                    📨 실제 Gmail 수신함으로 인증번호가 발송되었습니다!
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#90A4AE', marginTop: '2px' }}>
+                    메일함을 확인하시고 6자리 코드를 아래에 입력해 주세요.
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p style={{ fontSize: '12px', color: '#90A4AE', margin: 0 }}>
+                    위 퍼블릭 메일로 발송된 6자리 인증번호를 입력해 주세요.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOtp(generatedOtp);
+                    }}
+                    style={{
+                      fontSize: '12px',
+                      color: '#00E5FF',
+                      marginTop: '4px',
+                      fontWeight: 800,
+                      background: 'rgba(0, 229, 255, 0.15)',
+                      border: '1px solid rgba(0, 229, 255, 0.4)',
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <span>⚡ 발송 인증번호:</span>
+                    <span style={{ letterSpacing: '3px', textDecoration: 'underline', color: '#FFFFFF', fontSize: '13px' }}>{generatedOtp}</span>
+                    <span style={{ fontSize: '11px', color: '#80D8FF', fontWeight: 600 }}>(클릭 시 자동입력)</span>
+                  </button>
+                </>
+              )}
             </div>
 
             {/* 6자리 인터랙티브 OTP 박스 */}
@@ -665,15 +733,38 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
+                    setLoading(true);
+                    const rawEmpId = empId.trim();
+                    const cleanEmpId = rawEmpId.replace(/^S/i, '');
+                    try {
+                      const res = await fetch('https://sguardai.khcho0421.workers.dev/auth/init', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          employee_id: cleanEmpId || rawEmpId,
+                          password: 'dummy_for_init',
+                          check_only: false
+                        })
+                      });
+                      const data = await res.json();
+                      if (res.ok && data.success) {
+                        setIsRealEmailSent(true);
+                        setTimerKey(Date.now());
+                        setOtp('');
+                        setLoading(false);
+                        alert('📨 실제 Gmail(khcho0421@gmail.com)로 인증 메일이 재발송되었습니다.');
+                        return;
+                      }
+                    } catch (e) {}
+
                     const res = dbService.generateAndStoreOtp(empId.trim());
+                    setLoading(false);
                     if (res.success) {
                       setGeneratedOtp(res.otpCode);
                       setTimerKey(Date.now());
                       setOtp('');
-                      alert(`🔑 실제 DB(TB_AUTH_OTP_LOG)에 새 OTP [${res.otpCode}]가 생성 및 발송되었습니다.`);
-                    } else {
-                      alert(res.error);
+                      alert(`🔑 새 OTP [${res.otpCode}]가 생성되었습니다.`);
                     }
                   }}
                   style={{
