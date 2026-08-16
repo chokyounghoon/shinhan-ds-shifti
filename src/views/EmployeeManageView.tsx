@@ -64,7 +64,7 @@ export const defaultEmployees: EmployeeItem[] = [
   {
     id: 'emp-09',
     name: '서성훈',
-    deptName: '금융본부',
+    deptName: '카드개발팀 (금융파트)',
     roleCategory: '조직관리자'
   },
   {

@@ -3,7 +3,7 @@ import { ArrowLeft, Filter, Search, MapPin } from 'lucide-react';
 
 export interface OrgUnit {
   id: string;
-  hierarchyPath: string; // e.g. 신한DS > 개발운영부문 > 금융본부 > 카드개발팀
+  hierarchyPath: string; // e.g. 신한DS > 카드개발팀 > 카드IS파트
   teamName: string; // e.g. 카드개발팀
   locationName: string; // e.g. 파인에비뉴(카드)
   memberCount: number;
@@ -12,28 +12,28 @@ export interface OrgUnit {
 export const defaultOrgUnits: OrgUnit[] = [
   {
     id: 'org-01',
-    hierarchyPath: '신한DS > 개발운영부문 > 금융본부 > 카드개발팀',
+    hierarchyPath: '신한DS > 카드개발팀 > 카드IS파트',
     teamName: '카드개발팀',
     locationName: '파인에비뉴(카드)',
     memberCount: 8
   },
   {
     id: 'org-02',
-    hierarchyPath: '신한DS > 디지털플랫폼부문 > 땡겨요사업본부 > 플랫폼개발팀',
+    hierarchyPath: '신한DS > 플랫폼개발팀 > 땡겨요파트',
     teamName: '플랫폼개발팀',
     locationName: 'AIA타워',
     memberCount: 12
   },
   {
     id: 'org-03',
-    hierarchyPath: '신한DS > ICT운영부문 > 클라우드인프라본부 > 데이터센터운영팀',
+    hierarchyPath: '신한DS > 데이터센터운영팀 > 클라우드인프라파트',
     teamName: '데이터센터운영팀',
     locationName: 'KT IDC',
     memberCount: 6
   },
   {
     id: 'org-04',
-    hierarchyPath: '땡겨요테크솔루션(협력사) > 상주개발사업부 > 코어개발 1팀',
+    hierarchyPath: '(주)협력아이티에스 > 코어개발팀 > 코어파트',
     teamName: '코어개발 1팀',
     locationName: '파인에비뉴(카드)',
     memberCount: 8

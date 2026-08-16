@@ -295,48 +295,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
             </div>
           </div>
 
-          {/* 부문 & 본부 (2열 그리드) */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-            <div>
-              <label style={fieldLabelStyle}>부문</label>
-              <div style={selectContainerStyle}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                  <Building2 size={16} color="#90A4AE" style={{ flexShrink: 0 }} />
-                  <select
-                    value={department}
-                    onChange={e => setDepartment(e.target.value)}
-                    style={selectFieldStyle}
-                  >
-                    <option value="개발운영부문" style={optionStyle}>개발운영부문</option>
-                    <option value="DX사업부문" style={optionStyle}>DX사업부문</option>
-                    <option value="경영기획부문" style={optionStyle}>경영기획부문</option>
-                  </select>
-                </div>
-                <ChevronDown size={15} color="#90A4AE" style={{ flexShrink: 0 }} />
-              </div>
-            </div>
-
-            <div>
-              <label style={fieldLabelStyle}>본부</label>
-              <div style={selectContainerStyle}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                  <Building2 size={16} color="#90A4AE" style={{ flexShrink: 0 }} />
-                  <select
-                    value={division}
-                    onChange={e => setDivision(e.target.value)}
-                    style={selectFieldStyle}
-                  >
-                    <option value="금융본부" style={optionStyle}>금융본부</option>
-                    <option value="글로벌본부" style={optionStyle}>글로벌본부</option>
-                    <option value="ICT인프라본부" style={optionStyle}>ICT인프라본부</option>
-                  </select>
-                </div>
-                <ChevronDown size={15} color="#90A4AE" style={{ flexShrink: 0 }} />
-              </div>
-            </div>
-          </div>
-
-          {/* 팀 & 파트 (2열 그리드) */}
+          {/* 팀 & 파트 (2열 그리드: 부문->팀, 본부->파트 반영) */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <div>
               <label style={fieldLabelStyle}>팀</label>
@@ -351,6 +310,8 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
                     <option value="카드개발팀" style={optionStyle}>카드개발팀</option>
                     <option value="은행운영팀" style={optionStyle}>은행운영팀</option>
                     <option value="데이터플랫폼팀" style={optionStyle}>데이터플랫폼팀</option>
+                    <option value="개발운영팀" style={optionStyle}>개발운영팀</option>
+                    <option value="ICT운영팀" style={optionStyle}>ICT운영팀</option>
                   </select>
                 </div>
                 <ChevronDown size={15} color="#90A4AE" style={{ flexShrink: 0 }} />
@@ -367,10 +328,11 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
                     onChange={e => setPart(e.target.value)}
                     style={selectFieldStyle}
                   >
-                    <option value="상담" style={optionStyle}>상담</option>
                     <option value="카드IS (Part 1)" style={optionStyle}>카드IS (Part 1)</option>
                     <option value="코어뱅킹 (Part 2)" style={optionStyle}>코어뱅킹 (Part 2)</option>
                     <option value="데이터인프라 (Part 3)" style={optionStyle}>데이터인프라 (Part 3)</option>
+                    <option value="상담파트" style={optionStyle}>상담파트</option>
+                    <option value="금융파트" style={optionStyle}>금융파트</option>
                   </select>
                 </div>
                 <ChevronDown size={15} color="#90A4AE" style={{ flexShrink: 0 }} />

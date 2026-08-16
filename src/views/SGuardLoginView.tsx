@@ -788,42 +788,46 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
               </div>
             </div>
 
-            {/* 부문 & 본부 */}
+            {/* 팀 & 파트 (부문->팀, 본부->파트 반영) */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               <div>
-                <label style={signupLabelStyle}>부문 *</label>
+                <label style={signupLabelStyle}>팀 *</label>
                 <div style={signupSelectBoxStyle}>
                   <select
                     value={signupForm.department}
                     onChange={e => setSignupForm({ ...signupForm, department: e.target.value })}
                     style={signupSelectFieldStyle}
                   >
-                    <option value="부문 선택">부문 선택</option>
-                    <option value="개발운영부문">개발운영부문</option>
-                    <option value="DX사업부문">DX사업부문</option>
+                    <option value="팀 선택">팀 선택</option>
+                    <option value="카드개발팀">카드개발팀</option>
+                    <option value="은행운영팀">은행운영팀</option>
+                    <option value="데이터플랫폼팀">데이터플랫폼팀</option>
+                    <option value="개발운영팀">개발운영팀</option>
                   </select>
                   <ChevronDown size={14} color="#90A4AE" />
                 </div>
               </div>
 
               <div>
-                <label style={signupLabelStyle}>본부</label>
+                <label style={signupLabelStyle}>파트</label>
                 <div style={signupSelectBoxStyle}>
                   <select
                     value={signupForm.division}
                     onChange={e => setSignupForm({ ...signupForm, division: e.target.value })}
                     style={signupSelectFieldStyle}
                   >
-                    <option value="해당없음">해당없음</option>
-                    <option value="금융본부">금융본부</option>
-                    <option value="ICT본부">ICT본부</option>
+                    <option value="파트 선택">파트 선택</option>
+                    <option value="카드IS (Part 1)">카드IS (Part 1)</option>
+                    <option value="코어뱅킹 (Part 2)">코어뱅킹 (Part 2)</option>
+                    <option value="데이터인프라 (Part 3)">데이터인프라 (Part 3)</option>
+                    <option value="상담파트">상담파트</option>
                   </select>
                   <ChevronDown size={14} color="#90A4AE" />
                 </div>
               </div>
             </div>
 
-            {/* 직책 멀티 필 (팀원, 파트장, 팀장, 본부장 등) */}
+            {/* 직책 멀티 필 (팀원, 파트장, 팀장, 그룹장 등) */}
             <div>
               <label style={signupLabelStyle}>직책 *</label>
               <div style={{
@@ -835,7 +839,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                 gridTemplateColumns: 'repeat(4, 1fr)',
                 gap: '6px'
               }}>
-                {['팀원', '파트장', '팀장', '본부장', '상무', '부사장', '사장'].map(p => (
+                {['팀원', '파트장', '팀장', '그룹장', '상무', '부사장', '사장'].map(p => (
                   <button
                     key={p}
                     type="button"

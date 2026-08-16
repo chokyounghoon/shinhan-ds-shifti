@@ -19,7 +19,7 @@ export const predefinedUsers: User[] = [
     lastName: '조',
     companyName: '(주)신한DS',
     partnerCompany: '(주)신한DS',
-    deptName: 'ICT운영부문 도급관리본부',
+    deptName: 'ICT운영팀 도급관리파트',
     partName: '전체 총괄',
     role: 'DS_PRINCIPAL_PM',
     roleTitle: '신한DS 도급 총괄 PM (최종 검수권자)',

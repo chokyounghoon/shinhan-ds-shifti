@@ -68,7 +68,7 @@ export const OrganizationDetailView: React.FC<OrganizationDetailViewProps> = ({
 }) => {
   const orgCode = orgUnit ? orgUnit.teamName : '카드개발팀';
   const orgName = orgUnit ? orgUnit.teamName : '카드개발팀';
-  const parentOrg = '금융본부';
+  const parentOrg = '카드IS파트';
 
   return (
     <div style={{ background: '#FFFFFF', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
