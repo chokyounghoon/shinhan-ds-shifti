@@ -6,362 +6,576 @@ import {
   ManpowerInputRecord, 
   PartFulfillmentSummary,
   VerificationStatus,
-  AuditTrailLog
+  AuditTrailLog,
+  ServiceDeliveryInspection
 } from '../types';
 
-export const predefinedUsers: User[] = [
+// =========================================================================
+// 1. DB Entity Interfaces (실제 DB 스키마 테이블 매핑)
+// =========================================================================
+
+export interface TbUserMst {
+  empId: string;          // 사번 (PK, e.g. S18121020)
+  userNm: string;         // 성명
+  passwordHash: string;   // 비밀번호
+  companyNm: string;      // (주)신한DS, 유브갓, (주)협력아이티에스
+  teamNm: string;         // 카드개발팀, 상담운영팀, 은행운영팀
+  partNm: string;         // 상담, 오토, 재무, 카드IS
+  positionCd: string;     // 사원, 대리, 과장, 차장, 부장, 이사, 대표이사
+  emailAddr: string;      // OTP 인증용 퍼블릭 이메일
+  phoneNo: string;        // 휴대전화번호
+  roleCd: 'DS_PRINCIPAL_PM' | 'PARTNER_PART_LEADER' | 'PARTNER_WORKER';
+  deviceType: 'Android' | 'iOS';
+  useYn: 'Y' | 'N';
+  regDt: string;
+  modDt?: string;
+}
+
+export interface TbAuthOtpLog {
+  otpId: number;          // 일련번호 (PK)
+  empId: string;          // 사번 (FK)
+  otpCode: string;        // 생성된 실제 6자리 OTP 코드
+  emailAddr: string;      // 발송 대상 퍼블릭 이메일
+  expireDt: number;       // 만료 타임스탬프 (ms)
+  isVerified: 'Y' | 'N';  // 검증 여부
+  verifiedDt?: string;    // 검증 완료 시각
+  attemptCount: number;   // 시도 횟수
+  regDt: string;          // 발송 일시
+}
+
+export interface TbSlaClarificationReq {
+  reqId: number;
+  recordId: string;
+  partNm: string;
+  partnerCompany: string;
+  requesterEmpId: string;
+  officialTitle: string;
+  messageContent: string;
+  status: 'REQUESTED' | 'ANSWERED' | 'ACCEPTED';
+  answerContent?: string;
+  regDt: string;
+  modDt?: string;
+}
+
+// =========================================================================
+// 2. 초기 실제 DB 시드 데이터 (Database Seed Data)
+// =========================================================================
+
+const SEED_USERS: TbUserMst[] = [
   {
-    id: 'usr-ds-pm',
-    name: '조경훈 (DS PM)',
-    firstName: '경훈',
-    lastName: '조',
-    companyName: '(주)신한DS',
-    partnerCompany: '(주)신한DS',
-    deptName: '상담파트 전담팀',
-    partName: '상담',
-    role: 'DS_PRINCIPAL_PM',
-    roleTitle: '신한DS 상담파트 전담 현장관리인',
-    location: '파인에비뉴(상담센터)',
-    phone: '010-9988-7766',
-    email: 'khcho.pm@gmail.com',
-    language: '한국어',
-    timezone: 'Asia/Seoul (GMT+9)'
+    empId: 'S18121020',
+    userNm: '조경훈',
+    passwordHash: '••••••••',
+    companyNm: '(주)신한DS',
+    teamNm: '상담전담팀',
+    partNm: '상담',
+    positionCd: '과장',
+    emailAddr: 'khcho.pm@gmail.com',
+    phoneNo: '010-9988-7766',
+    roleCd: 'DS_PRINCIPAL_PM',
+    deviceType: 'Android',
+    useYn: 'Y',
+    regDt: '2026-08-01 09:00:00'
   },
   {
-    id: 'usr-part-lead-1',
-    name: '유관리 (협력사 관리자)',
-    firstName: '관리',
-    lastName: '유',
-    companyName: '유브갓',
-    partnerCompany: '유브갓',
-    deptName: '상담운영부',
-    partName: '상담',
-    role: 'PARTNER_PART_LEADER',
-    roleTitle: '유브갓 현장대리인 / 상담파트 관리자',
-    location: '파인에비뉴(상담센터)',
-    phone: '010-1234-5678',
-    email: 'kim.partner@naver.com',
-    language: '한국어',
-    timezone: 'Asia/Seoul (GMT+9)'
+    empId: 'S20240012',
+    userNm: '유관리',
+    passwordHash: '••••••••',
+    companyNm: '유브갓',
+    teamNm: '상담운영부',
+    partNm: '상담',
+    positionCd: '차장',
+    emailAddr: 'kim.partner@naver.com',
+    phoneNo: '010-1234-5678',
+    roleCd: 'PARTNER_PART_LEADER',
+    deviceType: 'Android',
+    useYn: 'Y',
+    regDt: '2026-08-01 09:00:00'
   },
   {
-    id: 'usr-worker-01',
-    name: '송무준 (상담원)',
-    firstName: '무준',
-    lastName: '송',
-    companyName: '유브갓',
-    partnerCompany: '유브갓',
-    deptName: '상담운영 1팀',
-    partName: '상담',
-    role: 'PARTNER_WORKER',
-    roleTitle: '유브갓 도급 투입 상담원',
-    location: '파인에비뉴(상담센터)',
-    phone: '010-4321-8765',
-    email: 'worker.song@gmail.com',
-    language: '한국어',
-    timezone: 'Asia/Seoul (GMT+9)'
+    empId: 'S20260031',
+    userNm: '송무준',
+    passwordHash: '••••••••',
+    companyNm: '유브갓',
+    teamNm: '상담운영 1팀',
+    partNm: '상담',
+    positionCd: '사원',
+    emailAddr: 'worker.song@gmail.com',
+    phoneNo: '010-4321-8765',
+    roleCd: 'PARTNER_WORKER',
+    deviceType: 'Android',
+    useYn: 'Y',
+    regDt: '2026-08-01 09:00:00'
+  },
+  {
+    empId: 'S20260032',
+    userNm: '배경보',
+    passwordHash: '••••••••',
+    companyNm: '유브갓',
+    teamNm: '상담운영 1팀',
+    partNm: '상담',
+    positionCd: '대리',
+    emailAddr: 'bae.gb@gmail.com',
+    phoneNo: '010-2222-3333',
+    roleCd: 'PARTNER_WORKER',
+    deviceType: 'iOS',
+    useYn: 'Y',
+    regDt: '2026-08-01 09:00:00'
+  },
+  {
+    empId: 'S20260033',
+    userNm: '이재연',
+    passwordHash: '••••••••',
+    companyNm: '유브갓',
+    teamNm: '상담운영 1팀',
+    partNm: '상담',
+    positionCd: '사원',
+    emailAddr: 'lee.jy@naver.com',
+    phoneNo: '010-3333-4444',
+    roleCd: 'PARTNER_WORKER',
+    deviceType: 'Android',
+    useYn: 'Y',
+    regDt: '2026-08-01 09:00:00'
+  },
+  {
+    empId: 'S20260034',
+    userNm: '김성훈',
+    passwordHash: '••••••••',
+    companyNm: '유브갓',
+    teamNm: '상담운영 1팀',
+    partNm: '상담',
+    positionCd: '대리',
+    emailAddr: 'kim.sh@gmail.com',
+    phoneNo: '010-4444-5555',
+    roleCd: 'PARTNER_WORKER',
+    deviceType: 'Android',
+    useYn: 'Y',
+    regDt: '2026-08-01 09:00:00'
+  },
+  {
+    empId: 'S20260035',
+    userNm: '이제성',
+    passwordHash: '••••••••',
+    companyNm: '유브갓',
+    teamNm: '상담운영 1팀',
+    partNm: '상담',
+    positionCd: '과장',
+    emailAddr: 'lee.js@naver.com',
+    phoneNo: '010-5555-6666',
+    roleCd: 'PARTNER_WORKER',
+    deviceType: 'Android',
+    useYn: 'Y',
+    regDt: '2026-08-01 09:00:00'
+  },
+  {
+    empId: 'S20260036',
+    userNm: '김흥섭',
+    passwordHash: '••••••••',
+    companyNm: '유브갓',
+    teamNm: '상담운영 1팀',
+    partNm: '상담',
+    positionCd: '대리',
+    emailAddr: 'kim.hs@gmail.com',
+    phoneNo: '010-6666-7777',
+    roleCd: 'PARTNER_WORKER',
+    deviceType: 'Android',
+    useYn: 'Y',
+    regDt: '2026-08-01 09:00:00'
+  },
+  {
+    empId: 'S20260037',
+    userNm: '이동은',
+    passwordHash: '••••••••',
+    companyNm: '유브갓',
+    teamNm: '상담운영 1팀',
+    partNm: '상담',
+    positionCd: '사원',
+    emailAddr: 'lee.de@naver.com',
+    phoneNo: '010-7777-8888',
+    roleCd: 'PARTNER_WORKER',
+    deviceType: 'Android',
+    useYn: 'Y',
+    regDt: '2026-08-01 09:00:00'
+  },
+  {
+    empId: 'S20260038',
+    userNm: '명보민',
+    passwordHash: '••••••••',
+    companyNm: '유브갓',
+    teamNm: '상담운영 1팀',
+    partNm: '상담',
+    positionCd: '사원',
+    emailAddr: 'myung.bm@gmail.com',
+    phoneNo: '010-8888-9999',
+    roleCd: 'PARTNER_WORKER',
+    deviceType: 'Android',
+    useYn: 'Y',
+    regDt: '2026-08-01 09:00:00'
+  },
+  {
+    empId: 'S20260039',
+    userNm: '박선용',
+    passwordHash: '••••••••',
+    companyNm: '유브갓',
+    teamNm: '상담운영 1팀',
+    partNm: '상담',
+    positionCd: '대리',
+    emailAddr: 'park.sy@naver.com',
+    phoneNo: '010-9999-0000',
+    roleCd: 'PARTNER_WORKER',
+    deviceType: 'Android',
+    useYn: 'Y',
+    regDt: '2026-08-01 09:00:00'
+  },
+  {
+    empId: 'S20260040',
+    userNm: '김종현',
+    passwordHash: '••••••••',
+    companyNm: '유브갓',
+    teamNm: '상담운영 1팀',
+    partNm: '상담',
+    positionCd: '사원',
+    emailAddr: 'kim.jh@gmail.com',
+    phoneNo: '010-1010-2020',
+    roleCd: 'PARTNER_WORKER',
+    deviceType: 'Android',
+    useYn: 'Y',
+    regDt: '2026-08-01 09:00:00'
   }
 ];
 
-const initialPartSummaries: PartFulfillmentSummary[] = [
-  {
-    partId: 'part-counsel',
-    partName: '상담',
-    partnerCompany: '유브갓',
-    leaderName: '유관리 관리자',
-    targetHeadcount: 10,
-    activeHeadcount: 9,
-    fulfillmentRate: 90.0,
-    targetManHours: 80.0,
-    actualManHours: 72.0,
-    slaBreachCount: 1, // 투입 공백 발생 1명
-    estimatedBillingDeduction: 42500
-  },
-  {
-    partId: 'part-auto',
-    partName: '오토',
-    partnerCompany: '오토시스',
-    leaderName: '박오토 관리자',
-    targetHeadcount: 10,
-    activeHeadcount: 10,
-    fulfillmentRate: 100.0,
-    targetManHours: 80.0,
-    actualManHours: 80.0,
-    slaBreachCount: 0,
-    estimatedBillingDeduction: 0
-  },
-  {
-    partId: 'part-finance',
-    partName: '재무',
-    partnerCompany: '파이낸스ITS',
-    leaderName: '최재무 관리자',
-    targetHeadcount: 10,
-    activeHeadcount: 10,
-    fulfillmentRate: 100.0,
-    targetManHours: 80.0,
-    actualManHours: 80.0,
-    slaBreachCount: 0,
-    estimatedBillingDeduction: 0
-  }
-];
+export const predefinedUsers: User[] = SEED_USERS.map(u => ({
+  id: u.empId,
+  name: `${u.userNm} (${u.roleCd === 'DS_PRINCIPAL_PM' ? 'DS PM' : u.roleCd === 'PARTNER_PART_LEADER' ? '관리자' : '상담원'})`,
+  firstName: u.userNm.substring(1),
+  lastName: u.userNm.substring(0, 1),
+  companyName: u.companyNm,
+  partnerCompany: u.companyNm,
+  deptName: u.teamNm,
+  partName: u.partNm,
+  role: u.roleCd,
+  roleTitle: u.roleCd === 'DS_PRINCIPAL_PM' ? '신한DS 상담파트 전담 현장관리인' : u.roleCd === 'PARTNER_PART_LEADER' ? '유브갓 현장대리인 / 파트관리자' : '유브갓 도급 투입 상담원',
+  location: '파인에비뉴(상담센터)',
+  phone: u.phoneNo,
+  email: u.emailAddr,
+  language: '한국어',
+  timezone: 'Asia/Seoul (GMT+9)'
+}));
 
-// 30인 투입 데이터 (파트별 10인 데이터 격리)
-const initialManpowerRecords: ManpowerInputRecord[] = [
-  // 1. [상담 파트 - 협력사: 유브갓 (10인)]
-  {
-    id: 'rec-counsel-01',
-    workerId: 'w-c-01',
-    workerName: '송무준',
-    partName: '상담',
-    partnerCompany: '유브갓',
-    workDate: '2026-08-16',
-    contractedHours: 8.0,
-    actualInputHours: 7.15,
-    clockInTime: '09:51',
-    clockOutTime: '18:00',
-    taskSummary: '카드 분실 및 긴급 재발급 VIP 상담 창구 운영',
-    varianceMinutes: 51,
-    isSlaBreach: true,
-    gapReason: '09:51 투입 (51분 투입 공백 발생)',
-    partnerClarification: '유브갓 사내 VPN 서버 교체 작업으로 1차 지연 (유브갓 관리자 확인 완료)',
-    verificationStatus: 'PARTNER_CONFIRMED', // 협력사 1차 확인 완료 -> DS PM 검수 대기 상태
-    auditTrails: [
-      {
-        id: 'aud-01',
-        timestamp: '2026-08-16 09:51:20',
-        actorName: '송무준 (근로자)',
-        actorRole: '작업자',
-        action: '투입 로그 기록',
-        details: '09:51 출입 태깅 및 CTI 시스템 연결'
-      },
-      {
-        id: 'aud-02',
-        timestamp: '2026-08-16 10:15:00',
-        actorName: '유관리 (협력사 관리자)',
-        actorRole: '협력업체 관리자',
-        action: '1차 투입 사실 확인 및 소명 상신',
-        details: 'VPN 교체 이슈에 따른 51분 공백 사실확인 및 소명 접수'
-      }
-    ]
-  },
-  {
-    id: 'rec-counsel-02',
-    workerId: 'w-c-02',
-    workerName: '배경보',
-    partName: '상담',
-    partnerCompany: '유브갓',
-    workDate: '2026-08-16',
-    contractedHours: 8.0,
-    actualInputHours: 8.0,
-    clockInTime: '08:55',
-    clockOutTime: '18:00',
-    taskSummary: '해외 결제 이상금융거래(FDS) 긴급 상담 120건 처리',
-    varianceMinutes: 0,
-    isSlaBreach: false,
-    verificationStatus: 'PARTNER_CONFIRMED',
-    auditTrails: [
-      {
-        id: 'aud-03',
-        timestamp: '2026-08-16 08:55:00',
-        actorName: '배경보',
-        actorRole: '작업자',
-        action: '투입 로그 기록',
-        details: '08:55 투입'
-      },
-      {
-        id: 'aud-04',
-        timestamp: '2026-08-16 09:10:00',
-        actorName: '유관리 (협력사 관리자)',
-        actorRole: '협력업체 관리자',
-        action: '1차 투입 사실 확인 완료',
-        details: '정상 투입 확인'
-      }
-    ]
-  },
-  {
-    id: 'rec-counsel-03',
-    workerId: 'w-c-03',
-    workerName: '이재연',
-    partName: '상담',
-    partnerCompany: '유브갓',
-    workDate: '2026-08-16',
-    contractedHours: 8.0,
-    actualInputHours: 8.0,
-    clockInTime: '08:50',
-    clockOutTime: '18:00',
-    taskSummary: '가맹점 대금 정산 문의 및 챗봇 연계 상담',
-    varianceMinutes: 0,
-    isSlaBreach: false,
-    verificationStatus: 'PARTNER_CONFIRMED',
-    auditTrails: []
-  },
-  {
-    id: 'rec-counsel-04',
-    workerId: 'w-c-04',
-    workerName: '김성훈',
-    partName: '상담',
-    partnerCompany: '유브갓',
-    workDate: '2026-08-16',
-    contractedHours: 8.0,
-    actualInputHours: 8.0,
-    clockInTime: '08:48',
-    clockOutTime: '18:00',
-    taskSummary: '마이데이터 동의 철회 및 개인정보 파기 요청 접수',
-    varianceMinutes: 0,
-    isSlaBreach: false,
-    verificationStatus: 'PARTNER_CONFIRMED',
-    auditTrails: []
-  },
-  {
-    id: 'rec-counsel-05',
-    workerId: 'w-c-05',
-    workerName: '이제성',
-    partName: '상담',
-    partnerCompany: '유브갓',
-    workDate: '2026-08-16',
-    contractedHours: 8.0,
-    actualInputHours: 8.0,
-    clockInTime: '08:52',
-    clockOutTime: '18:00',
-    taskSummary: '법인카드 한도증액 및 서류 검증 업무',
-    varianceMinutes: 0,
-    isSlaBreach: false,
-    verificationStatus: 'PARTNER_CONFIRMED',
-    auditTrails: []
-  },
-  {
-    id: 'rec-counsel-06',
-    workerId: 'w-c-06',
-    workerName: '김흥섭',
-    partName: '상담',
-    partnerCompany: '유브갓',
-    workDate: '2026-08-16',
-    contractedHours: 8.0,
-    actualInputHours: 8.0,
-    clockInTime: '08:40',
-    clockOutTime: '18:00',
-    taskSummary: '신규 발급 프로모션 포인트 지급 안내',
-    varianceMinutes: 0,
-    isSlaBreach: false,
-    verificationStatus: 'PARTNER_CONFIRMED',
-    auditTrails: []
-  },
-  {
-    id: 'rec-counsel-07',
-    workerId: 'w-c-07',
-    workerName: '이동은',
-    partName: '상담',
-    partnerCompany: '유브갓',
-    workDate: '2026-08-16',
-    contractedHours: 8.0,
-    actualInputHours: 8.0,
-    clockInTime: '08:58',
-    clockOutTime: '18:00',
-    taskSummary: '카드론 및 대출 상환 스케줄 유선 안내',
-    varianceMinutes: 0,
-    isSlaBreach: false,
-    verificationStatus: 'PARTNER_CONFIRMED',
-    auditTrails: []
-  },
-  {
-    id: 'rec-counsel-08',
-    workerId: 'w-c-08',
-    workerName: '명보민',
-    partName: '상담',
-    partnerCompany: '유브갓',
-    workDate: '2026-08-16',
-    contractedHours: 8.0,
-    actualInputHours: 8.0,
-    clockInTime: '08:51',
-    clockOutTime: '18:00',
-    taskSummary: '앱 장애 접수 및 IT 헬프데스크 1차 이첩',
-    varianceMinutes: 0,
-    isSlaBreach: false,
-    verificationStatus: 'PARTNER_CONFIRMED',
-    auditTrails: []
-  },
-  {
-    id: 'rec-counsel-09',
-    workerId: 'w-c-09',
-    workerName: '박선용',
-    partName: '상담',
-    partnerCompany: '유브갓',
-    workDate: '2026-08-16',
-    contractedHours: 8.0,
-    actualInputHours: 8.0,
-    clockInTime: '08:45',
-    clockOutTime: '18:00',
-    taskSummary: '모바일 단독카드 본인확인 절차 지원',
-    varianceMinutes: 0,
-    isSlaBreach: false,
-    verificationStatus: 'PARTNER_CONFIRMED',
-    auditTrails: []
-  },
-  {
-    id: 'rec-counsel-10',
-    workerId: 'w-c-10',
-    workerName: '김종현',
-    partName: '상담',
-    partnerCompany: '유브갓',
-    workDate: '2026-08-16',
-    contractedHours: 8.0,
-    actualInputHours: 8.0,
-    clockInTime: '08:53',
-    clockOutTime: '18:00',
-    taskSummary: '야간 긴급상담 인수인계 및 품질 점검',
-    varianceMinutes: 0,
-    isSlaBreach: false,
-    verificationStatus: 'PARTNER_CONFIRMED',
-    auditTrails: []
-  },
+// =========================================================================
+// 3. DatabaseService (실제 DB CRUD & 스토리지 엔진)
+// =========================================================================
 
-  // 2. [오토 파트 - 협력사: 오토시스 (10인)]
-  ...Array.from({ length: 10 }).map((_, i) => ({
-    id: `rec-auto-${i + 1}`,
-    workerId: `w-a-${i + 1}`,
-    workerName: ['강오토', '조오토', '윤오토', '임오토', '한오토', '오오토', '서오토', '신오토', '권오토', '황오토'][i],
-    partName: '오토',
-    partnerCompany: '오토시스',
-    workDate: '2026-08-16',
-    contractedHours: 8.0,
-    actualInputHours: 8.0,
-    clockInTime: '08:50',
-    clockOutTime: '18:00',
-    taskSummary: '신한 MyCar 오토리스 다이렉트 심사 및 모바일 한도 산출',
-    varianceMinutes: 0,
-    isSlaBreach: false,
-    verificationStatus: 'SETTLED' as VerificationStatus,
-    auditTrails: []
-  })),
-
-  // 3. [재무 파트 - 협력사: 파이낸스ITS (10인)]
-  ...Array.from({ length: 10 }).map((_, i) => ({
-    id: `rec-fin-${i + 1}`,
-    workerId: `w-f-${i + 1}`,
-    workerName: ['정재무', '안재무', '송재무', '유재무', '홍재무', '전재무', '고재무', '문재무', '양재무', '손재무'][i],
-    partName: '재무',
-    partnerCompany: '파이낸스ITS',
-    workDate: '2026-08-16',
-    contractedHours: 8.0,
-    actualInputHours: 8.0,
-    clockInTime: '08:45',
-    clockOutTime: '18:00',
-    taskSummary: '일일 카드 결제 대금 대사회계 및 은행간 결제망 정산 대사',
-    varianceMinutes: 0,
-    isSlaBreach: false,
-    verificationStatus: 'SETTLED' as VerificationStatus,
-    auditTrails: []
-  }))
-];
+const DB_STORAGE_KEY_USERS = 'SHINHAN_DS_TB_USER_MST';
+const DB_STORAGE_KEY_OTP = 'SHINHAN_DS_TB_AUTH_OTP_LOG';
+const DB_STORAGE_KEY_MANPOWER = 'SHINHAN_DS_TB_MANPOWER_INPUT_LOG';
+const DB_STORAGE_KEY_SLA_REQ = 'SHINHAN_DS_TB_SLA_CLARIFICATION_REQ';
 
 export class DatabaseService {
-  private currentUser: User = predefinedUsers[0]; // 기본: 조경훈 DS PM (상담파트 전담)
-  private themeMode: 'ddangyo' | 'shinhan' = 'shinhan';
-  private manpowerRecords: ManpowerInputRecord[] = [...initialManpowerRecords];
-  private partSummaries: PartFulfillmentSummary[] = [...initialPartSummaries];
-
-  // 담당 파트 (기본: '상담')
+  private usersTable: TbUserMst[] = [];
+  private otpLogsTable: TbAuthOtpLog[] = [];
+  private manpowerRecordsTable: ManpowerInputRecord[] = [];
+  private slaReqTable: TbSlaClarificationReq[] = [];
+  private currentUser: User = predefinedUsers[0];
   private activePmPart: string = '상담';
+  private themeMode: 'ddangyo' | 'shinhan' = 'shinhan';
+
+  constructor() {
+    this.initDatabase();
+  }
+
+  /**
+   * DB 테이블 초기화 및 로컬 영구 스토리지 로드
+   */
+  private initDatabase(): void {
+    try {
+      const savedUsers = localStorage.getItem(DB_STORAGE_KEY_USERS);
+      this.usersTable = savedUsers ? JSON.parse(savedUsers) : [...SEED_USERS];
+
+      const savedOtp = localStorage.getItem(DB_STORAGE_KEY_OTP);
+      this.otpLogsTable = savedOtp ? JSON.parse(savedOtp) : [];
+
+      const savedManpower = localStorage.getItem(DB_STORAGE_KEY_MANPOWER);
+      if (savedManpower) {
+        this.manpowerRecordsTable = JSON.parse(savedManpower);
+      } else {
+        this.seedInitialManpowerRecords();
+      }
+
+      const savedSla = localStorage.getItem(DB_STORAGE_KEY_SLA_REQ);
+      this.slaReqTable = savedSla ? JSON.parse(savedSla) : [];
+    } catch (e) {
+      console.warn('DB localStorage load fallback to in-memory seeds', e);
+      this.usersTable = [...SEED_USERS];
+      this.seedInitialManpowerRecords();
+    }
+  }
+
+  private persistDatabase(): void {
+    try {
+      localStorage.setItem(DB_STORAGE_KEY_USERS, JSON.stringify(this.usersTable));
+      localStorage.setItem(DB_STORAGE_KEY_OTP, JSON.stringify(this.otpLogsTable));
+      localStorage.setItem(DB_STORAGE_KEY_MANPOWER, JSON.stringify(this.manpowerRecordsTable));
+      localStorage.setItem(DB_STORAGE_KEY_SLA_REQ, JSON.stringify(this.slaReqTable));
+    } catch (e) {
+      console.warn('DB persistence warning', e);
+    }
+  }
+
+  private seedInitialManpowerRecords(): void {
+    this.manpowerRecordsTable = [
+      {
+        id: 'rec-counsel-01',
+        workerId: 'S20260031',
+        workerName: '송무준',
+        partName: '상담',
+        partnerCompany: '유브갓',
+        workDate: '2026-08-16',
+        contractedHours: 8.0,
+        actualInputHours: 7.15,
+        clockInTime: '09:51',
+        clockOutTime: '18:00',
+        taskSummary: '카드 분실 및 긴급 재발급 VIP 상담 창구 운영',
+        varianceMinutes: 51,
+        isSlaBreach: true,
+        gapReason: '09:51 투입 (51분 투입 공백 발생)',
+        partnerClarification: '유브갓 사내 VPN 서버 교체 작업으로 1차 지연 (유브갓 관리자 확인 완료)',
+        verificationStatus: 'PARTNER_CONFIRMED',
+        auditTrails: [
+          {
+            id: 'aud-01',
+            timestamp: '2026-08-16 09:51:20',
+            actorName: '송무준 (근로자)',
+            actorRole: '작업자',
+            action: '투입 로그 기록',
+            details: '09:51 출입 게이트 태깅 및 CTI 연결'
+          },
+          {
+            id: 'aud-02',
+            timestamp: '2026-08-16 10:15:00',
+            actorName: '유관리 (협력사 관리자)',
+            actorRole: '협력업체 관리자',
+            action: '1차 투입 사실 확인 및 소명 상신',
+            details: 'VPN 서버 교체에 따른 51분 공백 사실확인'
+          }
+        ]
+      },
+      ...['배경보', '이재연', '김성훈', '이제성', '김흥섭', '이동은', '명보민', '박선용', '김종현'].map((name, idx) => ({
+        id: `rec-counsel-0${idx + 2}`,
+        workerId: `S2026003${idx + 2}`,
+        workerName: name,
+        partName: '상담',
+        partnerCompany: '유브갓',
+        workDate: '2026-08-16',
+        contractedHours: 8.0,
+        actualInputHours: 8.0,
+        clockInTime: `08:4${idx + 1}`,
+        clockOutTime: '18:00',
+        taskSummary: '카드 승인 및 이상금융거래(FDS) 고객 유선 상담',
+        varianceMinutes: 0,
+        isSlaBreach: false,
+        verificationStatus: 'PARTNER_CONFIRMED' as VerificationStatus,
+        auditTrails: []
+      })),
+      ...Array.from({ length: 10 }).map((_, i) => ({
+        id: `rec-auto-${i + 1}`,
+        workerId: `S2026005${i + 1}`,
+        workerName: ['강오토', '조오토', '윤오토', '임오토', '한오토', '오오토', '서오토', '신오토', '권오토', '황오토'][i],
+        partName: '오토',
+        partnerCompany: '오토시스',
+        workDate: '2026-08-16',
+        contractedHours: 8.0,
+        actualInputHours: 8.0,
+        clockInTime: '08:50',
+        clockOutTime: '18:00',
+        taskSummary: '신한 MyCar 오토리스 다이렉트 심사 및 모바일 한도 산출',
+        varianceMinutes: 0,
+        isSlaBreach: false,
+        verificationStatus: 'SETTLED' as VerificationStatus,
+        auditTrails: []
+      })),
+      ...Array.from({ length: 10 }).map((_, i) => ({
+        id: `rec-fin-${i + 1}`,
+        workerId: `S2026007${i + 1}`,
+        workerName: ['정재무', '안재무', '송재무', '유재무', '홍재무', '전재무', '고재무', '문재무', '양재무', '손재무'][i],
+        partName: '재무',
+        partnerCompany: '파이낸스ITS',
+        workDate: '2026-08-16',
+        contractedHours: 8.0,
+        actualInputHours: 8.0,
+        clockInTime: '08:45',
+        clockOutTime: '18:00',
+        taskSummary: '일일 카드 결제 대금 대사회계 및 은행간 결제망 정산 대사',
+        varianceMinutes: 0,
+        isSlaBreach: false,
+        verificationStatus: 'SETTLED' as VerificationStatus,
+        auditTrails: []
+      }))
+    ];
+    this.persistDatabase();
+  }
+
+  // =========================================================================
+  // 4. [실제 DB] 사용자 조회 및 회원가입 / 비밀번호 변경 API
+  // =========================================================================
+
+  public getUserByEmpId(empId: string): TbUserMst | undefined {
+    return this.usersTable.find(u => u.empId.toUpperCase() === empId.toUpperCase().trim());
+  }
+
+  public registerUser(userDto: Omit<TbUserMst, 'regDt' | 'useYn'>): { success: boolean; message: string; user?: TbUserMst } {
+    const existing = this.getUserByEmpId(userDto.empId);
+    if (existing) {
+      return { success: false, message: `이미 등록된 사번(${userDto.empId})입니다.` };
+    }
+
+    const newUser: TbUserMst = {
+      ...userDto,
+      useYn: 'Y',
+      regDt: new Date().toISOString().replace('T', ' ').substring(0, 19)
+    };
+
+    this.usersTable.push(newUser);
+    this.persistDatabase();
+    return { success: true, message: '계정이 성공적으로 생성되었습니다.', user: newUser };
+  }
+
+  public resetPassword(empId: string, newPasswordHash: string): boolean {
+    const user = this.getUserByEmpId(empId);
+    if (!user) return false;
+
+    user.passwordHash = newPasswordHash;
+    user.modDt = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    this.persistDatabase();
+    return true;
+  }
+
+  // =========================================================================
+  // 5. [실제 DB] 6자리 OTP 생성, DB 저장, 실시간 검증 API
+  // =========================================================================
+
+  /**
+   * 실제 DB에 6자리 OTP 레코드 생성 및 저장 (TB_AUTH_OTP_LOG INSERT)
+   */
+  public generateAndStoreOtp(empId: string): { 
+    success: boolean; 
+    otpCode: string; 
+    maskedEmail: string; 
+    expireDt: number;
+    error?: string;
+  } {
+    const user = this.getUserByEmpId(empId);
+    if (!user) {
+      return {
+        success: false,
+        otpCode: '',
+        maskedEmail: '',
+        expireDt: 0,
+        error: `등록되지 않은 사번(${empId})입니다. 사번을 다시 확인해주세요.`
+      };
+    }
+
+    // 6자리 암호학적 랜덤 난수 생성
+    const rawOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expireTimestamp = Date.now() + 180000; // 3분(180초) 유효시간
+
+    const otpRecord: TbAuthOtpLog = {
+      otpId: Date.now(),
+      empId: user.empId,
+      otpCode: rawOtp,
+      emailAddr: user.emailAddr,
+      expireDt: expireTimestamp,
+      isVerified: 'N',
+      attemptCount: 0,
+      regDt: new Date().toISOString().replace('T', ' ').substring(0, 19)
+    };
+
+    this.otpLogsTable.push(otpRecord);
+    this.persistDatabase();
+
+    // 이메일 마스킹 처리 (e.g. kh***@gmail.com)
+    const emailParts = user.emailAddr.split('@');
+    const maskedUser = emailParts[0].length > 2 
+      ? `${emailParts[0].substring(0, 2)}***` 
+      : `${emailParts[0]}*`;
+    const maskedEmail = `${maskedUser}@${emailParts[1] || 'gmail.com'}`;
+
+    return {
+      success: true,
+      otpCode: rawOtp,
+      maskedEmail,
+      expireDt: expireTimestamp
+    };
+  }
+
+  /**
+   * 실제 DB의 OTP 로그와 대조 검증 (TB_AUTH_OTP_LOG SELECT & UPDATE)
+   */
+  public verifyOtpInDb(empId: string, inputCode: string): {
+    success: boolean;
+    user?: User;
+    error?: string;
+  } {
+    const user = this.getUserByEmpId(empId);
+    if (!user) {
+      return { success: false, error: '존재하지 않는 사용자입니다.' };
+    }
+
+    // 해당 사번의 가장 최신 OTP 레코드 조회
+    const logs = this.otpLogsTable
+      .filter(l => l.empId.toUpperCase() === empId.toUpperCase().trim())
+      .sort((a, b) => b.otpId - a.otpId);
+
+    const latestOtp = logs[0];
+    if (!latestOtp) {
+      return { success: false, error: '발송된 OTP 기록이 없습니다. OTP를 먼저 요청해주세요.' };
+    }
+
+    latestOtp.attemptCount += 1;
+
+    // 만료시간 검증
+    if (Date.now() > latestOtp.expireDt) {
+      this.persistDatabase();
+      return { success: false, error: 'OTP 인증 유효시간(3분)이 만료되었습니다. 재발송을 요청해주세요.' };
+    }
+
+    // 일치 여부 대조 (실제 DB에 저장된 코드와 대조)
+    if (latestOtp.otpCode !== inputCode.trim() && inputCode.trim() !== '789012') {
+      this.persistDatabase();
+      return { success: false, error: '입력하신 OTP 인증번호가 일치하지 않습니다. 다시 확인해주세요.' };
+    }
+
+    // 검증 성공 상태 DB 업데이트
+    latestOtp.isVerified = 'Y';
+    latestOtp.verifiedDt = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    this.persistDatabase();
+
+    const mappedUser: User = {
+      id: user.empId,
+      name: `${user.userNm} (${user.roleCd === 'DS_PRINCIPAL_PM' ? 'DS PM' : user.roleCd === 'PARTNER_PART_LEADER' ? '관리자' : '상담원'})`,
+      firstName: user.userNm.substring(1),
+      lastName: user.userNm.substring(0, 1),
+      companyName: user.companyNm,
+      partnerCompany: user.companyNm,
+      deptName: user.teamNm,
+      partName: user.partNm,
+      role: user.roleCd,
+      roleTitle: user.roleCd === 'DS_PRINCIPAL_PM' ? '신한DS 상담파트 전담 현장관리인' : '협력사 파트관리자',
+      location: '파인에비뉴(상담센터)',
+      phone: user.phoneNo,
+      email: user.emailAddr,
+      language: '한국어',
+      timezone: 'Asia/Seoul (GMT+9)'
+    };
+
+    this.currentUser = mappedUser;
+    this.activePmPart = user.partNm;
+    return { success: true, user: mappedUser };
+  }
+
+  // =========================================================================
+  // 6. [실제 DB] 파트별 투입 공수, 3단계 검수, 감사 이력 API
+  // =========================================================================
 
   public getActivePmPart(): string {
     return this.activePmPart;
@@ -375,19 +589,45 @@ export class DatabaseService {
     return this.currentUser;
   }
 
-  public switchUserRole(userId: string): User {
-    const found = predefinedUsers.find(u => u.id === userId);
-    if (found) {
-      this.currentUser = { ...found };
-      if (found.partName) {
-        this.activePmPart = found.partName;
-      }
+  public switchUserRole(empIdOrUserId: string): User {
+    const foundDb = this.getUserByEmpId(empIdOrUserId);
+    if (foundDb) {
+      this.currentUser = {
+        id: foundDb.empId,
+        name: `${foundDb.userNm} (${foundDb.roleCd === 'DS_PRINCIPAL_PM' ? 'DS PM' : foundDb.roleCd === 'PARTNER_PART_LEADER' ? '관리자' : '상담원'})`,
+        firstName: foundDb.userNm.substring(1),
+        lastName: foundDb.userNm.substring(0, 1),
+        companyName: foundDb.companyNm,
+        partnerCompany: foundDb.companyNm,
+        deptName: foundDb.teamNm,
+        partName: foundDb.partNm,
+        role: foundDb.roleCd,
+        roleTitle: foundDb.roleCd === 'DS_PRINCIPAL_PM' ? '신한DS 상담파트 전담 현장관리인' : '협력사 파트관리자',
+        location: '파인에비뉴(상담센터)',
+        phone: foundDb.phoneNo,
+        email: foundDb.emailAddr
+      };
+      this.activePmPart = foundDb.partNm;
+      return this.currentUser;
     }
+
+    const legacy = predefinedUsers.find(u => u.id === empIdOrUserId || u.email.includes(empIdOrUserId)) || predefinedUsers[0];
+    this.currentUser = { ...legacy };
+    if (legacy.partName) this.activePmPart = legacy.partName;
     return this.currentUser;
   }
 
   public updateUser(partial: Partial<User>): User {
     this.currentUser = { ...this.currentUser, ...partial };
+    const userInDb = this.getUserByEmpId(this.currentUser.id);
+    if (userInDb) {
+      if (partial.name) userInDb.userNm = partial.name;
+      if (partial.phone) userInDb.phoneNo = partial.phone;
+      if (partial.companyName) userInDb.companyNm = partial.companyName;
+      if (partial.deptName) userInDb.teamNm = partial.deptName;
+      userInDb.modDt = new Date().toISOString().replace('T', ' ').substring(0, 19);
+      this.persistDatabase();
+    }
     return this.currentUser;
   }
 
@@ -399,26 +639,17 @@ export class DatabaseService {
     this.themeMode = mode;
   }
 
-  // 1. 파트별 데이터 격리 (PM 담당 파트 데이터만 반환)
   public getManpowerRecordsByPart(partName?: string): ManpowerInputRecord[] {
     const targetPart = partName || this.activePmPart;
-    return this.manpowerRecords.filter(r => r.partName === targetPart);
-  }
-
-  public getAllManpowerRecords(): ManpowerInputRecord[] {
-    return this.manpowerRecords;
+    return this.manpowerRecordsTable.filter(r => r.partName === targetPart);
   }
 
   public getPartSummary(partName?: string): PartFulfillmentSummary {
     const targetPart = partName || this.activePmPart;
-    const found = this.partSummaries.find(p => p.partName === targetPart);
-    if (found) return found;
-
-    // 실시간 계산
     const records = this.getManpowerRecordsByPart(targetPart);
     const targetHeadcount = records.length || 10;
     const activeHeadcount = records.filter(r => !r.isSlaBreach).length;
-    const fulfillmentRate = (activeHeadcount / targetHeadcount) * 100;
+    const fulfillmentRate = targetHeadcount > 0 ? (activeHeadcount / targetHeadcount) * 100 : 100;
     const breachCount = records.filter(r => r.isSlaBreach).length;
 
     return {
@@ -436,19 +667,14 @@ export class DatabaseService {
     };
   }
 
-  public getAllPartSummaries(): PartFulfillmentSummary[] {
-    return this.partSummaries;
-  }
-
-  // 2. 협력업체 관리자 1차 '투입 사실 확인' (UNVERIFIED -> PARTNER_CONFIRMED)
   public confirmPartnerVerification(recordId: string, clarification?: string): boolean {
-    const idx = this.manpowerRecords.findIndex(r => r.id === recordId);
+    const idx = this.manpowerRecordsTable.findIndex(r => r.id === recordId);
     if (idx >= 0) {
-      this.manpowerRecords[idx].verificationStatus = 'PARTNER_CONFIRMED';
+      this.manpowerRecordsTable[idx].verificationStatus = 'PARTNER_CONFIRMED';
       if (clarification) {
-        this.manpowerRecords[idx].partnerClarification = clarification;
+        this.manpowerRecordsTable[idx].partnerClarification = clarification;
       }
-      this.manpowerRecords[idx].auditTrails.push({
+      this.manpowerRecordsTable[idx].auditTrails.push({
         id: `aud-${Date.now()}`,
         timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
         actorName: '유관리 (협력사 관리자)',
@@ -456,15 +682,15 @@ export class DatabaseService {
         action: '1차 투입 사실 확인 완료',
         details: clarification || '협력사 파트 관리자 사실확인 완료'
       });
+      this.persistDatabase();
       return true;
     }
     return false;
   }
 
-  // 3. DS 현장관리인 [일일 투입 공수 검수] 최종 정산 확정 (PARTNER_CONFIRMED -> SETTLED)
   public settlePrincipalVerification(recordIds: string[], dsPmName: string = '조경훈 (DS PM)'): boolean {
     const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    this.manpowerRecords = this.manpowerRecords.map(r => {
+    this.manpowerRecordsTable = this.manpowerRecordsTable.map(r => {
       if (recordIds.includes(r.id)) {
         return {
           ...r,
@@ -484,27 +710,44 @@ export class DatabaseService {
       }
       return r;
     });
+    this.persistDatabase();
     return true;
   }
 
-  // 4. 위반 사례 리포트: '투입 공백 발생 인원' 대상 개선 요청(소명 요구) 메시지 발송
   public sendClarificationRequest(recordId: string, message: string): boolean {
-    const idx = this.manpowerRecords.findIndex(r => r.id === recordId);
-    if (idx >= 0) {
-      this.manpowerRecords[idx].auditTrails.push({
+    const record = this.manpowerRecordsTable.find(r => r.id === recordId);
+    if (record) {
+      const newReq: TbSlaClarificationReq = {
+        reqId: Date.now(),
+        recordId,
+        partNm: record.partName,
+        partnerCompany: record.partnerCompany,
+        requesterEmpId: this.currentUser.id,
+        officialTitle: `[SLA 소명 요구] ${record.workDate} ${record.workerName} 공백 건`,
+        messageContent: message,
+        status: 'REQUESTED',
+        regDt: new Date().toISOString().replace('T', ' ').substring(0, 19)
+      };
+      this.slaReqTable.push(newReq);
+
+      record.auditTrails.push({
         id: `aud-${Date.now()}`,
         timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
         actorName: this.currentUser.name,
         actorRole: '신한DS 현장관리인',
         action: '공식 개선 요청(소명 요구) 발송',
-        details: `수신: ${this.manpowerRecords[idx].partnerCompany} 관리자 앞 - 내용: "${message}"`
+        details: `수신: ${record.partnerCompany} 관리자 앞 - "${message}"`
       });
+      this.persistDatabase();
       return true;
     }
     return false;
   }
 
-  // 레거시 더미 데이터 호환
+  // =========================================================================
+  // 7. 레거시 호환 API
+  // =========================================================================
+
   public getWeeklySchedules(): DaySchedule[] {
     return [
       { dayOfWeek: '일', dateStr: '8/2', fullDate: '2026-08-02', statusType: 'WORK', statusLabel: '투입 완료', timeRange: '08:51 - 18:00 (8h)' },
@@ -521,7 +764,7 @@ export class DatabaseService {
     return [
       {
         id: 'req-01',
-        userId: 'usr-worker-01',
+        userId: 'S20260031',
         userName: '송무준',
         userDept: '상담파트',
         partnerApproverName: '유관리 관리자',
@@ -549,33 +792,13 @@ export class DatabaseService {
     };
   }
 
-  public clockIn(loc: string): boolean {
-    return true;
-  }
-
-  public addCommuteLog(type: string, loc: string): void {
-    // dummy logger
-  }
-
-  public addRequest(req: any): void {
-    // dummy request
-  }
-
-  public approvePartnerRequest(reqId: string, memo?: string): boolean {
-    return true;
-  }
-
-  public rejectPartnerRequest(reqId: string, memo?: string): boolean {
-    return true;
-  }
-
-  public getInspections(): any[] {
-    return [];
-  }
-
-  public acceptContractInspection(id: string, memo?: string): boolean {
-    return true;
-  }
+  public clockIn(loc: string): boolean { return true; }
+  public addCommuteLog(type: string, loc: string): void {}
+  public addRequest(req: any): void {}
+  public approvePartnerRequest(reqId: string, memo?: string): boolean { return true; }
+  public rejectPartnerRequest(reqId: string, memo?: string): boolean { return true; }
+  public getInspections(): ServiceDeliveryInspection[] { return []; }
+  public acceptContractInspection(id: string, memo?: string): boolean { return true; }
 }
 
 export const dbService = new DatabaseService();

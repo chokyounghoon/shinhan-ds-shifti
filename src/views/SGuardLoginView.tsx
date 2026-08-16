@@ -247,7 +247,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
   const [newResetPw, setNewResetPw] = useState('');
   const [confirmResetPw, setConfirmResetPw] = useState('');
 
-  // Step 1: 사번 입력 -> OTP 발송
+  // Step 1: 사번 입력 -> 실제 DB (TB_AUTH_OTP_LOG)에 OTP 생성 및 발송
   const handleInitAuth = async () => {
     if (!empId.trim()) return setError('사번을 입력해 주세요.');
     setLoading(true);
@@ -255,25 +255,21 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
 
     setTimeout(() => {
       setLoading(false);
-      const newCode = Math.floor(100000 + Math.random() * 900000).toString();
-      setGeneratedOtp(newCode);
-      setOtp('');
-      setTimerKey(Date.now());
-
-      // 선택된 프리셋에 맞춘 퍼블릭 메일 설정
-      if (empId.includes('18121020')) {
-        setMaskedEmail('kh***@gmail.com');
-      } else if (empId.includes('20240012')) {
-        setMaskedEmail('kim***@naver.com');
-      } else {
-        setMaskedEmail('worker***@gmail.com');
+      const res = dbService.generateAndStoreOtp(empId.trim());
+      if (!res.success) {
+        setError(res.error || '사번 조회에 실패하였습니다.');
+        return;
       }
 
+      setGeneratedOtp(res.otpCode);
+      setMaskedEmail(res.maskedEmail);
+      setOtp('');
+      setTimerKey(Date.now());
       setStep('OTP');
-    }, 400);
+    }, 350);
   };
 
-  // Step 2: OTP 인증
+  // Step 2: 실제 DB의 OTP 로그와 대조 검증 (TB_AUTH_OTP_LOG SELECT & UPDATE)
   const handleVerifyOtp = async () => {
     if (otp.length < 6) return setError('6자리 OTP 인증번호를 입력해 주세요.');
     setLoading(true);
@@ -281,12 +277,13 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
 
     setTimeout(() => {
       setLoading(false);
-      if (otp !== generatedOtp && otp !== '789012' && otp !== '123456') {
-        setError(`OTP 코드가 일치하지 않습니다. (테스트 번호: ${generatedOtp})`);
+      const res = dbService.verifyOtpInDb(empId.trim(), otp.trim());
+      if (!res.success) {
+        setError(res.error || 'OTP 인증 실패');
         return;
       }
       setStep('PASSWORD');
-    }, 400);
+    }, 350);
   };
 
   // Step 3: 비밀번호 -> 최종 로그인
@@ -297,18 +294,42 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
 
     setTimeout(() => {
       setLoading(false);
-      const user = dbService.switchUserRole(selectedUserPreset);
+      const user = dbService.switchUserRole(empId.trim());
       onLoginSuccess(user);
-    }, 400);
+    }, 350);
   };
 
-  // 회원가입 제출
+  // 회원가입 제출 -> 실제 DB (TB_USER_MST) INSERT
   const handleSignupSubmit = () => {
     if (!signupForm.agreeTerms) {
       alert('이용약관 및 개인정보 처리방침에 동의해주세요.');
       return;
     }
-    alert(`🎉 [${signupForm.name}] 계정이 성공적으로 생성되었습니다. 사번(${signupForm.empNo})으로 로그인하세요.`);
+    if (!signupForm.empNo.trim() || !signupForm.name.trim() || !signupForm.email.trim()) {
+      alert('필수 입력 항목을 모두 입력해주세요.');
+      return;
+    }
+
+    const res = dbService.registerUser({
+      empId: signupForm.empNo.trim(),
+      userNm: signupForm.name.trim(),
+      passwordHash: signupForm.pw || '••••••••',
+      companyNm: signupForm.company,
+      teamNm: signupForm.team,
+      partNm: signupForm.part,
+      positionCd: signupForm.position,
+      emailAddr: signupForm.email.trim(),
+      phoneNo: signupForm.phone.trim(),
+      roleCd: signupForm.company === '신한DS' ? 'DS_PRINCIPAL_PM' : 'PARTNER_WORKER',
+      deviceType: signupForm.deviceType
+    });
+
+    if (!res.success) {
+      alert(`❌ ${res.message}`);
+      return;
+    }
+
+    alert(`🎉 [${signupForm.name}] 계정이 실제 DB(TB_USER_MST)에 등록되었습니다. 사번(${signupForm.empNo})으로 로그인하세요.`);
     setEmpId(signupForm.empNo);
     setStep('ID');
   };
@@ -638,8 +659,8 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
               <p style={{ fontSize: '12px', color: '#90A4AE', margin: 0 }}>
                 위 퍼블릭 메일로 발송된 6자리 인증번호를 입력해 주세요.
               </p>
-              <div style={{ fontSize: '11px', color: '#00E5FF', marginTop: '2px', fontWeight: 700 }}>
-                (테스트 번호: <strong>{generatedOtp}</strong>)
+              <div style={{ fontSize: '11.5px', color: '#00E5FF', marginTop: '4px', fontWeight: 800, background: 'rgba(0, 229, 255, 0.1)', padding: '4px 10px', borderRadius: '6px' }}>
+                실제 DB 발송 인증번호: <span style={{ letterSpacing: '2px', textDecoration: 'underline' }}>{generatedOtp}</span>
               </div>
             </div>
 
@@ -648,7 +669,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
 
             {/* 타이머 & 재발송 */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 6px' }}>
-              <Timer timerKey={timerKey} secs={178} onExpire={() => setError('인증 유효시간이 만료되었습니다. 재발송을 요청해주세요.')} />
+              <Timer timerKey={timerKey} secs={178} onExpire={() => setError('인증 유효시간(3분)이 만료되었습니다. 재발송을 요청해주세요.')} />
 
               <div style={{ display: 'flex', gap: '6px' }}>
                 <button
@@ -675,11 +696,15 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    const newCode = Math.floor(100000 + Math.random() * 900000).toString();
-                    setGeneratedOtp(newCode);
-                    setTimerKey(Date.now());
-                    setOtp('');
-                    alert(`🔑 새 OTP 인증번호 [${newCode}]가 발송되었습니다.`);
+                    const res = dbService.generateAndStoreOtp(empId.trim());
+                    if (res.success) {
+                      setGeneratedOtp(res.otpCode);
+                      setTimerKey(Date.now());
+                      setOtp('');
+                      alert(`🔑 실제 DB(TB_AUTH_OTP_LOG)에 새 OTP [${res.otpCode}]가 생성 및 발송되었습니다.`);
+                    } else {
+                      alert(res.error);
+                    }
                   }}
                   style={{
                     background: '#0D2B59',
@@ -1029,7 +1054,16 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => setStep('RESET_B')}
+                onClick={() => {
+                  const res = dbService.generateAndStoreOtp(resetEmpId.trim());
+                  if (!res.success) {
+                    alert(res.error);
+                    return;
+                  }
+                  setGeneratedOtp(res.otpCode);
+                  setMaskedEmail(res.maskedEmail);
+                  setStep('RESET_B');
+                }}
                 style={{ flex: 2, height: '46px', borderRadius: '10px', background: '#00C853', border: 'none', color: '#000000', fontWeight: 800, cursor: 'pointer' }}
               >
                 인증코드 발송
@@ -1042,7 +1076,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div style={{ textAlign: 'center' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 800, margin: '0 0 4px 0' }}>본인 확인 및 비밀번호 재설정</h2>
-              <div style={{ fontSize: '12.5px', color: '#80D8FF' }}>✉ kh********@gmail.com</div>
+              <div style={{ fontSize: '12.5px', color: '#80D8FF' }}>✉ {maskedEmail} (발송코드: {generatedOtp})</div>
             </div>
 
             <input
@@ -1064,8 +1098,18 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
             <button
               type="button"
               onClick={() => {
-                alert('🔒 비밀번호가 안전하게 변경되었습니다. 새 비밀번호로 로그인하세요.');
-                setStep('ID');
+                if (!newResetPw.trim() || newResetPw !== confirmResetPw) {
+                  alert('비밀번호가 일치하지 않거나 비어있습니다.');
+                  return;
+                }
+                const ok = dbService.resetPassword(resetEmpId.trim(), newResetPw.trim());
+                if (ok) {
+                  alert('🔒 실제 DB(TB_USER_MST)의 비밀번호가 안전하게 변경되었습니다. 새 비밀번호로 로그인하세요.');
+                  setEmpId(resetEmpId.trim());
+                  setStep('ID');
+                } else {
+                  alert('비밀번호 변경 실패: 사용자를 찾을 수 없습니다.');
+                }
               }}
               style={{
                 width: '100%',
