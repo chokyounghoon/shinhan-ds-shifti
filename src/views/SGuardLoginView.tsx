@@ -35,7 +35,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
   themeMode
 }) => {
   const [currentStep, setCurrentStep] = useState<LoginStep>('STEP1_EMP_NO');
-  const [empNo, setEmpNo] = useState<string>('18121020');
+  const [empNo, setEmpNo] = useState<string>('S18121020');
   const [selectedUserPreset, setSelectedUserPreset] = useState<string>('usr-ds-pm');
   const [password, setPassword] = useState<string>('••••••••');
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -53,9 +53,9 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
     team: '카드개발팀',
     part: '카드IS (Part 1)',
     position: '사원',
-    empNo: 'SH202400001',
+    empNo: 'S20260088',
     name: '홍길동',
-    email: 'name@shinhan.com',
+    email: 'hong.gildong@gmail.com',
     phone: '010-4732-8880',
     deviceType: 'Android' as 'Android' | 'iOS',
     pw: '',
@@ -64,7 +64,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
   });
 
   // 비밀번호 초기화 상태
-  const [resetEmpNo, setResetEmpNo] = useState('18121020');
+  const [resetEmpNo, setResetEmpNo] = useState('S18121020');
   const [newResetPw, setNewResetPw] = useState('');
   const [confirmResetPw, setConfirmResetPw] = useState('');
 
@@ -301,7 +301,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                   type="button"
                   onClick={() => {
                     setSelectedUserPreset('usr-ds-pm');
-                    setEmpNo('18121020');
+                    setEmpNo('S18121020');
                   }}
                   style={{
                     padding: '8px 4px',
@@ -314,14 +314,14 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                   }}
                 >
                   <div style={{ fontSize: '11px', fontWeight: 800 }}>신한DS PM</div>
-                  <div style={{ fontSize: '9.5px', color: '#82B1FF' }}>18121020</div>
+                  <div style={{ fontSize: '9.5px', color: '#82B1FF' }}>S18121020</div>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => {
                     setSelectedUserPreset('usr-part-lead-1');
-                    setEmpNo('20240012');
+                    setEmpNo('S20240012');
                   }}
                   style={{
                     padding: '8px 4px',
@@ -334,14 +334,14 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                   }}
                 >
                   <div style={{ fontSize: '11px', fontWeight: 800 }}>협력 파트장</div>
-                  <div style={{ fontSize: '9.5px', color: '#FFB74D' }}>20240012</div>
+                  <div style={{ fontSize: '9.5px', color: '#FFB74D' }}>S20240012</div>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => {
                     setSelectedUserPreset('usr-worker-01');
-                    setEmpNo('20260031');
+                    setEmpNo('S20260031');
                   }}
                   style={{
                     padding: '8px 4px',
@@ -354,7 +354,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                   }}
                 >
                   <div style={{ fontSize: '11px', fontWeight: 800 }}>협력 근로자</div>
-                  <div style={{ fontSize: '9.5px', color: '#81C784' }}>20260031</div>
+                  <div style={{ fontSize: '9.5px', color: '#81C784' }}>S20260031</div>
                 </button>
               </div>
             </div>
@@ -362,7 +362,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
             {/* 사원번호 입력창 (스크린샷 일치) */}
             <div>
               <label style={{ fontSize: '12px', fontWeight: 600, color: '#90A4AE', display: 'block', marginBottom: '8px' }}>
-                사원번호
+                사원번호 (S로 시작)
               </label>
               <div style={{
                 background: '#121D2C',
@@ -377,7 +377,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                   type="text"
                   value={empNo}
                   onChange={e => setEmpNo(e.target.value)}
-                  placeholder="사원번호를 입력하세요"
+                  placeholder="예: S18121020 또는 S20240001"
                   style={{
                     flex: 1,
                     background: 'transparent',
@@ -888,15 +888,16 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
               </div>
             </div>
 
-            {/* 이메일 주소 */}
+            {/* 이메일 주소 (OTP 인증용 퍼블릭 메일) */}
             <div>
-              <label style={signupLabelStyle}>이메일 주소 *</label>
+              <label style={signupLabelStyle}>이메일 주소 (OTP 인증용 퍼블릭 메일: 구글, 네이버 등) *</label>
               <div style={signupInputBoxStyle}>
                 <Mail size={16} color="#90A4AE" />
                 <input
                   type="email"
                   value={signupForm.email}
                   onChange={e => setSignupForm({ ...signupForm, email: e.target.value })}
+                  placeholder="예: hong.gildong@gmail.com 또는 name@naver.com"
                   style={signupInputFieldStyle}
                 />
               </div>

@@ -25,7 +25,7 @@ export const predefinedUsers: User[] = [
     roleTitle: '신한DS 도급 총괄 PM (최종 검수권자)',
     location: '파인에비뉴(카드)',
     phone: '010-9988-7766',
-    email: 'khcho.pm@shinhan.com',
+    email: 'khcho.pm@gmail.com',
     language: '한국어',
     timezone: 'Asia/Seoul (GMT+9)'
   },
@@ -42,7 +42,7 @@ export const predefinedUsers: User[] = [
     roleTitle: '협력사 현장대리인 / Part 1 파트장',
     location: '파인에비뉴(카드)',
     phone: '010-1234-5678',
-    email: 'kim.partner@partnerits.co.kr',
+    email: 'kim.partner@naver.com',
     language: '한국어',
     timezone: 'Asia/Seoul (GMT+9)'
   },
@@ -58,8 +58,8 @@ export const predefinedUsers: User[] = [
     role: 'PARTNER_WORKER',
     roleTitle: '협력사 도급 투입 엔지니어',
     location: '파인에비뉴(카드)',
-    phone: '010-5555-1111',
-    email: 'song.worker@partnerits.co.kr',
+    phone: '010-4321-8765',
+    email: 'worker.song@gmail.com',
     language: '한국어',
     timezone: 'Asia/Seoul (GMT+9)'
   }
