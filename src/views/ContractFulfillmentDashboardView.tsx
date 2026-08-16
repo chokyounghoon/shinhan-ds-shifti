@@ -198,11 +198,11 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
     alert(`✅ [${selectedExceptionRecord.workerName}] 건이 [공정 지연 사유 확정] 처리되어 정상 투입 실적으로 인정되었습니다. (감사로그 자동 기록 완료)`);
   };
 
-  // 소명 요구 공문 발송 모달
+  // 소명 요구 공문 발송 모달 (근로자 개인 직접 연락 차단 -> 협력사 관리인 대상 공식 발송)
   const handleOpenClarificationModal = (record: ManpowerInputRecord) => {
     setSelectedGapRecord(record);
     setClarificationMessage(
-      `[SLA 미달 통보 및 소명 요청]\n수신: ${record.partnerCompany} 현장관리자\n내용: ${record.workDate} ${record.workerName} 인원의 ${record.varianceMinutes}분 공백에 대해 계약서 제8조에 의거하여 공식 소명 자료 및 대체 공수 계획을 제출해 주시기 바랍니다.`
+      `[도급 계약 SLA 미달 통보 및 소명 요청]\n수신: ${record.partnerCompany} 현장관리인 (영업대표) 귀하\n내용: ${record.workDate} 귀사 소속 ${record.workerName} 인원의 투입 지연(${record.varianceMinutes}분)이 감지되었습니다. 도급 계약서 제8조에 의거하여 협력사 관리자께서 공식 지연 사유 소명 및 대체 공수 계획을 제출해 주시기 바랍니다.`
     );
     setIsClarificationModalOpen(true);
   };
@@ -210,7 +210,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
   const handleSendClarification = () => {
     if (!selectedGapRecord || !clarificationMessage.trim()) return;
     dbService.sendClarificationRequest(selectedGapRecord.id, clarificationMessage);
-    alert(`📨 [${selectedGapRecord.partnerCompany}] 현장관리자 앞으로 공식 개선(소명) 요청 공문이 발송 및 DB에 기록되었습니다.`);
+    alert(`📨 [${selectedGapRecord.partnerCompany}] 현장관리자(영업대표) 앞으로 공식 소명 요구 공문이 발송 및 DB에 기록되었습니다.\n\n🛡️ [법적 보호 조치 완료]\n개별 근로자(${selectedGapRecord.workerName})에 대한 직접 연락 및 지휘·명령을 차단하고, 수급 사업주(${selectedGapRecord.partnerCompany})를 통한 정상적인 도급 검수 절차를 밟았습니다.`);
     setIsClarificationModalOpen(false);
     loadData();
   };
@@ -956,21 +956,35 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#FF9100', fontSize: '16px', fontWeight: 800 }}>
                 <Send size={18} />
-                <span>협력업체 개선 요청 (소명 요구)</span>
+                <span>협력사 관리인 대상 공식 소명 요구</span>
               </div>
               <button onClick={() => setIsClarificationModalOpen(false)} style={{ background: 'none', border: 'none', color: '#90A4AE', cursor: 'pointer' }}>
                 <X size={18} />
               </button>
             </div>
 
+            {/* 법적 방어 안내 배지 */}
+            <div style={{
+              background: 'rgba(0, 229, 255, 0.08)',
+              border: '1px solid rgba(0, 229, 255, 0.3)',
+              borderRadius: '8px',
+              padding: '8px 10px',
+              fontSize: '11px',
+              color: '#00E5FF',
+              lineHeight: 1.4,
+              marginBottom: '12px'
+            }}>
+              🛡️ <strong>[직원 직접 연락 원천 차단]</strong>: 본 소명 요구는 근로자 개인이 아닌 <strong>[{selectedGapRecord.partnerCompany}] 현장관리자(영업대표)</strong>에게 직접 발송됩니다.
+            </div>
+
             <div style={{ background: 'rgba(255, 255, 255, 0.04)', padding: '10px 12px', borderRadius: '8px', fontSize: '12px', marginBottom: '12px' }}>
-              <div>수신: <strong>{selectedGapRecord.partnerCompany} 관리자 앞</strong></div>
-              <div>대상자: <strong>{selectedGapRecord.workerName} ({selectedGapRecord.partName} 파트)</strong></div>
-              <div style={{ color: '#FF8A80' }}>발생 편차: <strong>{selectedGapRecord.varianceMinutes}분 투입 공백</strong></div>
+              <div>수신 대상: <strong style={{ color: '#00E5FF' }}>{selectedGapRecord.partnerCompany} 현장관리자 (영업대표) 귀하</strong></div>
+              <div>지연 인원: <strong>{selectedGapRecord.workerName} ({selectedGapRecord.partName} 파트)</strong></div>
+              <div style={{ color: '#FF8A80' }}>발생 편차: <strong>{selectedGapRecord.varianceMinutes}분 투입 지연</strong></div>
             </div>
 
             <label style={{ fontSize: '12px', fontWeight: 700, color: '#CFD8DC', display: 'block', marginBottom: '6px' }}>
-              공식 요청 공문 내용 (DB 저장)
+              공식 요청 공문 내용 (도급 감사로그 자동 기록)
             </label>
             <textarea
               value={clarificationMessage}
@@ -1030,7 +1044,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                 }}
               >
                 <Send size={15} />
-                <span>개선요구 발송</span>
+                <span>업체 관리인 발송</span>
               </button>
             </div>
           </div>
