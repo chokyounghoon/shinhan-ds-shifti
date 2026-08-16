@@ -5,6 +5,7 @@ interface HeaderProps {
   onOpenDrawer: () => void;
   onOpenMessages: () => void;
   onOpenNotifications: () => void;
+  onOpenMyPage?: () => void;
   themeMode: 'ddangyo' | 'shinhan';
 }
 
@@ -12,6 +13,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenDrawer,
   onOpenMessages,
   onOpenNotifications,
+  onOpenMyPage,
   themeMode
 }) => {
   return (
@@ -84,6 +86,32 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="badge-count" style={{ top: '-4px', right: '-8px' }}>0</span>
           </div>
         </button>
+
+        {/* S-GUARD 마이페이지 프로필 버튼 */}
+        {onOpenMyPage && (
+          <button
+            onClick={onOpenMyPage}
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #0052FF 0%, #00D4FF 100%)',
+              border: '1.5px solid #FFFFFF',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#FFFFFF',
+              fontSize: '13px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              boxShadow: '0 2px 6px rgba(0, 82, 255, 0.3)',
+              marginLeft: '4px'
+            }}
+            title="S-GUARD 회원 정보 관리"
+          >
+            조
+          </button>
+        )}
       </div>
     </header>
   );

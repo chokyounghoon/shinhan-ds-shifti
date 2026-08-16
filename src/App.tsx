@@ -11,6 +11,7 @@ import { RoleSwitcherBar } from './components/RoleSwitcherBar';
 
 // Views
 import { SGuardLoginView } from './views/SGuardLoginView';
+import { SGuardMyPageView } from './views/SGuardMyPageView';
 import { ContractFulfillmentDashboardView } from './views/ContractFulfillmentDashboardView';
 import { RequestsView } from './views/RequestsView';
 import { ScheduleView } from './views/ScheduleView';
@@ -80,6 +81,9 @@ export function App() {
   const [templatesList, setTemplatesList] = useState<ScheduleTemplateItem[]>(defaultScheduleTemplates);
   const [hasScheduleToday, setHasScheduleToday] = useState(false);
 
+  // S-GUARD 회원 정보 관리(마이페이지) 모달 상태
+  const [isMyPageOpen, setIsMyPageOpen] = useState(false);
+
   // Tab & Page Navigation (기본값: DS 총괄 관리인 포털)
   const [currentPage, setCurrentPage] = useState<PageView>('principal_portal');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -125,12 +129,12 @@ export function App() {
     'org_detail', 
     'employees', 
     'schedule_templates', 
-    'attendance_report',
-    'missed_punch_records',
-    'current_status_detail',
-    'create_schedule_request',
-    'edit_schedule_request',
-    'add_schedule_template',
+    'attendance_report', 
+    'missed_punch_records', 
+    'current_status_detail', 
+    'create_schedule_request', 
+    'edit_schedule_request', 
+    'add_schedule_template', 
     'vacation_type_select'
   ];
 
@@ -161,6 +165,7 @@ export function App() {
                 onOpenDrawer={() => setIsDrawerOpen(true)}
                 onOpenMessages={() => setCurrentPage('request')}
                 onOpenNotifications={() => alert('신규 공지: 2026년 8월 30인 도급 공정 검수 및 SLA 기준이 업데이트되었습니다.')}
+                onOpenMyPage={() => setIsMyPageOpen(true)}
                 themeMode={themeMode}
               />
             )}
@@ -310,11 +315,11 @@ export function App() {
                 />
               )}
 
-              {/* 9. 내 계정 설정 및 프로필 편집 */}
+              {/* 9. 내 계정 설정 및 프로필 편집 ➔ S-GUARD 회원 정보 관리 모달로 연결 */}
               {currentPage === 'account_settings' && (
                 <AccountSettingsView
                   onBack={() => setCurrentPage('home')}
-                  onNavigateToProfileEdit={() => setCurrentPage('profile_edit')}
+                  onNavigateToProfileEdit={() => setIsMyPageOpen(true)}
                   themeMode={themeMode}
                 />
               )}
@@ -449,12 +454,25 @@ export function App() {
               onOpenReport={() => setCurrentPage('attendance_report')}
               onOpenMissedPunch={() => setCurrentPage('missed_punch_records')}
               onOpenRequests={() => setCurrentPage('request')}
-              onOpenAccountSettings={() => setCurrentPage('account_settings')}
+              onOpenAccountSettings={() => setIsMyPageOpen(true)}
               onOpenWorkLocations={() => setCurrentPage('work_locations')}
               onOpenOrganizations={() => setCurrentPage('organizations')}
               onOpenEmployees={() => setCurrentPage('employees')}
               onOpenScheduleTemplates={() => setCurrentPage('schedule_templates')}
             />
+
+            {/* S-GUARD 회원 정보 관리(마이페이지) 모달 (스크린샷 100% 일치) */}
+            {isMyPageOpen && (
+              <SGuardMyPageView
+                user={currentUser}
+                onClose={() => setIsMyPageOpen(false)}
+                onUserUpdated={(updated) => {
+                  setCurrentUser(updated);
+                  refreshData();
+                }}
+                themeMode={themeMode}
+              />
+            )}
 
             {/* 오늘 근무 요청 단축키 바텀 액션 시트 모달 */}
             <RequestActionSheetModal
