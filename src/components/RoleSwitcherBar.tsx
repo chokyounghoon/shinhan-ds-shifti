@@ -34,7 +34,7 @@ export const RoleSwitcherBar: React.FC<RoleSwitcherBarProps> = ({
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
-        {/* 1. DS 도급 총괄 PM (User) */}
+        {/* 1. DS 상담전담 PM (귀하) */}
         <button
           onClick={() => onSwitchUser('usr-ds-pm')}
           style={{
@@ -53,10 +53,10 @@ export const RoleSwitcherBar: React.FC<RoleSwitcherBarProps> = ({
           }}
         >
           <Building size={12} />
-          <span>DS 총괄 PM</span>
+          <span>DS PM (상담전담)</span>
         </button>
 
-        {/* 2. 협력사 파트장 (현장대리인) */}
+        {/* 2. 협력업체 관리자 (유브갓) */}
         <button
           onClick={() => onSwitchUser('usr-part-lead-1')}
           style={{
@@ -75,10 +75,10 @@ export const RoleSwitcherBar: React.FC<RoleSwitcherBarProps> = ({
           }}
         >
           <Briefcase size={12} />
-          <span>협력 파트장</span>
+          <span>유브갓 관리자</span>
         </button>
 
-        {/* 3. 협력사 근로자 */}
+        {/* 3. 협력업체 근로자 (송무준) */}
         <button
           onClick={() => onSwitchUser('usr-worker-01')}
           style={{
