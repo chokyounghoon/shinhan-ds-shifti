@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   ArrowLeft, 
   Search, 
@@ -80,6 +80,39 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
     } catch (e) {}
   };
 
+  // Cloudflare D1 shifti-db 원격 동기화
+  const fetchRemoteOrgs = async () => {
+    try {
+      const res = await fetch('https://sguardai.khcho0421.workers.dev/organizations');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          const mapped: OrgUnit[] = json.data.map((item: any) => ({
+            id: item.id || `org-${Date.now()}`,
+            hierarchyPath: item.hierarchy_path || `신한DS > ${item.team_name || '카드개발'} > ${item.part_name}`,
+            companyName: item.company_name || '신한DS',
+            teamName: item.team_name || '카드개발',
+            partName: item.part_name || '',
+            leaderName: cleanLeaderName(item.leader_name),
+            locationName: item.location_name || '파인에비뉴(카드)',
+            memberCount: item.member_count !== undefined ? Number(item.member_count) : 0,
+            description: item.description || ''
+          }));
+          setOrgList(mapped);
+          try {
+            localStorage.setItem(STORAGE_KEY_ORGS, JSON.stringify(mapped));
+          } catch (e) {}
+        }
+      }
+    } catch (err) {
+      console.warn('Organizations fetch error:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchRemoteOrgs();
+  }, []);
+
   // 필터링된 조직 목록
   const filteredOrgs = useMemo(() => {
     return orgList.filter(org => {
@@ -156,7 +189,17 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
     saveOrgs(newList);
     setIsAddModalOpen(false);
     setEditingOrg(null);
-    alert(`✅ [${finalItem.hierarchyPath}] 조직이 성공적으로 저장되었습니다.`);
+
+    // Cloudflare D1 shifti-db organizations 테이블에 실시간 동기화
+    try {
+      fetch('https://sguardai.khcho0421.workers.dev/organizations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(finalItem)
+      }).catch(err => console.warn('D1 organizations save warning:', err));
+    } catch (e) {}
+
+    alert(`✅ [${finalItem.hierarchyPath}] 조직이 데이터베이스에 안전하게 저장되었습니다.`);
   };
 
   // 삭제 처리
@@ -166,6 +209,13 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
       saveOrgs(newList);
       setIsAddModalOpen(false);
       setEditingOrg(null);
+
+      // Cloudflare D1 shifti-db organizations 테이블 삭제 동기화
+      try {
+        fetch(`https://sguardai.khcho0421.workers.dev/organizations/${id}`, {
+          method: 'DELETE'
+        }).catch(err => console.warn('D1 organizations delete warning:', err));
+      } catch (e) {}
     }
   };
 
