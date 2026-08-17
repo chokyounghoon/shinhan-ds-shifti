@@ -30,27 +30,31 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
   const locAddress = location ? location.address : '서울 중구 을지로 100 파인에비뉴';
   const targetLat = location?.lat || 37.5663;
   const targetLng = location?.lng || 126.9890;
-  // 각 도급지별 인근 지하철역 및 주요 랜드마크 정보
-  const nearbyLandmarks: { [key: string]: { name: string; type: 'SUBWAY' | 'BUILDING'; lat: number; lng: number; tag: string }[] } = {
+  // 각 도급지별 인근 지하철역 및 주요 랜드마크 정보 (정밀 좌표)
+  const nearbyLandmarks: { [key: string]: { name: string; type: 'SUBWAY' | 'BUILDING' | 'CAFE'; lat: number; lng: number; tag: string; distance: string }[] } = {
     '파인에비뉴(카드)': [
-      { name: '을지로3가역 12번출구', type: 'SUBWAY', lat: 37.5662, lng: 126.9897, tag: '2호선·3호선' },
-      { name: '을지로3가역 11번출구', type: 'SUBWAY', lat: 37.5661, lng: 126.9888, tag: '2호선·3호선' },
-      { name: '파인에비뉴 B동', type: 'BUILDING', lat: 37.5665, lng: 126.9889, tag: '신한카드' },
-      { name: 'IBK기업은행 본점', type: 'BUILDING', lat: 37.5668, lng: 126.9875, tag: '금융본부' }
+      { name: '을지로3가역 12번출구', type: 'SUBWAY', lat: 37.5662, lng: 126.9897, tag: '2호선·3호선', distance: '도보 1분 (35m)' },
+      { name: '을지로3가역 11번출구', type: 'SUBWAY', lat: 37.5661, lng: 126.9886, tag: '2호선·3호선', distance: '도보 1분 (60m)' },
+      { name: '파인에비뉴 B동', type: 'BUILDING', lat: 37.5665, lng: 126.9889, tag: '신한카드 본사', distance: '도급 약정지 (0m)' },
+      { name: '파인에비뉴 A동', type: 'BUILDING', lat: 37.5668, lng: 126.9891, tag: '비즈니스센터', distance: '도보 30초 (40m)' },
+      { name: 'IBK기업은행 본점', type: 'BUILDING', lat: 37.5668, lng: 126.9875, tag: '금융본부', distance: '도보 2분 (120m)' }
     ],
     'KT IDC': [
-      { name: '여의도역 5번출구', type: 'SUBWAY', lat: 37.5218, lng: 126.9240, tag: '5호선·9호선' },
-      { name: 'KT여의도타워', type: 'BUILDING', lat: 37.5255, lng: 126.9242, tag: 'KT IDC' },
-      { name: '여의도공원', type: 'BUILDING', lat: 37.5270, lng: 126.9220, tag: '공원' }
+      { name: '여의도역 5번출구', type: 'SUBWAY', lat: 37.5218, lng: 126.9240, tag: '5호선·9호선', distance: '도보 3분 (250m)' },
+      { name: 'KT여의도타워', type: 'BUILDING', lat: 37.5255, lng: 126.9242, tag: 'KT IDC', distance: '도급 약정지 (0m)' },
+      { name: '더현대 서울', type: 'BUILDING', lat: 37.5260, lng: 126.9280, tag: '복합시설', distance: '도보 5분 (400m)' },
+      { name: '여의도공원', type: 'BUILDING', lat: 37.5270, lng: 126.9220, tag: '도심공원', distance: '도보 3분 (200m)' }
     ],
     '그레이츠 청계': [
-      { name: '종각역 4번출구', type: 'SUBWAY', lat: 37.5698, lng: 126.9835, tag: '1호선' },
-      { name: '을지로입구역 2번출구', type: 'SUBWAY', lat: 37.5660, lng: 126.9820, tag: '2호선' },
-      { name: '그레이츠청계 빌딩', type: 'BUILDING', lat: 37.5685, lng: 126.9840, tag: '도급사업장' }
+      { name: '종각역 4번출구', type: 'SUBWAY', lat: 37.5698, lng: 126.9835, tag: '1호선', distance: '도보 2분 (150m)' },
+      { name: '을지로입구역 2번출구', type: 'SUBWAY', lat: 37.5660, lng: 126.9820, tag: '2호선', distance: '도보 3분 (200m)' },
+      { name: '그레이츠청계 빌딩', type: 'BUILDING', lat: 37.5685, lng: 126.9840, tag: '도급사업장', distance: '도급 약정지 (0m)' },
+      { name: '청계천 광통교', type: 'BUILDING', lat: 37.5690, lng: 126.9825, tag: '명소', distance: '도보 1분 (80m)' }
     ],
     '광교 IDC': [
-      { name: '상현역 1번출구', type: 'SUBWAY', lat: 37.2975, lng: 127.0690, tag: '신분당선' },
-      { name: '광교신한IDC센터', type: 'BUILDING', lat: 37.2985, lng: 127.0710, tag: '전산센터' }
+      { name: '상현역 1번출구', type: 'SUBWAY', lat: 37.2975, lng: 127.0690, tag: '신분당선', distance: '도보 3분 (200m)' },
+      { name: '광교신한IDC센터', type: 'BUILDING', lat: 37.2985, lng: 127.0710, tag: '전산센터', distance: '도급 약정지 (0m)' },
+      { name: '광교호수공원', type: 'BUILDING', lat: 37.2880, lng: 127.0650, tag: '명소', distance: '차량 5분' }
     ]
   };
 
@@ -65,10 +69,10 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
     mapContainerRef.current.innerHTML = '';
 
     try {
-      // 1. Leaflet 고배율 상세 지도 인스턴스 생성 (18.5 레벨로 초근접 뷰)
+      // 1. Leaflet 고배율 상세 지도 인스턴스 생성 (17.5 레벨로 지오펜스 + 주변 역 전체 조망)
       const map = L.map(mapContainerRef.current, {
         center: [targetLat, targetLng],
-        zoom: 18,
+        zoom: 17.5,
         minZoom: 14,
         maxZoom: 20,
         zoomControl: false,
@@ -98,7 +102,7 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
             transform: translate(-50%, -100%);
             filter: drop-shadow(0 4px 12px rgba(0,82,255,0.45));
             cursor: pointer;
-            z-index: 50;
+            z-index: 100;
           ">
             <div style="
               background: #0052FF;
@@ -110,7 +114,7 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
               font-weight: 800;
               white-space: nowrap;
               border: 2px solid #FFFFFF;
-              box-shadow: 0 4px 12px rgba(0,82,255,0.5);
+              box-shadow: 0 4px 14px rgba(0,82,255,0.55);
               margin-bottom: 4px;
               display: flex;
               align-items: center;
@@ -129,7 +133,7 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
         iconAnchor: [0, 0]
       });
 
-      L.marker([targetLat, targetLng], { icon: mainPinIcon }).addTo(map);
+      L.marker([targetLat, targetLng], { icon: mainPinIcon, zIndexOffset: 1000 }).addTo(map);
 
       // 4. 100m 지오펜스 반경 원 표시
       L.circle([targetLat, targetLng], {
@@ -152,29 +156,33 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
               display: flex;
               align-items: center;
               gap: 4px;
-              background: ${isSubway ? '#059669' : '#334155'};
+              background: ${isSubway ? '#059669' : '#1E293B'};
               color: #FFFFFF;
-              padding: 3px 8px;
-              border-radius: 14px;
+              padding: 4px 9px;
+              border-radius: 16px;
               font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', sans-serif;
-              font-size: 10.5px;
-              font-weight: 700;
+              font-size: 11px;
+              font-weight: 800;
               white-space: nowrap;
               border: 1.5px solid #FFFFFF;
-              box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+              box-shadow: 0 3px 8px rgba(0,0,0,0.3);
               transform: translate(-50%, -50%);
               cursor: pointer;
+              z-index: 50;
             ">
-              <span>${isSubway ? '🚇' : '🏢'}</span>
+              <span style="font-size: 12px;">${isSubway ? '🚇' : '🏢'}</span>
               <span>${lm.name}</span>
-              <span style="font-size: 9px; opacity: 0.85; background: rgba(255,255,255,0.2); padding: 1px 4px; border-radius: 4px;">${lm.tag}</span>
+              <span style="font-size: 9.5px; opacity: 0.9; background: rgba(255,255,255,0.22); padding: 1px 5px; border-radius: 4px; font-weight: 700;">${lm.tag}</span>
             </div>
           `,
           iconSize: [0, 0],
           iconAnchor: [0, 0]
         });
 
-        L.marker([lm.lat, lm.lng], { icon: lmIcon }).addTo(map);
+        const marker = L.marker([lm.lat, lm.lng], { icon: lmIcon }).addTo(map);
+        marker.on('click', () => {
+          map.panTo([lm.lat, lm.lng], { animate: true });
+        });
       });
 
       // 리사이즈 보정
@@ -211,7 +219,14 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
   // 중심 위치 복귀
   const handleResetCenter = () => {
     if (leafletMapRef.current) {
-      leafletMapRef.current.setView([targetLat, targetLng], 18, { animate: true });
+      leafletMapRef.current.setView([targetLat, targetLng], 17.5, { animate: true });
+    }
+  };
+
+  // 랜드마크 포커스 이동
+  const handleFocusLandmark = (lat: number, lng: number) => {
+    if (leafletMapRef.current) {
+      leafletMapRef.current.setView([lat, lng], 18.5, { animate: true });
     }
   };
 
@@ -307,11 +322,11 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
         <span style={{ ...valueStyle, fontWeight: 700, color: '#0F172A' }}>100m (정밀 지오펜스)</span>
       </div>
 
-      {/* 4. 실제 인터랙티브 지도 렌더링 컨테이너 */}
+      {/* 4. 실제 인터랙티브 지도 렌더링 컨테이너 (340px로 시원하게 확장) */}
       <div style={{
         position: 'relative',
         width: '100%',
-        height: '300px',
+        height: '340px',
         background: '#F1F5F9',
         overflow: 'hidden',
         borderBottom: '1px solid #ECEFF2'
@@ -319,7 +334,7 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
         {/* 실제 인터랙티브 지도 DOM */}
         <div ref={mapContainerRef} style={{ width: '100%', height: '100%', zIndex: 1 }} />
 
-        {/* 인터랙티브 줌 컨트롤 (+, -) & 센터 복귀 & 스카이뷰 전환 버튼 */}
+        {/* 인터랙티브 줌 컨트롤 (+, -) & 센터 복귀 버튼 */}
         <div style={{
           position: 'absolute',
           top: '12px',
@@ -396,29 +411,6 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
           >
             <Navigation size={17} />
           </button>
-          {isKakaoActive && (
-            <button
-              type="button"
-              onClick={handleToggleMapType}
-              aria-label="지도/위성사진 전환"
-              title="지도 / 스카이뷰(위성사진) 전환"
-              style={{
-                width: '36px',
-                height: '36px',
-                background: mapType === 'SKYVIEW' ? '#0F172A' : '#FFFFFF',
-                border: '1px solid #CBD5E1',
-                borderRadius: '8px',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-                color: mapType === 'SKYVIEW' ? '#F8FAFC' : '#334155',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer'
-              }}
-            >
-              <Layers size={16} />
-            </button>
-          )}
         </div>
 
         {/* 축척 및 안내 로고 표시 */}
@@ -444,7 +436,66 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
         </div>
       </div>
 
-      {/* 5. 메모 섹션 */}
+      {/* 5. 인근 지하철역 & 주요 랜드마크 안내 카드 섹션 */}
+      <div style={{
+        background: '#F8FAFC',
+        padding: '12px 18px',
+        borderBottom: '1px solid #ECEFF2'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <span style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span>🚇</span> <span>주변 전철역 및 주요 빌딩</span>
+          </span>
+          <span style={{ fontSize: '11px', color: '#64748B' }}>클릭 시 지도 위치 이동</span>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {(nearbyLandmarks[locName] || nearbyLandmarks['파인에비뉴(카드)']).map((poi, idx) => (
+            <div
+              key={idx}
+              onClick={() => handleFocusLandmark(poi.lat, poi.lng)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '9px 12px',
+                background: '#FFFFFF',
+                borderRadius: '10px',
+                border: '1px solid #E2E8F0',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '14px' }}>{poi.type === 'SUBWAY' ? '🚇' : '🏢'}</span>
+                <div>
+                  <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#1E293B' }}>
+                    {poi.name}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748B' }}>
+                    {poi.tag}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: poi.type === 'SUBWAY' ? '#059669' : '#0052FF',
+                  background: poi.type === 'SUBWAY' ? '#DCFCE7' : '#EFF6FF',
+                  padding: '3px 7px',
+                  borderRadius: '6px'
+                }}>
+                  {poi.distance}
+                </span>
+                <span style={{ color: '#94A3B8', fontSize: '12px' }}>📍</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 6. 메모 섹션 */}
       <div style={{
         background: '#F8F9FA',
         padding: '12px 18px 8px 18px',
