@@ -16,7 +16,7 @@ export const RequestModal: React.FC<RequestModalProps> = ({
   themeMode
 }) => {
   const [requestType, setRequestType] = useState<'VACATION' | 'OVERTIME' | 'MISSED_PUNCH' | 'BUSINESS_TRIP'>('VACATION');
-  const [targetDate, setTargetDate] = useState('2026-08-17');
+  const [targetDate, setTargetDate] = useState('2026-08-20');
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('18:00');
   const [reason, setReason] = useState('');
@@ -24,7 +24,18 @@ export const RequestModal: React.FC<RequestModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const currentUser = dbService.getCurrentUser();
+  const partnerCompany = currentUser?.partnerCompany || currentUser?.companyName || '유브갓';
+  const approverName = `${partnerCompany} 현장대리인 (PM)`;
+
+  const typeLabels = {
+    VACATION: '휴가신청 (연차/반차)',
+    OVERTIME: '연장근무 신청',
+    MISSED_PUNCH: '출근 누락 소명',
+    BUSINESS_TRIP: '외근/출장 신청'
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reason.trim()) {
       alert('신청 사유를 입력해주세요.');
@@ -32,8 +43,34 @@ export const RequestModal: React.FC<RequestModalProps> = ({
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
+    const reqId = `req-${requestType.toLowerCase()}-${Date.now()}`;
+    const empId = currentUser?.employeeId || currentUser?.id || 'PT20260816';
+
+    try {
+      // 1. Cloudflare D1 DB attendance_requests 테이블에 실시간 영구 INSERT
+      await fetch('https://sguardai.khcho0421.workers.dev/attendance/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: reqId,
+          employee_id: empId,
+          user_id: empId,
+          request_type: requestType,
+          vacation_type: requestType === 'VACATION' ? '연차' : requestType,
+          target_date: targetDate,
+          start_date: targetDate,
+          end_date: targetDate,
+          hours: requestType === 'OVERTIME' ? 2 : 8,
+          reason: reason,
+          status: 'APPROVED',
+          partner_company: partnerCompany,
+          approver_name: approverName
+        })
+      });
+
+      // 2. 로컬 메모리 동기화
       dbService.addRequest({
+        id: reqId,
         requestType,
         targetDate,
         startTime: requestType === 'OVERTIME' ? startTime : undefined,
@@ -41,10 +78,15 @@ export const RequestModal: React.FC<RequestModalProps> = ({
         reason
       });
 
-      setIsSubmitting(false);
+      alert(`🎉 [${typeLabels[requestType]}] 신청이 D1 DB에 정상 저장/상신되었습니다.\n• 수신 결재권자: ${approverName}\n• 대상 일자: ${targetDate}\n• 저장 DB 테이블: shifti-db > attendance_requests\n• 사유: ${reason}\n\n🛡️ [독립 인사권 보호] 원청(신한DS)이 아닌 소속 협력사(${partnerCompany}) 관리자에게 정상 상신되었습니다.`);
       onRequestSubmitted();
       onClose();
-    }, 400);
+    } catch (err) {
+      console.warn('Failed to submit attendance request to D1:', err);
+      alert('신청 중 오류가 발생했습니다. 다시 시도해주세요.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
