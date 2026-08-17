@@ -14,7 +14,7 @@ import { dbService } from '../services/db';
 
 export interface OrgUnit {
   id: string;
-  hierarchyPath: string; // e.g. 신한DS > 카드개발팀 > 카드IS파트
+  hierarchyPath: string; // e.g. 신한DS > 카드개발 > 상담
   companyName: string;
   teamName: string;
   partName: string;
@@ -33,11 +33,8 @@ const cleanLeaderName = (name: string): string => {
     .trim();
 };
 
-// 하드코딩 조직 제거 (초기 빈 배열)
 export const initialOrgUnits: OrgUnit[] = [];
 export const defaultOrgUnits = initialOrgUnits;
-
-const STORAGE_KEY_ORGS = 'SGUARD_ORG_UNITS_USER_DATA';
 
 interface OrganizationManageViewProps {
   onBack: () => void;
@@ -51,43 +48,23 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
   onSelectOrg,
   onNavigateToLocationDetail
 }) => {
-  const [orgList, setOrgList] = useState<OrgUnit[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_ORGS);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed.map((item: any) => ({
-            ...item,
-            leaderName: cleanLeaderName(item.leaderName)
-          }));
-        }
-      }
-    } catch (e) {}
-    return [];
-  });
-
+  // 로컬스토리지 전면 제거: 순수 Cloudflare D1 DB 실시간 상태
+  const [orgList, setOrgList] = useState<OrgUnit[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   // 신규 조직 추가/수정 모달 상태
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingOrg, setEditingOrg] = useState<OrgUnit | null>(null);
 
-  // 로컬스토리지 저장
-  const saveOrgs = (list: OrgUnit[]) => {
-    setOrgList(list);
-    try {
-      localStorage.setItem(STORAGE_KEY_ORGS, JSON.stringify(list));
-    } catch (e) {}
-  };
-
-  // Cloudflare D1 shifti-db 원격 동기화
+  // Cloudflare D1 shifti-db 원격 실시간 조회 (로컬스토리지 미사용)
   const fetchRemoteOrgs = async () => {
+    setIsLoading(true);
     try {
       const res = await fetch('https://sguardai.khcho0421.workers.dev/organizations');
       if (res.ok) {
         const json = await res.json();
-        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+        if (json.success && Array.isArray(json.data)) {
           const mapped: OrgUnit[] = json.data.map((item: any) => ({
             id: item.id || `org-${Date.now()}`,
             hierarchyPath: item.hierarchy_path || `신한DS > ${item.team_name || '카드개발'} > ${item.part_name}`,
@@ -100,17 +77,23 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
             description: item.description || ''
           }));
           setOrgList(mapped);
-          try {
-            localStorage.setItem(STORAGE_KEY_ORGS, JSON.stringify(mapped));
-          } catch (e) {}
         }
       }
     } catch (err) {
       console.warn('Organizations fetch error:', err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
+    // 잔여 로컬스토리지 키 완전 정리
+    try {
+      localStorage.removeItem('SGUARD_ORG_UNITS_USER_DATA');
+      localStorage.removeItem('SGUARD_ORG_UNITS_DATA_V3');
+      localStorage.removeItem('SGUARD_ORG_UNITS_DATA_V2');
+      localStorage.removeItem('SGUARD_ORG_UNITS_DATA');
+    } catch (e) {}
     fetchRemoteOrgs();
   }, []);
 
@@ -154,7 +137,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
     setIsAddModalOpen(true);
   };
 
-  // 모달 저장
+  // 모달 저장 (Cloudflare D1 직접 실시간 저장)
   const handleSaveModal = async () => {
     if (!editingOrg) return;
 
@@ -178,16 +161,6 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
       memberCount: Number(editingOrg.memberCount) || 0
     };
 
-    const existsIdx = orgList.findIndex(o => o.id === finalItem.id);
-    let newList: OrgUnit[];
-    if (existsIdx >= 0) {
-      newList = [...orgList];
-      newList[existsIdx] = finalItem;
-    } else {
-      newList = [finalItem, ...orgList];
-    }
-
-    saveOrgs(newList);
     setIsAddModalOpen(false);
     setEditingOrg(null);
 
@@ -204,29 +177,32 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
         })
       });
       if (res.ok) {
-        fetchRemoteOrgs();
+        await fetchRemoteOrgs();
       }
     } catch (err) {
       console.warn('D1 organizations save warning:', err);
     }
 
-    alert(`✅ [${finalItem.hierarchyPath}] 조직 정보가 DB 및 화면에 완벽하게 저장되었습니다.\n• 협력사 투입 인원: ${finalItem.memberCount}명`);
+    alert(`✅ [${finalItem.hierarchyPath}] 조직 정보가 DB에 안전하게 저장되었습니다.\n• 협력사 투입 인원: ${finalItem.memberCount}명`);
   };
 
-  // 삭제 처리
-  const handleDeleteOrg = (id: string, name: string) => {
+  // 삭제 처리 (Cloudflare D1 직접 삭제)
+  const handleDeleteOrg = async (id: string, name: string) => {
     if (confirm(`정말 [${name}] 조직을 삭제하시겠습니까?`)) {
-      const newList = orgList.filter(o => o.id !== id);
-      saveOrgs(newList);
       setIsAddModalOpen(false);
       setEditingOrg(null);
 
       // Cloudflare D1 shifti-db organizations 테이블 삭제 동기화
       try {
-        fetch(`https://sguardai.khcho0421.workers.dev/organizations/${id}`, {
+        const res = await fetch(`https://sguardai.khcho0421.workers.dev/organizations/${id}`, {
           method: 'DELETE'
-        }).catch(err => console.warn('D1 organizations delete warning:', err));
-      } catch (e) {}
+        });
+        if (res.ok) {
+          await fetchRemoteOrgs();
+        }
+      } catch (err) {
+        console.warn('D1 organizations delete warning:', err);
+      }
     }
   };
 
@@ -359,7 +335,11 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
 
       {/* 4. 조직 목록 카드 리스트 / 빈 상태 */}
       <div style={{ padding: '14px 16px', flex: 1, display: 'flex', flexDirection: 'column', gap: '10px', paddingBottom: '80px' }}>
-        {orgList.length === 0 ? (
+        {isLoading ? (
+          <div style={{ padding: '40px 20px', textAlign: 'center', color: '#0052FF', fontSize: '13.5px', fontWeight: 600 }}>
+            데이터베이스에서 조직 정보를 불러오는 중입니다...
+          </div>
+        ) : orgList.length === 0 ? (
           <div style={{
             padding: '60px 20px',
             textAlign: 'center',
