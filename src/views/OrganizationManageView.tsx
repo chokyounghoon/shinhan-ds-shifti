@@ -256,7 +256,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11.5px', color: '#64748B', fontWeight: 600 }}>
           <Users size={14} color="#0052FF" />
-          <span>총 투입 인원: <strong style={{ color: '#0052FF' }}>{totalMembers.toLocaleString()}명</strong></span>
+          <span>협력사 총 투입 인원: <strong style={{ color: '#0052FF' }}>{totalMembers.toLocaleString()}명</strong></span>
         </div>
       </div>
 
@@ -414,7 +414,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
                   )}
                   {org.leaderName && <span>•</span>}
                   <span>
-                    👥 인원: <strong>{org.memberCount}명</strong>
+                    👥 협력사 투입 인원: <strong>{org.memberCount}명</strong>
                   </span>
                   <span>•</span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#0052FF', fontWeight: 600 }}>
@@ -610,7 +610,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
 
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
-                    투입 인원 (명)
+                    협력사 투입 인원 (명)
                   </label>
                   <input
                     type="number"
