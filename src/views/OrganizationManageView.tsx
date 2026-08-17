@@ -108,7 +108,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
     const newOrg: OrgUnit = {
       id: `org-${Date.now()}`,
       companyName: '신한DS',
-      teamName: '',
+      teamName: '카드개발',
       partName: '',
       hierarchyPath: '',
       leaderName: '',
@@ -124,19 +124,21 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
   const handleSaveModal = () => {
     if (!editingOrg) return;
 
-    if (!editingOrg.teamName.trim() || !editingOrg.partName.trim()) {
-      alert('소속 팀명과 파트명을 모두 입력해 주세요.');
+    if (!editingOrg.partName.trim()) {
+      alert('소속 파트명을 입력해 주세요. (예: 상담, 오토금융, 카드IS 등)');
       return;
     }
 
+    const team = '카드개발';
+    const part = editingOrg.partName.trim();
     const cleanLeader = cleanLeaderName(editingOrg.leaderName);
-    const computedPath = `신한DS > ${editingOrg.teamName.trim()} > ${editingOrg.partName.trim()}`;
+    const computedPath = `신한DS > ${team} > ${part}`;
 
     const finalItem: OrgUnit = {
       ...editingOrg,
       companyName: '신한DS',
-      teamName: editingOrg.teamName.trim(),
-      partName: editingOrg.partName.trim(),
+      teamName: team,
+      partName: part,
       leaderName: cleanLeader,
       hierarchyPath: computedPath,
       memberCount: Number(editingOrg.memberCount) || 0
@@ -535,20 +537,23 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
-                    소속 팀명 *
+                    소속 팀명 (기본 고정)
                   </label>
                   <input
                     type="text"
-                    value={editingOrg.teamName}
-                    onChange={e => setEditingOrg({ ...editingOrg, teamName: e.target.value })}
-                    placeholder="예: 카드개발팀, 상담팀"
+                    value="카드개발"
+                    disabled
                     style={{
                       width: '100%',
                       padding: '8px 10px',
                       borderRadius: '8px',
-                      border: '1px solid #CBD5E1',
+                      border: '1px solid #E2E8F0',
+                      background: '#F1F5F9',
                       fontSize: '13px',
-                      boxSizing: 'border-box'
+                      fontWeight: 700,
+                      color: '#334155',
+                      boxSizing: 'border-box',
+                      cursor: 'not-allowed'
                     }}
                   />
                 </div>
@@ -561,7 +566,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
                     type="text"
                     value={editingOrg.partName}
                     onChange={e => setEditingOrg({ ...editingOrg, partName: e.target.value })}
-                    placeholder="예: 카드IS파트, 상담1파트"
+                    placeholder="예: 상담, 오토금융, 카드IS"
                     style={{
                       width: '100%',
                       padding: '8px 10px',
