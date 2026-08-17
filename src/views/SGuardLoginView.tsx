@@ -246,7 +246,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
     deviceType: 'Android' as 'Android' | 'iOS',
     pw: '',
     confirmPw: '',
-    isPartnerManager: false,
+    isPartnerManager: true,
     agreeTerms: false
   });
 
@@ -1239,7 +1239,14 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
               <label style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600, display: 'block', marginBottom: '4px' }}>회사소속 *</label>
               <select
                 value={signupForm.company}
-                onChange={e => setSignupForm({ ...signupForm, company: e.target.value })}
+                onChange={e => {
+                  const comp = e.target.value;
+                  setSignupForm({
+                    ...signupForm,
+                    company: comp,
+                    isPartnerManager: comp === '신한DS' ? true : false
+                  });
+                }}
                 style={selectStyle}
               >
                 <option value="신한DS">신한DS</option>
@@ -1253,7 +1260,13 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
 
             {/* ⭐ 업체별 현장관리인(영업대표/총괄) 여부 체크박스 카드 */}
             <div 
-              onClick={() => setSignupForm({ ...signupForm, isPartnerManager: !signupForm.isPartnerManager })}
+              onClick={() => {
+                if (signupForm.company === '신한DS') {
+                  // 신한DS 소속은 무조건 현장대리인으로 자동 지정
+                  return;
+                }
+                setSignupForm({ ...signupForm, isPartnerManager: !signupForm.isPartnerManager });
+              }}
               style={{
                 background: signupForm.isPartnerManager ? 'rgba(0, 229, 255, 0.1)' : 'rgba(255, 255, 255, 0.04)',
                 border: signupForm.isPartnerManager ? '1.5px solid #00E5FF' : '1px solid rgba(255, 255, 255, 0.12)',
@@ -1262,12 +1275,12 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                cursor: 'pointer',
+                cursor: signupForm.company === '신한DS' ? 'default' : 'pointer',
                 transition: 'all 0.15s ease',
                 boxShadow: signupForm.isPartnerManager ? '0 0 16px rgba(0, 229, 255, 0.2)' : 'none'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
                 <div style={{
                   width: '22px',
                   height: '22px',
@@ -1282,13 +1295,28 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                 }}>
                   {signupForm.isPartnerManager && <Check size={16} strokeWidth={3.5} />}
                 </div>
-                <div>
-                  <div style={{ fontSize: '13.5px', fontWeight: 800, color: signupForm.isPartnerManager ? '#00E5FF' : '#FFFFFF' }}>
-                    {signupForm.company === '신한DS' ? '신한DS 현장대리인 (PM/총괄)' : '협력사 현장관리인 (영업대표/총괄)'}
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ fontSize: '13.5px', fontWeight: 800, color: signupForm.isPartnerManager ? '#00E5FF' : '#FFFFFF' }}>
+                      {signupForm.company === '신한DS' ? '신한DS 현장대리인 (PM/총괄)' : '협력사 현장관리인 (영업대표/총괄)'}
+                    </div>
+                    {signupForm.company === '신한DS' && (
+                      <span style={{
+                        background: 'rgba(0, 229, 255, 0.2)',
+                        border: '1px solid #00E5FF',
+                        color: '#00E5FF',
+                        fontSize: '10.5px',
+                        fontWeight: 800,
+                        padding: '1px 6px',
+                        borderRadius: '4px'
+                      }}>
+                        필수 자동적용
+                      </span>
+                    )}
                   </div>
-                  <div style={{ fontSize: '11px', color: '#90A4AE', marginTop: '1px' }}>
+                  <div style={{ fontSize: '11px', color: '#90A4AE', marginTop: '2px' }}>
                     {signupForm.company === '신한DS' 
-                      ? '✓ 신한DS 관리인: 담당 팀 및 파트를 직접 선택하여 관제합니다' 
+                      ? '✓ 신한DS 관리인: 담당 팀 및 파트를 직접 선택하여 도급 공정을 총괄 관제합니다' 
                       : '✓ 협력사 관리인: 팀/파트에 구속되지 않고 전사 소속 인력을 총괄합니다'}
                   </div>
                 </div>
