@@ -20,10 +20,13 @@ VALUES
 -- 3. 사용자 마스터 시드 (users)
 INSERT OR REPLACE INTO users 
 (employee_id, name, email, phone, company, team, part, position, role, is_partner_manager, password_hash, status, is_active, is_admin, created_at, created_by, updated_at, updated_by)
-VALUES
-('S01832', '조경훈', 'khcho@shinhands.co.kr', '010-4732-8880', '신한DS', '카드개발팀', '카드IS', '수석', 'DS_PRINCIPAL_PM', 1, '••••••••', 'ACTIVE', 1, 1, '2026-08-17 10:00:00', 'SYSTEM', '2026-08-17 10:00:00', 'SYSTEM'),
-('S181210', '박성진', 'sungjin.park@shinhands.co.kr', '010-1234-5678', '신한DS', '카드개발팀', '카드IS', '책임', 'DS_PRINCIPAL_PM', 1, '••••••••', 'ACTIVE', 1, 1, '2026-08-17 10:00:00', 'SYSTEM', '2026-08-17 10:00:00', 'SYSTEM'),
-('PT20260816', '김신한', 'shinhan.kim@partner.shinhan.com', '010-9876-5432', '신한DS', '카드개발팀', '카드IS', '연구원', 'PARTNER_WORKER', 0, '••••••••', 'ACTIVE', 1, 0, '2026-08-17 10:00:00', 'SYSTEM', '2026-08-17 10:00:00', 'SYSTEM');
+VALUES 
+('S01832', '조경훈', 'khcho@shinhands.co.kr', '010-4732-8880', '신한DS', '상담팀', '상담', '수석', 'DS_PRINCIPAL_PM', 1, '••••••••', 'ACTIVE', 1, 1, '2026-08-17 10:00:00', 'SYSTEM', '2026-08-17 10:00:00', 'SYSTEM'),
+('PT20260816', '김신한', 'shinhan.kim@partner.shinhan.com', '010-9876-5432', '유브갓', '상담팀', '상담', '연구원', 'PARTNER_WORKER', 0, '••••••••', 'ACTIVE', 1, 0, '2026-08-17 10:00:00', 'SYSTEM', '2026-08-17 10:00:00', 'SYSTEM'),
+('PT20260817', '이하은', 'haeun.lee@partner.shinhan.com', '010-3333-4444', '유브갓', '상담팀', '상담', '선임', 'PARTNER_WORKER', 0, '••••••••', 'ACTIVE', 1, 0, '2026-08-17 10:00:00', 'SYSTEM', '2026-08-17 10:00:00', 'SYSTEM'),
+('PT20260818', '김성훈', 'sunghoon.kim@partner.shinhan.com', '010-5555-6666', '유브갓', '상담팀', '상담', '책임', 'PARTNER_WORKER', 0, '••••••••', 'ACTIVE', 1, 0, '2026-08-17 10:00:00', 'SYSTEM', '2026-08-17 10:00:00', 'SYSTEM'),
+('PT20260819', '박민지', 'minji.park@partner.shinhan.com', '010-7777-8888', '(주)협력아이티에스', '상담팀', '상담', '선임', 'PARTNER_WORKER', 0, '••••••••', 'ACTIVE', 1, 0, '2026-08-17 10:00:00', 'SYSTEM', '2026-08-17 10:00:00', 'SYSTEM');
+
 
 -- 4. 실시간 알림 센터 시드 (app_notifications)
 INSERT OR REPLACE INTO app_notifications (id, type, title, content, target_role, part_name, is_read, link_url, created_at) VALUES 
