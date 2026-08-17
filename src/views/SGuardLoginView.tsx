@@ -510,52 +510,101 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
         position: 'relative'
       }}>
         <div style={{
-          width: '56px',
-          height: '56px',
+          width: '58px',
+          height: '58px',
           borderRadius: '16px',
-          background: 'rgba(255, 255, 255, 0.1)',
-          border: '1px solid rgba(255, 255, 255, 0.3)',
+          background: 'linear-gradient(135deg, #0052FF 0%, #00E5FF 100%)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.4)',
-          marginBottom: '10px'
+          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 229, 255, 0.35)',
+          marginBottom: '12px'
         }}>
-          <Shield size={30} color="#FFFFFF" strokeWidth={2.2} />
+          <Shield size={32} color="#FFFFFF" strokeWidth={2.4} />
+        </div>
+
+        <div style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '6px',
+          background: 'rgba(0, 229, 255, 0.12)',
+          border: '1px solid rgba(0, 229, 255, 0.3)',
+          borderRadius: '20px',
+          padding: '3px 12px',
+          fontSize: '11px',
+          fontWeight: 800,
+          color: '#80D8FF',
+          letterSpacing: '0.8px',
+          marginBottom: '8px'
+        }}>
+          <span>신한DS ICT 도급 인력 관리 포털</span>
         </div>
 
         <h1 style={{
           fontSize: '28px',
           fontWeight: 900,
-          letterSpacing: '1.5px',
+          letterSpacing: '1px',
           margin: '0 0 4px 0',
           color: '#FFFFFF',
-          textShadow: '0 4px 16px rgba(0, 82, 255, 0.5)'
+          textShadow: '0 4px 20px rgba(0, 82, 255, 0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px'
         }}>
-          SHINHAN DS
+          <span>SHINHAN DS</span>
+          <span style={{ color: '#00E5FF', fontWeight: 900 }}>SHIFTI</span>
         </h1>
 
         <p style={{
           fontSize: '12.5px',
-          fontStyle: 'italic',
-          color: '#CFD8DC',
-          margin: '0 0 14px 0',
-          letterSpacing: '0.2px'
+          color: '#B0BEC5',
+          margin: '0 0 12px 0',
+          fontWeight: 500
         }}>
-          "Knowledge Today, Foresight Tomorrow"
+          "신뢰 기반의 도급 인력 출퇴근 및 공정 검수 시스템"
         </p>
 
         <div style={{
-          background: 'rgba(0, 82, 255, 0.35)',
-          border: '1px solid rgba(0, 229, 255, 0.4)',
-          borderRadius: '30px',
-          padding: '4px 14px',
-          fontSize: '10.5px',
-          fontWeight: 800,
-          color: '#E1F5FE',
-          letterSpacing: '0.8px'
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '6px',
+          flexWrap: 'wrap'
         }}>
-          DETECTION ➔ DIAGNOSIS ➔ MITIGATION ➔ FORESIGHT
+          <span style={{
+            background: 'rgba(255, 255, 255, 0.08)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            borderRadius: '12px',
+            padding: '3px 9px',
+            fontSize: '10.5px',
+            fontWeight: 700,
+            color: '#E2E8F0'
+          }}>
+            🕒 출퇴근 인증
+          </span>
+          <span style={{
+            background: 'rgba(255, 255, 255, 0.08)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            borderRadius: '12px',
+            padding: '3px 9px',
+            fontSize: '10.5px',
+            fontWeight: 700,
+            color: '#E2E8F0'
+          }}>
+            📅 근무일정 관리
+          </span>
+          <span style={{
+            background: 'rgba(255, 255, 255, 0.08)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            borderRadius: '12px',
+            padding: '3px 9px',
+            fontSize: '10.5px',
+            fontWeight: 700,
+            color: '#E2E8F0'
+          }}>
+            📊 공정 검수
+          </span>
         </div>
       </div>
 
@@ -617,17 +666,24 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
         {/* ── [STEP 1: 사번 확인] ── */}
         {step === 'ID' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-            {/* 안내 배너 (100% 실제 DB 기반) */}
+            {/* 안내 배너 (신한DS 시프티 통합 2FA 보안 인증) */}
             <div style={{
-              background: 'rgba(0, 82, 255, 0.1)',
-              border: '1px solid rgba(0, 229, 255, 0.2)',
-              borderRadius: '10px',
-              padding: '10px 14px',
-              fontSize: '12px',
+              background: 'linear-gradient(135deg, rgba(0, 82, 255, 0.12) 0%, rgba(0, 229, 255, 0.06) 100%)',
+              border: '1px solid rgba(0, 229, 255, 0.25)',
+              borderRadius: '12px',
+              padding: '12px 14px',
+              fontSize: '12.5px',
               color: '#80D8FF',
-              lineHeight: 1.4
+              lineHeight: 1.45,
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '8px'
             }}>
-              💡 <strong>DB 인증 안내</strong>: DB에 등록된 사번을 입력하여 로그인하거나, 처음이신 경우 하단의 <strong>[회원가입]</strong> 버튼을 눌러 계정을 생성해 주세요.
+              <span style={{ fontSize: '15px' }}>🔐</span>
+              <div>
+                <strong style={{ color: '#FFFFFF' }}>신한DS 통합 2FA 보안 인증</strong><br/>
+                등록된 사번을 입력하시면 보안 이메일로 6자리 2FA 코드가 실시간 발송됩니다.
+              </div>
             </div>
 
             {/* 사번 입력 필드 */}
@@ -728,19 +784,26 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
 
             <div style={{ display: 'flex', justifyContent: 'center', paddingTop: '6px' }}>
               <div style={{
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
+                background: 'rgba(0, 229, 255, 0.06)',
+                border: '1px solid rgba(0, 229, 255, 0.25)',
                 borderRadius: '20px',
                 padding: '6px 14px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
+                gap: '8px',
                 fontSize: '11px',
-                fontWeight: 700,
-                color: '#90A4AE'
+                fontWeight: 800,
+                color: '#80D8FF',
+                letterSpacing: '0.4px'
               }}>
-                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#00E676' }} />
-                <span>SECURITY S-BRIDGE INTEGRATED</span>
+                <div style={{
+                  width: '7px',
+                  height: '7px',
+                  borderRadius: '50%',
+                  background: '#00E676',
+                  boxShadow: '0 0 8px #00E676'
+                }} />
+                <span>SHINHAN DS SHIFTI 2FA SECURED</span>
               </div>
             </div>
           </div>
@@ -1386,10 +1449,10 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
         gap: '4px',
         borderTop: '1px solid rgba(255, 255, 255, 0.05)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: '#90A4AE' }}>
-          <span>신한DS</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 800, color: '#B0BEC5' }}>
+          <span>신한DS ICT 도급 인력 관리 포털 (SHIFTI)</span>
         </div>
-        <div style={{ fontSize: '10.5px', color: 'rgba(255,255,255,0.3)' }}>
+        <div style={{ fontSize: '10.5px', color: 'rgba(255,255,255,0.4)' }}>
           © 2026 Shinhan DS Corp. All Rights Reserved
         </div>
       </div>
