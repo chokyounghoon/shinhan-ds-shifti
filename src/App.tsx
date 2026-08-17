@@ -126,17 +126,17 @@ export function App() {
   const handleSwitchUser = (roleKey: 'PARTNER' | 'PARTNER_MANAGER' | 'DS_PM') => {
     if (roleKey === 'DS_PM') {
       const dsUser: User = {
-        id: 'S18121020',
-        name: '조경훈 (DS PM)',
+        id: 'S01832',
+        name: '조경훈',
         firstName: '경훈',
         lastName: '조',
         companyName: '신한DS',
         partnerCompany: '신한DS',
-        deptName: '상담팀',
-        partName: '상담',
+        deptName: '카드개발팀',
+        partName: '카드IS',
         role: 'DS_PRINCIPAL_PM',
-        roleTitle: '신한DS 상담파트 전담 현장관리인',
-        location: '파인에비뉴(상담센터)',
+        roleTitle: '신한DS 현장대리인 (PM)',
+        location: '파인에비뉴(카드)',
         phone: '010-4421-8890',
         email: 'khcho0421@gmail.com',
         language: '한국어',
@@ -147,38 +147,39 @@ export function App() {
       setCurrentPage('principal_portal');
     } else if (roleKey === 'PARTNER_MANAGER') {
       const managerUser: User = {
-        id: 'usr-002',
-        name: '박영업',
-        firstName: '영업',
-        lastName: '박',
-        companyName: '유브갓 (신한DS 협력사)',
+        id: 'MGRUB1',
+        name: '최영호',
+        firstName: '영호',
+        lastName: '최',
+        companyName: '유브갓',
         partnerCompany: '유브갓',
         deptName: '영업총괄팀',
-        partName: '상담',
+        partName: '전사총괄',
         role: 'PARTNER_PART_LEADER',
-        roleTitle: '협력사 파트관리인 (영업대표)',
-        location: '파인에비뉴(상담센터)',
-        phone: '010-9876-5432',
-        email: 'sales.park@ubgot.co.kr',
+        roleTitle: '협력사 현장관리인 (대표)',
+        location: '파인에비뉴(카드)',
+        phone: '010-8888-9999',
+        email: 'ceo.choi@ubgot.co.kr',
         language: '한국어',
-        timezone: 'Asia/Seoul (GMT+9)'
+        timezone: 'Asia/Seoul (GMT+9)',
+        isPartnerManager: true
       };
       dbService.setCurrentUser(managerUser);
       setCurrentUser(managerUser);
       setCurrentPage('partner_portal');
     } else {
       const partnerUser: User = {
-        id: 'usr-001',
+        id: 'UB0001',
         name: '송무준',
         firstName: '무준',
         lastName: '송',
-        companyName: '유브갓 (신한DS 협력사)',
+        companyName: '유브갓',
         partnerCompany: '유브갓',
-        deptName: '상담팀',
+        deptName: '상담운영팀',
         partName: '상담',
         role: 'PARTNER_WORKER',
-        roleTitle: '협력사 투입 작업자',
-        location: '파인에비뉴(상담센터)',
+        roleTitle: '협력사 투입 인력',
+        location: '파인에비뉴(카드)',
         phone: '010-4732-8880',
         email: 'moojun.song@ubgot.co.kr',
         language: '한국어',

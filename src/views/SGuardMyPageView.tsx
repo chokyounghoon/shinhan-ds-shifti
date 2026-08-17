@@ -115,7 +115,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
   // 프로필 아바타 이니셜 (이름의 첫 글자 동적 연동)
   const avatarInitial = (name.trim() || '조')[0];
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     if (!name.trim()) {
       alert('이름을 입력해주세요.');
       return;
@@ -139,8 +139,11 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
         ? `${company} 현장관리인 (영업대표)` 
         : `${position}`;
 
-    const rawEmpId = ((user as any).employeeId || user.id || 'S01832').toUpperCase().trim();
-    const userEmpId = rawEmpId === '01832' ? 'S01832' : rawEmpId;
+    let rawEmpId = ((user as any).employeeId || user.id || 'S01832').toUpperCase().trim();
+    if (rawEmpId === 'USR-001') rawEmpId = 'UB0001';
+    else if (rawEmpId === 'USR-002') rawEmpId = 'MGRUB1';
+    else if (rawEmpId === 'S18121020') rawEmpId = 'S01832';
+    const userEmpId = rawEmpId;
 
     const updated = dbService.updateUser({
       id: userEmpId,
@@ -158,7 +161,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
       position: position
     } as any);
 
-    // 1. 세션 로컬스토리지(SGUARD_AUTH_SESSION) 영구 보관
+    // 1. 세션 로컬스토리지(SGUARD_AUTH_SESSION) 갱신
     try {
       const savedSession = localStorage.getItem('SGUARD_AUTH_SESSION');
       if (savedSession) {
@@ -182,55 +185,13 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
       }
     } catch (e) {}
 
-    // 2. 전체 직원 관리 목록(SGUARD_EMPLOYEES_DATA) CRUD 실시간 동기화 (중복 방지)
+    // 2. 실제 Cloudflare D1 shifti-db users 테이블 실시간 동기화 (기존 키 기준 1:1 UPDATE)
     try {
-      const empDataStr = localStorage.getItem('SGUARD_EMPLOYEES_DATA');
-      let empList: any[] = empDataStr ? JSON.parse(empDataStr) : [];
-      const cleanTarget = userEmpId.replace(/^S/, '');
-
-      // 중복 01832 등 제거
-      empList = empList.filter((e: any) => {
-        const eId = (e.employeeId || '').toUpperCase().trim();
-        return eId !== '01832' || userEmpId === '01832';
-      });
-
-      const targetEmpIdx = empList.findIndex((e: any) => {
-        const eId = (e.employeeId || '').toUpperCase().trim();
-        const eClean = eId.replace(/^S/, '');
-        return eId === userEmpId || (cleanTarget && eClean === cleanTarget);
-      });
-      const roleCategory = isPartnerManager ? 'PARTNER_MANAGER' : company === '신한DS' ? 'DS_PM' : 'PARTNER_WORKER';
-      
-      const updatedEmpItem = {
-        id: targetEmpIdx >= 0 ? empList[targetEmpIdx].id : `emp-${userEmpId.toLowerCase()}`,
-        name: name,
-        employeeId: userEmpId,
-        company: company,
-        team: assignedTeam,
-        part: assignedPart,
-        role: roleCategory,
-        position: isPartnerManager ? `현장관리인 (${position})` : position,
-        phone: phone,
-        email: email,
-        status: 'ACTIVE',
-        joinedDate: targetEmpIdx >= 0 ? empList[targetEmpIdx].joinedDate : new Date().toISOString().substring(0, 10)
-      };
-
-      if (targetEmpIdx >= 0) {
-        empList[targetEmpIdx] = updatedEmpItem;
-      } else {
-        empList.unshift(updatedEmpItem);
-      }
-      localStorage.setItem('SGUARD_EMPLOYEES_DATA', JSON.stringify(empList));
-    } catch (e) {}
-
-    // 3. 실제 Cloudflare D1 shifti-db users 테이블 실시간 동기화
-    try {
-      fetch('https://sguardai.khcho0421.workers.dev/auth/signup', {
+      await fetch('https://sguardai.khcho0421.workers.dev/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          employee_id: userEmpId,
+          employeeId: userEmpId,
           name: name,
           email: email,
           phone: phone,
@@ -238,11 +199,14 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
           team: assignedTeam,
           part: assignedPart,
           position: position,
-          is_partner_manager: isPartnerManager ? 1 : 0,
-          role: assignedRole
+          role: assignedRole,
+          isPartnerManager: isPartnerManager ? 1 : 0,
+          actor: userEmpId
         })
-      }).catch(err => console.warn('[D1 update error]', err));
-    } catch (e) {}
+      });
+    } catch (err) {
+      console.warn('[D1 update error]', err);
+    }
 
     if (onUserUpdated) {
       onUserUpdated({
