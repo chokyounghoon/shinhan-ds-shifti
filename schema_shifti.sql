@@ -30,12 +30,12 @@ CREATE TABLE IF NOT EXISTS organizations (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. 사용자 마스터 (Users)
+-- 3. 사용자 마스터 (Users) - seq AUTOINCREMENT 시퀀스 PK
 CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
+    seq INTEGER PRIMARY KEY AUTOINCREMENT,
     employee_id TEXT UNIQUE NOT NULL,
     name TEXT NOT NULL,
-    email TEXT UNIQUE NOT NULL,
+    email TEXT NOT NULL,
     phone TEXT,
     company TEXT NOT NULL DEFAULT '신한DS',
     team TEXT DEFAULT '카드개발팀',
@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS login_history (
 -- 6. 일별 출퇴근 타임로그 (Commute Logs)
 CREATE TABLE IF NOT EXISTS commute_logs (
     id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL,
     employee_id TEXT NOT NULL,
     work_date TEXT NOT NULL,
     clock_in_time TEXT,
@@ -177,15 +177,14 @@ CREATE INDEX IF NOT EXISTS idx_commute_emp_date ON commute_logs(employee_id, wor
 CREATE INDEX IF NOT EXISTS idx_schedule_emp_date ON work_schedules(employee_id, schedule_date);
 CREATE INDEX IF NOT EXISTS idx_requests_emp ON attendance_requests(employee_id, status);
 
--- 기본 사용자 시드 데이터 (조경훈, 송무준, 박영업, 최영호 등)
-INSERT OR REPLACE INTO users 
-(id, employee_id, name, email, phone, company, team, part, position, role, is_partner_manager, password_hash, status, is_active, is_admin)
+-- 기본 사용자 시드 데이터 (조경훈, 송무준, 최영호, 정진우)
+INSERT INTO users 
+(employee_id, name, email, phone, company, team, part, position, role, is_partner_manager, password_hash, status, is_active, is_admin)
 VALUES
-('usr-s01832', 'S01832', '조경훈', 'khcho0421@gmail.com', '010-4421-8890', '신한DS', '카드개발팀', '카드IS (Part 1)', '부장', 'DS_PRINCIPAL_PM', 0, '508e0f015dfd0be0173f9467bd2c2759:0dd73955f29d16fd97b5655229a3c40dd5237be4b671b360a4beacefb8d419e5', 'ACTIVE', 1, 1),
-('usr-01832', '01832', '조경훈', 'khcho0421@gmail.com', '010-4421-8890', '신한DS', '카드개발팀', '카드IS (Part 1)', '부장', 'DS_PRINCIPAL_PM', 0, '508e0f015dfd0be0173f9467bd2c2759:0dd73955f29d16fd97b5655229a3c40dd5237be4b671b360a4beacefb8d419e5', 'ACTIVE', 1, 1),
-('usr-ubgot-001', 'UB-001', '송무준', 'moojun.song@ubgot.co.kr', '010-4732-8880', '유브갓', '상담팀', '상담파트', '선임', 'PARTNER_WORKER', 0, '••••••••', 'ACTIVE', 1, 0),
-('usr-ubgot-mgr', 'UB-M01', '최영호', 'ceo.choi@ubgot.co.kr', '010-8888-9999', '유브갓', '고객서비스사업본부', '영업총괄팀', '대표', 'PARTNER_PART_LEADER', 1, '••••••••', 'ACTIVE', 1, 0),
-('usr-its-mgr', 'ITS-M01', '정진우', 'jw.jung@partner-its.co.kr', '010-5555-1234', '(주)협력아이티에스', 'SI사업부문', '코어개발본부', '부사장', 'PARTNER_PART_LEADER', 1, '••••••••', 'ACTIVE', 1, 0);
+('S01832', '조경훈', 'khcho0421@gmail.com', '010-4421-8890', '신한DS', '카드개발팀', '카드IS (Part 1)', '부장', 'DS_PRINCIPAL_PM', 0, '508e0f015dfd0be0173f9467bd2c2759:0dd73955f29d16fd97b5655229a3c40dd5237be4b671b360a4beacefb8d419e5', 'ACTIVE', 1, 1),
+('UB0001', '송무준', 'moojun.song@ubgot.co.kr', '010-4732-8880', '유브갓', '상담운영팀', '상담', '선임', 'PARTNER_WORKER', 0, '••••••••', 'ACTIVE', 1, 0),
+('MGRUB1', '최영호', 'ceo.choi@ubgot.co.kr', '010-8888-9999', '유브갓', '영업총괄팀', '전사총괄', '대표', 'PARTNER_PART_LEADER', 1, '••••••••', 'ACTIVE', 1, 0),
+('MGRIT1', '정진우', 'jw.jung@partner-its.co.kr', '010-5555-1234', '(주)협력아이티에스', '영업총괄팀', '전사총괄', '부사장', 'PARTNER_PART_LEADER', 1, '••••••••', 'ACTIVE', 1, 0);
 
 -- 기본 조직 시드 데이터
 INSERT OR REPLACE INTO organizations 
