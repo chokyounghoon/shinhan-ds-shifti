@@ -440,12 +440,21 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
       alert('성명을 입력해 주세요.');
       return;
     }
-    const cleanEmp = updated.employeeId.trim().replace(/[^a-zA-Z0-9]/g, '').slice(0, 6);
+    const maxLen = updated.role === 'PARTNER_MANAGER' ? 10 : 6;
+    const cleanEmp = updated.employeeId.trim().replace(/[^a-zA-Z0-9]/g, '').slice(0, maxLen);
     const hasLetter = /[a-zA-Z]/.test(cleanEmp);
     const hasNumber = /[0-9]/.test(cleanEmp);
-    if (cleanEmp.length !== 6 || !hasLetter || !hasNumber) {
-      alert('사번은 영문과 숫자를 모두 포함한 정확히 6자리여야 합니다. (예: S01832, PT2001, MGRUB1)');
-      return;
+
+    if (updated.role === 'PARTNER_MANAGER') {
+      if (cleanEmp.length < 3 || cleanEmp.length > 10) {
+        alert('협력사 현장관리인 아이디는 영문·숫자 3~10자리여야 합니다. (예: MGRUB1, partner01)');
+        return;
+      }
+    } else {
+      if (cleanEmp.length !== 6 || !hasLetter || !hasNumber) {
+        alert('사번은 영문과 숫자를 모두 포함한 정확히 6자리여야 합니다. (예: S01832, PT2001)');
+        return;
+      }
     }
     updated.employeeId = cleanEmp;
 
@@ -957,15 +966,18 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
-                    사원번호 (영문·숫자 6자리) *
+                  <label style={{ fontSize: '12px', fontWeight: 700, color: editingEmp.role === 'PARTNER_MANAGER' ? '#0284C7' : '#475569', display: 'block', marginBottom: '4px' }}>
+                    {editingEmp.role === 'PARTNER_MANAGER' ? '사원번호 / 아이디 (현장관리인: 최대 10자리) *' : '사원번호 (영문·숫자 6자리) *'}
                   </label>
                   <input
                     type="text"
-                    maxLength={6}
+                    maxLength={editingEmp.role === 'PARTNER_MANAGER' ? 10 : 6}
                     value={editingEmp.employeeId}
-                    onChange={e => setEditingEmp({ ...editingEmp, employeeId: e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6) })}
-                    placeholder="예: S01832, PT2001"
+                    onChange={e => {
+                      const maxLen = editingEmp.role === 'PARTNER_MANAGER' ? 10 : 6;
+                      setEditingEmp({ ...editingEmp, employeeId: e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, maxLen) });
+                    }}
+                    placeholder={editingEmp.role === 'PARTNER_MANAGER' ? "예: MGRUB1, partner01 (최대 10자)" : "예: S01832, PT2001 (6자)"}
                     style={{
                       width: '100%',
                       padding: '8px 10px',

@@ -265,13 +265,11 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
 
     const rawEmpId = empId.trim();
 
-    // 이메일이 아닌 사번 입력인 경우 영문, 숫자 포함 6자리 검증
+    // 이메일이 아닌 사번/아이디 입력인 경우 영문, 숫자 3~10자리 검증
     if (!rawEmpId.includes('@')) {
-      const hasLetter = /[a-zA-Z]/.test(rawEmpId);
-      const hasNumber = /[0-9]/.test(rawEmpId);
-      if (rawEmpId.length !== 6 || !hasLetter || !hasNumber) {
+      if (rawEmpId.length < 3 || rawEmpId.length > 10) {
         setLoading(false);
-        return setError('사번(아이디)은 영문과 숫자를 모두 포함한 6자리여야 합니다. (예: S01832, UB0001)');
+        return setError('아이디(사번)는 영문·숫자 3~10자리여야 합니다. (예: S01832, partner01)');
       }
     }
 
@@ -536,9 +534,19 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
 
     const hasLetter = /[a-zA-Z]/.test(rawEmp);
     const hasNumber = /[0-9]/.test(rawEmp);
-    if (rawEmp.length !== 6 || !hasLetter || !hasNumber) {
-      alert('사번(아이디)은 영문과 숫자를 모두 포함한 정확히 6자리여야 합니다. (예: S01832, UB0001, ITSM01)');
-      return;
+
+    if (signupForm.isPartnerManager) {
+      // 협력사 현장대리인은 영문/숫자 3~10자리 본인 고유 아이디 허용
+      if (rawEmp.length < 3 || rawEmp.length > 10) {
+        alert('협력사 현장대리인 아이디는 영문·숫자 3~10자리여야 합니다. (예: partner01, mgr_ubgot)');
+        return;
+      }
+    } else {
+      // 일반 작업자 및 DS PM은 정확히 6자리 (영문+숫자)
+      if (rawEmp.length !== 6 || !hasLetter || !hasNumber) {
+        alert('사번(아이디)은 영문과 숫자를 모두 포함한 정확히 6자리여야 합니다. (예: S01832, UB0001, ITSM01)');
+        return;
+      }
     }
 
     setLoading(true);
@@ -801,7 +809,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
             {/* 사번/ID 입력 필드 */}
             <div>
               <label style={{ fontSize: '12px', fontWeight: 600, color: '#90A4AE', display: 'block', marginBottom: '6px' }}>
-                아이디 / 사원번호 (영문·숫자 최대 6자리)
+                아이디 / 사원번호 (영문·숫자 최대 10자리)
               </label>
               <div style={{
                 background: '#101B2B',
@@ -815,16 +823,16 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                 <SmartphoneNfc size={18} color="#90A4AE" style={{ marginRight: '10px' }} />
                 <input
                   type="text"
-                  maxLength={6}
+                  maxLength={10}
                   value={empId}
                   onChange={e => {
-                    const val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6);
+                    const val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 10);
                     setEmpId(val);
                     try {
                       localStorage.setItem('LAST_LOGIN_EMP_ID', val);
                     } catch (err) {}
                   }}
-                  placeholder="예: S01832 (영문/숫자 최대 6자리)"
+                  placeholder="예: S01832 또는 partner01 (최대 10자리)"
                   style={{
                     flex: 1,
                     background: 'transparent',
@@ -1365,19 +1373,20 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
               </div>
             </div>
 
-            {/* 사번/ID (영문, 숫자 최대 6자리) & 이름 */}
+            {/* 사번/ID (협력사현장대리인은 최대 10자리) & 이름 */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               <div>
-                <label style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
-                  아이디 / 사번 (영문·숫자 최대 6자리) *
+                <label style={{ fontSize: '12px', color: signupForm.isPartnerManager ? '#00E5FF' : '#90A4AE', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                  {signupForm.isPartnerManager ? '아이디 (대리인: 최대 10자리) *' : '아이디 / 사번 (6자리) *'}
                 </label>
                 <input
                   type="text"
-                  maxLength={6}
+                  maxLength={signupForm.isPartnerManager ? 10 : 6}
                   value={signupForm.empNo}
-                  placeholder="예: S01832"
+                  placeholder={signupForm.isPartnerManager ? "예: partner01 (최대 10자)" : "예: S01832 (6자)"}
                   onChange={e => {
-                    const clean = e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6);
+                    const maxLen = signupForm.isPartnerManager ? 10 : 6;
+                    const clean = e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, maxLen);
                     setSignupForm({ ...signupForm, empNo: clean });
                   }}
                   style={inputStyle}
