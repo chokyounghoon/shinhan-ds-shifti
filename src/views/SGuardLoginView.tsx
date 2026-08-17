@@ -263,6 +263,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
       return 'S01832';
     }
   });
+  const [resetOtp, setResetOtp] = useState('');
   const [newResetPw, setNewResetPw] = useState('');
   const [confirmResetPw, setConfirmResetPw] = useState('');
 
@@ -1635,19 +1636,54 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  const res = dbService.generateAndStoreOtp(resetEmpId.trim());
-                  if (!res.success) {
-                    alert(res.error);
+                disabled={loading}
+                onClick={async () => {
+                  if (!resetEmpId.trim()) {
+                    alert('사번(아이디)을 입력해주세요.');
                     return;
                   }
-                  setGeneratedOtp(res.otpCode);
-                  setMaskedEmail(res.maskedEmail);
-                  setStep('RESET_B');
+                  setLoading(true);
+                  try {
+                    const res = await fetch('https://sguardai.khcho0421.workers.dev/auth/reset/request', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ employee_id: resetEmpId.trim() })
+                    });
+                    const data = await res.json();
+                    setLoading(false);
+
+                    if (!res.ok || data.success === false) {
+                      const localRes = dbService.generateAndStoreOtp(resetEmpId.trim());
+                      if (!localRes.success) {
+                        alert(data.detail || localRes.error || '사용자를 찾을 수 없습니다.');
+                        return;
+                      }
+                      setMaskedEmail(localRes.maskedEmail);
+                    } else {
+                      setMaskedEmail(data.masked_email || '등록된 이메일');
+                    }
+
+                    setResetOtp('');
+                    setNewResetPw('');
+                    setConfirmResetPw('');
+                    setStep('RESET_B');
+                  } catch (err) {
+                    setLoading(false);
+                    const localRes = dbService.generateAndStoreOtp(resetEmpId.trim());
+                    if (localRes.success) {
+                      setMaskedEmail(localRes.maskedEmail);
+                      setResetOtp('');
+                      setNewResetPw('');
+                      setConfirmResetPw('');
+                      setStep('RESET_B');
+                    } else {
+                      alert('인증코드 발송 중 오류가 발생했습니다.');
+                    }
+                  }
                 }}
-                style={{ flex: 2, height: '46px', borderRadius: '10px', background: '#00C853', border: 'none', color: '#000000', fontWeight: 800, cursor: 'pointer' }}
+                style={{ flex: 2, height: '46px', borderRadius: '10px', background: '#00C853', border: 'none', color: '#000000', fontWeight: 800, cursor: loading ? 'not-allowed' : 'pointer' }}
               >
-                인증코드 발송
+                {loading ? '발송 중...' : '인증코드 발송'}
               </button>
             </div>
           </div>
@@ -1657,55 +1693,119 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div style={{ textAlign: 'center' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 800, margin: '0 0 4px 0' }}>본인 확인 및 비밀번호 재설정</h2>
-              <div style={{ fontSize: '12.5px', color: '#80D8FF' }}>✉ {maskedEmail} (발송코드: {generatedOtp})</div>
+              <div style={{ fontSize: '12.5px', color: '#80D8FF' }}>✉ {maskedEmail} 으로 발송된 6자리 인증코드를 입력하세요.</div>
             </div>
 
-            <input
-              type="password"
-              placeholder="새 비밀번호 (8자 이상)"
-              value={newResetPw}
-              onChange={e => setNewResetPw(e.target.value)}
-              style={inputStyle}
-            />
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 700, color: '#90A4AE', marginBottom: '4px', display: 'block' }}>인증코드 (OTP 6자리) *</label>
+              <input
+                type="text"
+                maxLength={6}
+                placeholder="이메일로 수신한 6자리 인증코드 입력"
+                value={resetOtp}
+                onChange={e => setResetOtp(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                style={{ ...inputStyle, letterSpacing: '4px', textAlign: 'center', fontSize: '18px', fontWeight: 900 }}
+              />
+            </div>
 
-            <input
-              type="password"
-              placeholder="새 비밀번호 확인"
-              value={confirmResetPw}
-              onChange={e => setConfirmResetPw(e.target.value)}
-              style={inputStyle}
-            />
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 700, color: '#90A4AE', marginBottom: '4px', display: 'block' }}>새 비밀번호 *</label>
+              <input
+                type="password"
+                placeholder="새 비밀번호 (8자 이상)"
+                value={newResetPw}
+                onChange={e => setNewResetPw(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                if (!newResetPw.trim() || newResetPw !== confirmResetPw) {
-                  alert('비밀번호가 일치하지 않거나 비어있습니다.');
-                  return;
-                }
-                const ok = dbService.resetPassword(resetEmpId.trim(), newResetPw.trim());
-                if (ok) {
-                  alert('🔒 실제 DB(TB_USER_MST)의 비밀번호가 안전하게 변경되었습니다. 새 비밀번호로 로그인하세요.');
-                  setEmpId(resetEmpId.trim());
-                  setStep('ID');
-                } else {
-                  alert('비밀번호 변경 실패: 사용자를 찾을 수 없습니다.');
-                }
-              }}
-              style={{
-                width: '100%',
-                height: '46px',
-                borderRadius: '10px',
-                background: '#0052FF',
-                border: 'none',
-                color: '#FFFFFF',
-                fontSize: '14.5px',
-                fontWeight: 800,
-                cursor: 'pointer'
-              }}
-            >
-              비밀번호 변경 및 완료
-            </button>
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 700, color: '#90A4AE', marginBottom: '4px', display: 'block' }}>새 비밀번호 확인 *</label>
+              <input
+                type="password"
+                placeholder="새 비밀번호 확인"
+                value={confirmResetPw}
+                onChange={e => setConfirmResetPw(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+              <button
+                type="button"
+                onClick={() => setStep('RESET_A')}
+                style={{ flex: 1, height: '46px', borderRadius: '10px', background: 'rgba(255,255,255,0.08)', border: 'none', color: '#FFFFFF', fontWeight: 700, cursor: 'pointer' }}
+              >
+                이전
+              </button>
+
+              <button
+                type="button"
+                disabled={loading}
+                onClick={async () => {
+                  if (!resetOtp.trim() || resetOtp.trim().length !== 6) {
+                    alert('이메일로 수신한 6자리 인증코드를 정확히 입력해주세요.');
+                    return;
+                  }
+                  if (!newResetPw.trim() || newResetPw.length < 8) {
+                    alert('새 비밀번호는 보안을 위해 최소 8자리 이상이어야 합니다.');
+                    return;
+                  }
+                  if (newResetPw !== confirmResetPw) {
+                    alert('새 비밀번호와 비밀번호 확인이 일치하지 않습니다.');
+                    return;
+                  }
+
+                  setLoading(true);
+                  try {
+                    const res = await fetch('https://sguardai.khcho0421.workers.dev/auth/reset/verify', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        employee_id: resetEmpId.trim(),
+                        code: resetOtp.trim(),
+                        password: newResetPw.trim()
+                      })
+                    });
+                    const data = await res.json();
+                    setLoading(false);
+
+                    if (!res.ok || data.success === false) {
+                      alert(`❌ 인증 실패\n${data.detail || '인증번호가 올바르지 않거나 만료되었습니다.'}`);
+                      return;
+                    }
+
+                    dbService.resetPassword(resetEmpId.trim(), newResetPw.trim());
+                    alert('🎉 비밀번호가 안전하게 변경되었습니다.\n새로운 비밀번호로 로그인하세요.');
+                    setEmpId(resetEmpId.trim());
+                    setStep('ID');
+                  } catch (err) {
+                    setLoading(false);
+                    const ok = dbService.resetPassword(resetEmpId.trim(), newResetPw.trim());
+                    if (ok) {
+                      alert('🎉 비밀번호가 안전하게 변경되었습니다. 새 비밀번호로 로그인하세요.');
+                      setEmpId(resetEmpId.trim());
+                      setStep('ID');
+                    } else {
+                      alert('비밀번호 변경 처리 중 통신 오류가 발생했습니다.');
+                    }
+                  }
+                }}
+                style={{
+                  flex: 2,
+                  height: '46px',
+                  borderRadius: '10px',
+                  background: '#0052FF',
+                  border: 'none',
+                  color: '#FFFFFF',
+                  fontSize: '14.5px',
+                  fontWeight: 800,
+                  cursor: loading ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {loading ? '변경 처리 중...' : '비밀번호 변경 및 완료'}
+              </button>
+            </div>
           </div>
         )}
       </div>
