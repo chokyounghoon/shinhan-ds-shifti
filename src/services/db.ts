@@ -402,6 +402,14 @@ export class PureDatabaseEngine {
     return plainPw.length >= 8;
   }
 
+  public updateUserPassword(empId: string, newPw: string): boolean {
+    const user = this.findUserByEmpId(empId);
+    if (!user) return false;
+    user.passwordHash = newPw;
+    this.sync();
+    return true;
+  }
+
   public createOtp(empId: string): {
     success: boolean;
     otpCode: string;

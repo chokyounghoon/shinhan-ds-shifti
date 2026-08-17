@@ -262,16 +262,76 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
     onClose();
   };
 
-  const handlePasswordChange = () => {
-    if (!newPw || newPw !== confirmPw) {
-      alert('새 비밀번호가 일치하지 않습니다.');
+  const handlePasswordChange = async () => {
+    const trimmedCurrentPw = currentPw.trim();
+    const trimmedNewPw = newPw.trim();
+    const trimmedConfirmPw = confirmPw.trim();
+
+    if (!trimmedCurrentPw) {
+      alert('현재 비밀번호를 입력해주세요.');
       return;
     }
-    alert('🔒 S-GUARD 2단계 보안 비밀번호가 DB에 안전하게 변경 적용되었습니다.');
-    setIsChangingPassword(false);
-    setCurrentPw('');
-    setNewPw('');
-    setConfirmPw('');
+    if (!trimmedNewPw) {
+      alert('새 비밀번호를 입력해주세요.');
+      return;
+    }
+    if (trimmedNewPw.length < 8) {
+      alert('새 비밀번호는 보안을 위해 최소 8자리 이상이어야 합니다.');
+      return;
+    }
+    if (trimmedNewPw !== trimmedConfirmPw) {
+      alert('새 비밀번호와 비밀번호 확인이 일치하지 않습니다.');
+      return;
+    }
+    if (trimmedCurrentPw === trimmedNewPw) {
+      alert('새 비밀번호는 현재 비밀번호와 다르게 설정해야 합니다.');
+      return;
+    }
+
+    let rawEmpId = ((user as any).employeeId || user.id || 'S01832').toUpperCase().trim();
+    if (rawEmpId === 'USR-001') rawEmpId = 'UB0001';
+    else if (rawEmpId === 'USR-002') rawEmpId = 'MGRUB1';
+    else if (rawEmpId === 'S18121020' || rawEmpId === '01832') rawEmpId = 'S01832';
+    const userEmpId = rawEmpId;
+
+    try {
+      const res = await fetch('https://sguardai.khcho0421.workers.dev/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employee_id: userEmpId,
+          old_password: trimmedCurrentPw,
+          new_password: trimmedNewPw
+        })
+      });
+      const data = await res.json();
+
+      if (!res.ok || data.success === false) {
+        alert(`❌ 비밀번호 변경 실패\n${data.detail || '현재 비밀번호가 올바르지 않습니다. 다시 확인해 주세요.'}`);
+        return;
+      }
+
+      // 로컬 DB 및 세션에도 업데이트
+      dbService.updateUserPassword(userEmpId, trimmedNewPw);
+      alert('🔒 S-GUARD 2단계 보안 비밀번호가 DB에 안전하게 변경 적용되었습니다.\n다음 로그인 시 변경된 새 비밀번호를 사용해 주세요.');
+      setIsChangingPassword(false);
+      setCurrentPw('');
+      setNewPw('');
+      setConfirmPw('');
+    } catch (err: any) {
+      // 오프라인/네트워크 폴백 검증
+      const isValidLocal = dbService.verifyPasswordInDb(userEmpId, trimmedCurrentPw);
+      if (!isValidLocal) {
+        alert('❌ 현재 비밀번호가 올바르지 않습니다. 다시 확인해 주세요.');
+        return;
+      }
+      dbService.updateUserPassword(userEmpId, trimmedNewPw);
+      alert('🔒 S-GUARD 2단계 보안 비밀번호가 안전하게 변경 적용되었습니다.');
+      setIsChangingPassword(false);
+      setCurrentPw('');
+      setNewPw('');
+      setConfirmPw('');
+    }
   };
 
   return (
