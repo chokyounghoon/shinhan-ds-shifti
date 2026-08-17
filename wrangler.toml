@@ -2,9 +2,9 @@ name = "shinhan-ds-partner-attendance"
 compatibility_date = "2024-09-23"
 pages_build_output_dir = "dist"
 
-# Cloudflare D1 Database Binding
+# Cloudflare D1 Database Binding (Dedicated for SHIFTI)
 [[d1_databases]]
 binding = "DB"
-database_name = "shinhan_ds_attendance"
-database_id = "00000000-0000-0000-0000-000000000000" # Cloudflare D1 UUID
+database_name = "shifti-db"
+database_id = "8d165000-c599-473b-ab48-cff47cb58370"
 migrations_dir = "migrations"
