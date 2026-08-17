@@ -1131,8 +1131,23 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
                   </label>
                   <input
                     type="text"
-                    value={editingEmp.phone}
-                    onChange={e => setEditingEmp({ ...editingEmp, phone: e.target.value })}
+                    maxLength={13}
+                    value={(() => {
+                      const raw = (editingEmp.phone || '').replace(/[^0-9]/g, '').slice(0, 11);
+                      if (raw.length <= 3) return raw;
+                      if (raw.length <= 7) return `${raw.slice(0, 3)}-${raw.slice(3)}`;
+                      return `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 11)}`;
+                    })()}
+                    onChange={e => {
+                      const raw = e.target.value.replace(/[^0-9]/g, '').slice(0, 11);
+                      let formatted = raw;
+                      if (raw.length > 3 && raw.length <= 7) {
+                        formatted = `${raw.slice(0, 3)}-${raw.slice(3)}`;
+                      } else if (raw.length > 7) {
+                        formatted = `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 11)}`;
+                      }
+                      setEditingEmp({ ...editingEmp, phone: formatted });
+                    }}
                     placeholder="010-0000-0000"
                     style={{
                       width: '100%',

@@ -65,11 +65,18 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
     return '과장';
   });
 
+  const formatPhone344 = (val: string): string => {
+    const raw = (val || '').replace(/[^0-9]/g, '').slice(0, 11);
+    if (raw.length <= 3) return raw;
+    if (raw.length <= 7) return `${raw.slice(0, 3)}-${raw.slice(3)}`;
+    return `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 11)}`;
+  };
+
   // user prop 변경 시 모달 내부 폼 값 실시간 동기화
   useEffect(() => {
     if (user) {
       setName((user.name || '').replace(/\s*\([^)]*\)/g, '').trim());
-      setPhone(user.phone || '');
+      setPhone(formatPhone344(user.phone || ''));
       setEmail(user.email || '');
       setCompany(user.companyName || user.partnerCompany || '신한DS');
       setTeam(user.deptName || '카드개발팀');
@@ -432,8 +439,9 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
               <Phone size={17} color="#90A4AE" />
               <input
                 type="text"
-                value={phone}
-                onChange={e => setPhone(e.target.value)}
+                maxLength={13}
+                value={formatPhone344(phone)}
+                onChange={e => setPhone(formatPhone344(e.target.value))}
                 placeholder="010-0000-0000"
                 style={inputFieldStyle}
               />
