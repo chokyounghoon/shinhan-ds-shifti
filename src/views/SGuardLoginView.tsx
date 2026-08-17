@@ -470,8 +470,11 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
             ? 'PARTNER_PART_LEADER' 
             : 'PARTNER_WORKER';
 
+        const finalEmpId = (apiUser.employee_id || localDbUser?.employeeId || rawEmpId).toUpperCase().trim();
+        const canonicalEmpId = finalEmpId === '01832' ? 'S01832' : finalEmpId;
+
         const loggedInUser: UserType = {
-          id: rawEmpId,
+          id: canonicalEmpId,
           name: userName,
           firstName: userName.substring(1),
           lastName: userName.substring(0, 1),
@@ -490,7 +493,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
           isPartnerManager: !isDS && (apiUser.is_manager || (localDbUser as any)?.isPartnerManager)
         };
 
-        (loggedInUser as any).employeeId = rawEmpId;
+        (loggedInUser as any).employeeId = canonicalEmpId;
         if (data.token) {
           (loggedInUser as any).token = data.token;
         }
@@ -514,9 +517,10 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
     setLoading(false);
 
     if (isValidLocal) {
-      const user = dbService.switchUserRole(rawEmpId);
-      user.id = rawEmpId;
-      (user as any).employeeId = rawEmpId;
+      const canonicalEmpId = rawEmpId.toUpperCase().trim() === '01832' ? 'S01832' : rawEmpId.toUpperCase().trim();
+      const user = dbService.switchUserRole(canonicalEmpId);
+      user.id = canonicalEmpId;
+      (user as any).employeeId = canonicalEmpId;
       onLoginSuccess(user);
     } else {
       setError('비밀번호가 올바르지 않습니다. 다시 확인 후 입력해 주세요.');

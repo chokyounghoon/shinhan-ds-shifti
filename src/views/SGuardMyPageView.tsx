@@ -138,7 +138,12 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
         ? `신한DS ${assignedTeam} PM` 
         : `${position}`;
 
+    const rawEmpId = ((user as any).employeeId || user.id || 'S01832').toUpperCase().trim();
+    const userEmpId = rawEmpId === '01832' ? 'S01832' : rawEmpId;
+
     const updated = dbService.updateUser({
+      id: userEmpId,
+      employeeId: userEmpId,
       name: `${name}`,
       phone: phone,
       email: email,
@@ -160,6 +165,8 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
         const newSession = {
           ...sessionObj,
           ...updated,
+          id: userEmpId,
+          employeeId: userEmpId,
           name: name,
           companyName: company,
           partnerCompany: company,
@@ -174,16 +181,27 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
       }
     } catch (e) {}
 
-    // 2. 전체 직원 관리 목록(SGUARD_EMPLOYEES_DATA) CRUD 실시간 동기화
+    // 2. 전체 직원 관리 목록(SGUARD_EMPLOYEES_DATA) CRUD 실시간 동기화 (중복 방지)
     try {
       const empDataStr = localStorage.getItem('SGUARD_EMPLOYEES_DATA');
       let empList: any[] = empDataStr ? JSON.parse(empDataStr) : [];
-      const userEmpId = (user as any).employeeId || user.id || 'S01832';
-      const targetEmpIdx = empList.findIndex((e: any) => e.employeeId === userEmpId || (e.email && e.email.toLowerCase() === email.toLowerCase()));
+      const cleanTarget = userEmpId.replace(/^S/, '');
+
+      // 중복 01832 등 제거
+      empList = empList.filter((e: any) => {
+        const eId = (e.employeeId || '').toUpperCase().trim();
+        return eId !== '01832' || userEmpId === '01832';
+      });
+
+      const targetEmpIdx = empList.findIndex((e: any) => {
+        const eId = (e.employeeId || '').toUpperCase().trim();
+        const eClean = eId.replace(/^S/, '');
+        return eId === userEmpId || (cleanTarget && eClean === cleanTarget);
+      });
       const roleCategory = isPartnerManager ? 'PARTNER_MANAGER' : company === '신한DS' ? 'DS_PM' : 'PARTNER_WORKER';
       
       const updatedEmpItem = {
-        id: targetEmpIdx >= 0 ? empList[targetEmpIdx].id : `emp-${Date.now()}`,
+        id: targetEmpIdx >= 0 ? empList[targetEmpIdx].id : `emp-${userEmpId.toLowerCase()}`,
         name: name,
         employeeId: userEmpId,
         company: company,
@@ -205,9 +223,31 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
       localStorage.setItem('SGUARD_EMPLOYEES_DATA', JSON.stringify(empList));
     } catch (e) {}
 
+    // 3. 실제 Cloudflare D1 shifti-db users 테이블 실시간 동기화
+    try {
+      fetch('https://sguardai.khcho0421.workers.dev/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employee_id: userEmpId,
+          name: name,
+          email: email,
+          phone: phone,
+          company: company,
+          team: assignedTeam,
+          part: assignedPart,
+          position: position,
+          is_partner_manager: isPartnerManager ? 1 : 0,
+          role: assignedRole
+        })
+      }).catch(err => console.warn('[D1 update error]', err));
+    } catch (e) {}
+
     if (onUserUpdated) {
       onUserUpdated({
         ...updated,
+        id: userEmpId,
+        employeeId: userEmpId,
         isPartnerManager: isPartnerManager,
         position: position
       } as any);

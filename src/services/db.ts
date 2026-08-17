@@ -983,11 +983,22 @@ export class PureDatabaseEngine {
     }
 
     // DB users 테이블에도 동기화 업데이트
-    const targetEmpId = this.currentUser.id;
-    const dbUserIdx = this.users.findIndex(u => u.employeeId === targetEmpId || (u.email && u.email.toLowerCase() === (this.currentUser?.email || '').toLowerCase()));
+    const rawTargetId = (this.currentUser.id || (this.currentUser as any).employeeId || 'S01832').toUpperCase().trim();
+    const targetEmpId = rawTargetId === '01832' ? 'S01832' : rawTargetId;
+    const cleanTarget = targetEmpId.replace(/^S/, '');
+
+    // 중복 01832 제거
+    this.users = this.users.filter(u => (u.employeeId || '').toUpperCase().trim() !== '01832' || targetEmpId === '01832');
+
+    const dbUserIdx = this.users.findIndex(u => {
+      const uEmp = (u.employeeId || '').toUpperCase().trim();
+      const uClean = uEmp.replace(/^S/, '');
+      return uEmp === targetEmpId || (cleanTarget && uClean === cleanTarget);
+    });
     if (dbUserIdx >= 0) {
       this.users[dbUserIdx] = {
         ...this.users[dbUserIdx],
+        employeeId: targetEmpId,
         name: updatedFields.name || this.users[dbUserIdx].name,
         phone: updatedFields.phone || this.users[dbUserIdx].phone,
         email: updatedFields.email || this.users[dbUserIdx].email,
