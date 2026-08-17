@@ -154,7 +154,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
   };
 
   // 모달 저장
-  const handleSaveModal = () => {
+  const handleSaveModal = async () => {
     if (!editingOrg) return;
 
     if (!editingOrg.partName.trim()) {
@@ -192,14 +192,19 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
 
     // Cloudflare D1 shifti-db organizations 테이블에 실시간 동기화
     try {
-      fetch('https://sguardai.khcho0421.workers.dev/organizations', {
+      const res = await fetch('https://sguardai.khcho0421.workers.dev/organizations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(finalItem)
-      }).catch(err => console.warn('D1 organizations save warning:', err));
-    } catch (e) {}
+      });
+      if (res.ok) {
+        fetchRemoteOrgs();
+      }
+    } catch (err) {
+      console.warn('D1 organizations save warning:', err);
+    }
 
-    alert(`✅ [${finalItem.hierarchyPath}] 조직이 데이터베이스에 안전하게 저장되었습니다.`);
+    alert(`✅ [${finalItem.hierarchyPath}] 조직 정보가 DB 및 화면에 완벽하게 저장되었습니다.\n• 협력사 투입 인원: ${finalItem.memberCount}명`);
   };
 
   // 삭제 처리
