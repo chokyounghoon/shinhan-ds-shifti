@@ -45,6 +45,34 @@ const cleanLeaderName = (name: string): string => {
     .trim();
 };
 
+// 사업자등록번호 자동 포맷팅 (000-00-00000, 10자리 제한)
+const formatBizNumber = (value: string): string => {
+  const digits = (value || '').replace(/[^0-9]/g, '').slice(0, 10);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 5) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5, 10)}`;
+};
+
+// 전화번호/연락처 자동 포맷팅 (010-0000-0000 / 02-0000-0000, 최대 11자리 제한)
+const formatPhoneNumber = (value: string): string => {
+  const digits = (value || '').replace(/[^0-9]/g, '').slice(0, 11);
+  if (!digits) return '';
+
+  // 서울 지역번호 (02)
+  if (digits.startsWith('02')) {
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 5) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+    if (digits.length <= 9) return `${digits.slice(0, 2)}-${digits.slice(2, 5)}-${digits.slice(5)}`;
+    return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6, 10)}`;
+  }
+
+  // 휴대폰 및 기타 지역번호 (010, 031, 070 등)
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  if (digits.length <= 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7, 11)}`;
+};
+
 export const initialOrgUnits: OrgUnit[] = [];
 export const defaultOrgUnits = initialOrgUnits;
 
@@ -201,9 +229,9 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
       ...editingCompany,
       company_name: editingCompany.company_name.trim(),
       company_code: editingCompany.company_code.trim() || `COMP_${Date.now().toString(36).toUpperCase()}`,
-      biz_number: editingCompany.biz_number.trim(),
+      biz_number: formatBizNumber(editingCompany.biz_number || ''),
       contact_person: editingCompany.contact_person.trim(),
-      contact_phone: editingCompany.contact_phone.trim(),
+      contact_phone: formatPhoneNumber(editingCompany.contact_phone || ''),
       description: (editingCompany.description || '').trim()
     };
 
@@ -1224,12 +1252,14 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
 
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
-                    사업자등록번호
+                    사업자등록번호 (10자리)
                   </label>
                   <input
                     type="text"
+                    inputMode="numeric"
+                    maxLength={12}
                     value={editingCompany.biz_number || ''}
-                    onChange={e => setEditingCompany({ ...editingCompany, biz_number: e.target.value })}
+                    onChange={e => setEditingCompany({ ...editingCompany, biz_number: formatBizNumber(e.target.value) })}
                     placeholder="예: 220-88-67890"
                     style={{
                       width: '100%',
@@ -1276,8 +1306,10 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
                   </label>
                   <input
                     type="text"
+                    inputMode="numeric"
+                    maxLength={13}
                     value={editingCompany.contact_phone || ''}
-                    onChange={e => setEditingCompany({ ...editingCompany, contact_phone: e.target.value })}
+                    onChange={e => setEditingCompany({ ...editingCompany, contact_phone: formatPhoneNumber(e.target.value) })}
                     placeholder="예: 010-8888-9999"
                     style={{
                       width: '100%',
