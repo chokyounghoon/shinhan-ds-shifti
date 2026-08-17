@@ -1223,7 +1223,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div style={{ textAlign: 'center' }}>
               <h2 style={{ fontSize: '20px', fontWeight: 800, margin: '0 0 4px 0' }}>계정 생성</h2>
-              <p style={{ fontSize: '12px', color: '#90A4AE', margin: 0 }}>신한금융그룹 구성원 전용 도급 관제 시스템</p>
+              <p style={{ fontSize: '12px', color: '#90A4AE', margin: 0 }}>신한DS 협력사 도급 공정 관제 시스템</p>
             </div>
 
             {/* 회사소속 */}
