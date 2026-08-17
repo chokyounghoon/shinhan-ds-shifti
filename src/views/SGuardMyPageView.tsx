@@ -129,15 +129,23 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
           if (isMounted) setDbOrganizations(orgJson.data);
         }
 
-        // 2. D1 실제 사용자 목록에서 고유 회사 목록 조회
-        const userRes = await fetch('https://sguardai.khcho0421.workers.dev/users');
-        const userJson = await userRes.json();
-        if (userJson.success && Array.isArray(userJson.data)) {
-          const compSet = new Set<string>(['신한DS']);
-          userJson.data.forEach((u: any) => {
-            if (u.company) compSet.add(u.company);
-          });
-          if (isMounted) setDbCompanies(Array.from(compSet));
+        // 2. D1 실제 협력사(companies) 마스터 테이블 조회
+        const compRes = await fetch('https://sguardai.khcho0421.workers.dev/companies');
+        const compJson = await compRes.json();
+        if (compJson.success && Array.isArray(compJson.data) && compJson.data.length > 0) {
+          const compNames = compJson.data.map((c: any) => c.company_name).filter(Boolean);
+          if (isMounted) setDbCompanies(compNames);
+        } else {
+          // 폴백: D1 실제 사용자 목록에서 고유 회사 목록 조회
+          const userRes = await fetch('https://sguardai.khcho0421.workers.dev/users');
+          const userJson = await userRes.json();
+          if (userJson.success && Array.isArray(userJson.data)) {
+            const compSet = new Set<string>(['신한DS']);
+            userJson.data.forEach((u: any) => {
+              if (u.company) compSet.add(u.company);
+            });
+            if (isMounted) setDbCompanies(Array.from(compSet));
+          }
         }
 
         // 3. 현재 로그인 사용자 최신 D1 정보 로드

@@ -24,6 +24,18 @@ export interface OrgUnit {
   description?: string;
 }
 
+export interface CompanyItem {
+  id: string;
+  company_code: string;
+  company_name: string;
+  biz_number: string;
+  company_type: 'SHINHAN_DS' | 'PARTNER' | 'SUB_CONTRACTOR';
+  contact_person: string;
+  contact_phone: string;
+  description?: string;
+  created_at?: string;
+}
+
 // 이름 정제 헬퍼 함수 (PM, 신한DS, 괄호 제거)
 const cleanLeaderName = (name: string): string => {
   return (name || '')
@@ -48,8 +60,12 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
   onSelectOrg,
   onNavigateToLocationDetail
 }) => {
+  // 상단 탭: 'ORG' (도급 조직/팀/파트) | 'COMPANY' (협력사/소속사 관리)
+  const [activeTab, setActiveTab] = useState<'ORG' | 'COMPANY'>('ORG');
+
   // 로컬스토리지 전면 제거: 순수 Cloudflare D1 DB 실시간 상태
   const [orgList, setOrgList] = useState<OrgUnit[]>([]);
+  const [companyList, setCompanyList] = useState<CompanyItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -57,7 +73,11 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingOrg, setEditingOrg] = useState<OrgUnit | null>(null);
 
-  // Cloudflare D1 shifti-db 원격 실시간 조회 (로컬스토리지 미사용)
+  // 협력사 추가/수정 모달 상태
+  const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<CompanyItem | null>(null);
+
+  // Cloudflare D1 shifti-db 원격 실시간 조회 (조직 목록)
   const fetchRemoteOrgs = async () => {
     setIsLoading(true);
     try {
@@ -86,8 +106,22 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
     }
   };
 
+  // Cloudflare D1 shifti-db 원격 실시간 조회 (협력사 목록)
+  const fetchRemoteCompanies = async () => {
+    try {
+      const res = await fetch('https://sguardai.khcho0421.workers.dev/companies');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setCompanyList(json.data);
+        }
+      }
+    } catch (err) {
+      console.warn('Companies fetch error:', err);
+    }
+  };
+
   useEffect(() => {
-    // 잔여 로컬스토리지 키 완전 정리
     try {
       localStorage.removeItem('SGUARD_ORG_UNITS_USER_DATA');
       localStorage.removeItem('SGUARD_ORG_UNITS_DATA_V3');
@@ -95,6 +129,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
       localStorage.removeItem('SGUARD_ORG_UNITS_DATA');
     } catch (e) {}
     fetchRemoteOrgs();
+    fetchRemoteCompanies();
   }, []);
 
   // 필터링된 조직 목록
@@ -115,10 +150,118 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
     });
   }, [orgList, searchQuery]);
 
+  // 필터링된 협력사 목록
+  const filteredCompanies = useMemo(() => {
+    return companyList.filter(comp => {
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const match = 
+          comp.company_name.toLowerCase().includes(q) ||
+          (comp.company_code || '').toLowerCase().includes(q) ||
+          (comp.biz_number || '').toLowerCase().includes(q) ||
+          (comp.contact_person || '').toLowerCase().includes(q) ||
+          (comp.contact_phone || '').toLowerCase().includes(q) ||
+          (comp.description || '').toLowerCase().includes(q);
+        if (!match) return false;
+      }
+      return true;
+    });
+  }, [companyList, searchQuery]);
+
   // 총 인원수 합산
   const totalMembers = useMemo(() => {
     return orgList.reduce((acc, curr) => acc + (curr.memberCount || 0), 0);
   }, [orgList]);
+
+  // 협력사 신규 추가 열기
+  const handleOpenAddCompany = () => {
+    const newComp: CompanyItem = {
+      id: `comp-${Date.now()}`,
+      company_code: '',
+      company_name: '',
+      biz_number: '',
+      company_type: 'PARTNER',
+      contact_person: '',
+      contact_phone: '',
+      description: ''
+    };
+    setEditingCompany(newComp);
+    setIsCompanyModalOpen(true);
+  };
+
+  // 협력사 저장 처리
+  const handleSaveCompany = async () => {
+    if (!editingCompany) return;
+    if (!editingCompany.company_name.trim()) {
+      alert('협력사(회사)명을 입력해 주세요.');
+      return;
+    }
+
+    const payload = {
+      ...editingCompany,
+      company_name: editingCompany.company_name.trim(),
+      company_code: editingCompany.company_code.trim() || `COMP_${Date.now().toString(36).toUpperCase()}`,
+      biz_number: editingCompany.biz_number.trim(),
+      contact_person: editingCompany.contact_person.trim(),
+      contact_phone: editingCompany.contact_phone.trim(),
+      description: (editingCompany.description || '').trim()
+    };
+
+    setIsCompanyModalOpen(false);
+    setEditingCompany(null);
+
+    try {
+      const currentUser = dbService.getCurrentUser();
+      const actorId = currentUser?.id || currentUser?.name || 'S01832';
+      const res = await fetch('https://sguardai.khcho0421.workers.dev/companies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...payload,
+          actor: actorId
+        })
+      });
+      if (res.ok) {
+        await fetchRemoteCompanies();
+        alert(`✅ [${payload.company_name}] 협력사 정보가 DB에 안전하게 저장되었습니다.`);
+      } else {
+        const data = await res.json();
+        alert(`오류: ${data.error || '협력사 저장에 실패했습니다.'}`);
+      }
+    } catch (err) {
+      console.warn('Company save warning:', err);
+      alert('협력사 저장 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 협력사 삭제 처리
+  const handleDeleteCompany = async (id: string, name: string) => {
+    if (name === '신한DS') {
+      alert('신한DS 기본 원청사는 삭제할 수 없습니다.');
+      return;
+    }
+
+    if (confirm(`정말 [${name}] 협력사를 삭제하시겠습니까?\n삭제 시 회원가입 소속 선택 등에서 제외됩니다.`)) {
+      setIsCompanyModalOpen(false);
+      setEditingCompany(null);
+
+      try {
+        const res = await fetch(`https://sguardai.khcho0421.workers.dev/companies/${id}`, {
+          method: 'DELETE'
+        });
+        if (res.ok) {
+          await fetchRemoteCompanies();
+          alert(`🗑️ [${name}] 협력사가 성공적으로 삭제되었습니다.`);
+        } else {
+          const data = await res.json();
+          alert(`오류: ${data.error || '협력사 삭제에 실패했습니다.'}`);
+        }
+      } catch (err) {
+        console.warn('Company delete warning:', err);
+        alert('협력사 삭제 중 오류가 발생했습니다.');
+      }
+    }
+  };
 
   // 신규 추가 열기
   const handleOpenAdd = () => {
@@ -236,270 +379,465 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
             <ArrowLeft size={22} />
           </button>
           <div>
-            <span style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A' }}>조직 관리</span>
+            <span style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A' }}>
+              {activeTab === 'ORG' ? '조직 관리' : '협력사 관리'}
+            </span>
             <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>
-              도급 공정 수행 조직도 (신한DS ➔ 팀 ➔ 파트 체계)
+              {activeTab === 'ORG' ? '도급 공정 수행 조직도 (신한DS ➔ 팀 ➔ 파트 체계)' : '신한DS 및 도급 협력사·소속사 마스터 관리'}
             </div>
           </div>
         </div>
 
-        <button 
-          onClick={handleOpenAdd}
-          style={{ 
-            background: '#0052FF', 
-            color: '#FFFFFF', 
+        {activeTab === 'ORG' ? (
+          <button 
+            onClick={handleOpenAdd}
+            style={{ 
+              background: '#0052FF', 
+              color: '#FFFFFF', 
+              border: 'none',
+              borderRadius: '8px',
+              padding: '7px 12px',
+              fontSize: '13px',
+              fontWeight: 700,
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '5px',
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(0, 82, 255, 0.25)'
+            }}
+          >
+            <Plus size={16} />
+            <span>조직 추가</span>
+          </button>
+        ) : (
+          <button 
+            onClick={handleOpenAddCompany}
+            style={{ 
+              background: '#0052FF', 
+              color: '#FFFFFF', 
+              border: 'none',
+              borderRadius: '8px',
+              padding: '7px 12px',
+              fontSize: '13px',
+              fontWeight: 700,
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '5px',
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(0, 82, 255, 0.25)'
+            }}
+          >
+            <Plus size={16} />
+            <span>협력사 추가</span>
+          </button>
+        )}
+      </div>
+
+      {/* 2. 상단 2대 마스터 전환 탭 바 (도급 조직 vs 협력사 관리) */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        background: '#FFFFFF',
+        borderBottom: '1px solid #E2E8F0',
+        padding: '0 16px'
+      }}>
+        <button
+          onClick={() => { setActiveTab('ORG'); setSearchQuery(''); }}
+          style={{
+            padding: '12px 8px',
+            background: 'none',
             border: 'none',
-            borderRadius: '8px',
-            padding: '7px 12px',
-            fontSize: '13px',
-            fontWeight: 700,
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '5px',
+            borderBottom: activeTab === 'ORG' ? '2.5px solid #0052FF' : '2.5px solid transparent',
+            color: activeTab === 'ORG' ? '#0052FF' : '#64748B',
+            fontSize: '13.5px',
+            fontWeight: activeTab === 'ORG' ? 800 : 600,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
             cursor: 'pointer',
-            boxShadow: '0 2px 8px rgba(0, 82, 255, 0.25)'
+            transition: 'all 0.15s ease'
           }}
         >
-          <Plus size={16} />
-          <span>조직 추가</span>
+          <Building2 size={16} />
+          <span>도급 조직 ({orgList.length}개 파트)</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveTab('COMPANY'); setSearchQuery(''); }}
+          style={{
+            padding: '12px 8px',
+            background: 'none',
+            border: 'none',
+            borderBottom: activeTab === 'COMPANY' ? '2.5px solid #0052FF' : '2.5px solid transparent',
+            color: activeTab === 'COMPANY' ? '#0052FF' : '#64748B',
+            fontSize: '13.5px',
+            fontWeight: activeTab === 'COMPANY' ? 800 : 600,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          <Users size={16} />
+          <span>협력사 관리 ({companyList.length}개 사)</span>
         </button>
       </div>
 
-      {/* 2. 상단 조직 요약 배너 */}
-      <div style={{
-        padding: '12px 18px',
-        background: 'linear-gradient(135deg, rgba(0,82,255,0.06) 0%, rgba(0,229,255,0.03) 100%)',
-        borderBottom: '1px solid #E2E8F0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Building2 size={16} color="#0052FF" />
-          <span style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>
-            신한DS 도급 공정 수행 조직
-          </span>
-          <span style={{
-            fontSize: '11px',
-            fontWeight: 800,
-            background: '#0052FF',
-            color: '#FFFFFF',
-            padding: '1px 7px',
-            borderRadius: '10px'
-          }}>
-            총 {orgList.length}개 파트
-          </span>
-        </div>
+      {/* 3. 요약 배너 */}
+      {activeTab === 'ORG' ? (
+        <div style={{
+          padding: '12px 18px',
+          background: 'linear-gradient(135deg, rgba(0,82,255,0.06) 0%, rgba(0,229,255,0.03) 100%)',
+          borderBottom: '1px solid #E2E8F0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Building2 size={16} color="#0052FF" />
+            <span style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>
+              신한DS 도급 공정 수행 조직
+            </span>
+            <span style={{
+              fontSize: '11px',
+              fontWeight: 800,
+              background: '#0052FF',
+              color: '#FFFFFF',
+              padding: '1px 7px',
+              borderRadius: '10px'
+            }}>
+              총 {orgList.length}개 파트
+            </span>
+          </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11.5px', color: '#64748B', fontWeight: 600 }}>
-          <Users size={14} color="#0052FF" />
-          <span>협력사 총 투입 인원: <strong style={{ color: '#0052FF' }}>{totalMembers.toLocaleString()}명</strong></span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11.5px', color: '#64748B', fontWeight: 600 }}>
+            <Users size={14} color="#0052FF" />
+            <span>협력사 총 투입 인원: <strong style={{ color: '#0052FF' }}>{totalMembers.toLocaleString()}명</strong></span>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div style={{
+          padding: '12px 18px',
+          background: 'linear-gradient(135deg, rgba(0,82,255,0.06) 0%, rgba(0,229,255,0.03) 100%)',
+          borderBottom: '1px solid #E2E8F0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Users size={16} color="#0052FF" />
+            <span style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>
+              원청 및 도급 참여 협력사
+            </span>
+            <span style={{
+              fontSize: '11px',
+              fontWeight: 800,
+              background: '#0052FF',
+              color: '#FFFFFF',
+              padding: '1px 7px',
+              borderRadius: '10px'
+            }}>
+              총 {companyList.length}개 사
+            </span>
+          </div>
 
-      {/* 3. 검색창 (조직이 있을 때만 유효하게 표시) */}
-      {orgList.length > 0 && (
-        <div style={{ padding: '12px 16px', background: '#FFFFFF', borderBottom: '1px solid #E2E8F0' }}>
-          <div style={{
-            background: '#F1F5F9',
-            borderRadius: '10px',
-            padding: '0 12px',
-            display: 'flex',
-            alignItems: 'center',
-            height: '40px'
-          }}>
-            <Search size={16} color="#64748B" style={{ marginRight: '8px' }} />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="조직명, 팀, 파트, 담당자 성명, 근무지 검색..."
-              style={{
-                border: 'none',
-                background: 'transparent',
-                outline: 'none',
-                width: '100%',
-                fontSize: '13.5px',
-                color: '#0F172A',
-                fontWeight: 500
-              }}
-            />
-            {searchQuery && (
-              <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer' }}>
-                <X size={14} />
-              </button>
-            )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11.5px', color: '#64748B', fontWeight: 600 }}>
+            <span>원청사: <strong>1</strong></span>
+            <span>•</span>
+            <span>협력사: <strong style={{ color: '#0052FF' }}>{companyList.filter(c => c.company_type !== 'SHINHAN_DS').length}</strong></span>
           </div>
         </div>
       )}
 
-      {/* 4. 조직 목록 카드 리스트 / 빈 상태 */}
-      <div style={{ padding: '14px 16px', flex: 1, display: 'flex', flexDirection: 'column', gap: '10px', paddingBottom: '80px' }}>
-        {isLoading ? (
-          <div style={{ padding: '40px 20px', textAlign: 'center', color: '#0052FF', fontSize: '13.5px', fontWeight: 600 }}>
-            데이터베이스에서 조직 정보를 불러오는 중입니다...
-          </div>
-        ) : orgList.length === 0 ? (
-          <div style={{
-            padding: '60px 20px',
-            textAlign: 'center',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '12px',
-            background: '#FFFFFF',
-            borderRadius: '16px',
-            border: '1px dashed #CBD5E1',
-            margin: '20px 0'
-          }}>
-            <div style={{
-              width: '54px',
-              height: '54px',
-              borderRadius: '50%',
-              background: 'rgba(0, 82, 255, 0.08)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#0052FF'
-            }}>
-              <FolderPlus size={28} />
-            </div>
-            <div>
-              <div style={{ fontSize: '15.5px', fontWeight: 800, color: '#0F172A', marginBottom: '4px' }}>
-                등록된 도급 공정 조직이 없습니다
-              </div>
-              <div style={{ fontSize: '12.5px', color: '#64748B' }}>
-                우측 상단 <strong>[+ 조직 추가]</strong> 버튼을 눌러 신규 팀 및 파트 조직을 등록해 주세요.
-              </div>
-            </div>
-            <button
-              onClick={handleOpenAdd}
-              style={{
-                marginTop: '6px',
-                background: '#0052FF',
-                color: '#FFFFFF',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '9px 18px',
-                fontSize: '13px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 2px 8px rgba(0, 82, 255, 0.25)'
-              }}
-            >
-              <Plus size={16} />
-              <span>첫 조직 등록하기</span>
+      {/* 4. 검색창 */}
+      <div style={{ padding: '12px 16px', background: '#FFFFFF', borderBottom: '1px solid #E2E8F0' }}>
+        <div style={{
+          background: '#F1F5F9',
+          borderRadius: '10px',
+          padding: '0 12px',
+          display: 'flex',
+          alignItems: 'center',
+          height: '40px'
+        }}>
+          <Search size={16} color="#64748B" style={{ marginRight: '8px' }} />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder={activeTab === 'ORG' ? '조직명, 팀, 파트, 담당자 성명, 근무지 검색...' : '회사명, 회사코드, 사업자번호, 담당자, 연락처 검색...'}
+            style={{
+              border: 'none',
+              background: 'transparent',
+              outline: 'none',
+              width: '100%',
+              fontSize: '13.5px',
+              color: '#0F172A',
+              fontWeight: 500
+            }}
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer' }}>
+              <X size={14} />
             </button>
-          </div>
-        ) : filteredOrgs.length === 0 ? (
-          <div style={{ padding: '40px 20px', textAlign: 'center', color: '#94A3B8', fontSize: '13.5px' }}>
-            검색 조건에 해당하는 조직이 없습니다.
-          </div>
-        ) : (
-          filteredOrgs.map(org => (
-            <div
-              key={org.id}
-              onClick={() => {
-                setEditingOrg({ 
-                  ...org,
-                  leaderName: cleanLeaderName(org.leaderName)
-                });
-                setIsAddModalOpen(true);
-              }}
-              style={{
-                background: '#FFFFFF',
-                borderRadius: '12px',
-                border: '1px solid #E2E8F0',
-                padding: '14px 16px',
+          )}
+        </div>
+      </div>
+
+      {/* 5. 카드 리스트 영역 (조직 vs 협력사) */}
+      <div style={{ padding: '14px 16px', flex: 1, display: 'flex', flexDirection: 'column', gap: '10px', paddingBottom: '80px' }}>
+        {activeTab === 'ORG' ? (
+          /* ================= [조직 리스트] ================= */
+          isLoading ? (
+            <div style={{ padding: '40px 20px', textAlign: 'center', color: '#0052FF', fontSize: '13.5px', fontWeight: 600 }}>
+              데이터베이스에서 조직 정보를 불러오는 중입니다...
+            </div>
+          ) : orgList.length === 0 ? (
+            <div style={{
+              padding: '60px 20px',
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '12px',
+              background: '#FFFFFF',
+              borderRadius: '16px',
+              border: '1px dashed #CBD5E1',
+              margin: '20px 0'
+            }}>
+              <div style={{
+                width: '54px',
+                height: '54px',
+                borderRadius: '50%',
+                background: 'rgba(0, 82, 255, 0.08)',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
-                cursor: 'pointer',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', flex: 1, paddingRight: '10px' }}>
-                {/* 상단 계층 경로 (신한DS > 팀 > 파트) */}
-                <div style={{
-                  fontSize: '14px',
-                  fontWeight: 800,
-                  color: '#0F172A',
+                justifyContent: 'center',
+                color: '#0052FF'
+              }}>
+                <FolderPlus size={28} />
+              </div>
+              <div>
+                <div style={{ fontSize: '15.5px', fontWeight: 800, color: '#0F172A', marginBottom: '4px' }}>
+                  등록된 도급 공정 조직이 없습니다
+                </div>
+                <div style={{ fontSize: '12.5px', color: '#64748B' }}>
+                  우측 상단 <strong>[+ 조직 추가]</strong> 버튼을 눌러 신규 팀 및 파트 조직을 등록해 주세요.
+                </div>
+              </div>
+              <button
+                onClick={handleOpenAdd}
+                style={{
+                  marginTop: '6px',
+                  background: '#0052FF',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '9px 18px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  flexWrap: 'wrap'
-                }}>
-                  <span>{org.hierarchyPath}</span>
-                  <span style={{
-                    fontSize: '11px',
-                    padding: '2px 7px',
-                    borderRadius: '4px',
-                    background: 'rgba(0, 82, 255, 0.08)',
-                    color: '#0052FF',
-                    fontWeight: 700
-                  }}>
-                    {org.teamName}
-                  </span>
-                </div>
-
-                {/* 하단 메타 정보 (담당자 이름, 인원 수, 근무지) */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '11.5px', color: '#64748B', flexWrap: 'wrap' }}>
-                  {org.leaderName && (
-                    <span style={{ fontWeight: 700, color: '#1E293B' }}>
-                      👤 {cleanLeaderName(org.leaderName)}
-                    </span>
-                  )}
-                  {org.leaderName && <span>•</span>}
-                  <span>
-                    👥 협력사 투입 인원: <strong>{org.memberCount}명</strong>
-                  </span>
-                  <span>•</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#0052FF', fontWeight: 600 }}>
-                    <MapPin size={12} />
-                    {org.locationName}
-                  </span>
-                </div>
-              </div>
-
-              {/* 우측 핀 버튼 (근무지 위치 확인) & 화살표 */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (onNavigateToLocationDetail) {
-                      onNavigateToLocationDetail(org.locationName);
-                    } else {
-                      onSelectOrg(org);
-                    }
-                  }}
-                  style={{
-                    background: 'rgba(0, 82, 255, 0.08)',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '8px',
-                    color: '#0052FF',
-                    cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(0, 82, 255, 0.25)'
+                }}
+              >
+                <Plus size={16} />
+                <span>첫 조직 등록하기</span>
+              </button>
+            </div>
+          ) : filteredOrgs.length === 0 ? (
+            <div style={{ padding: '40px 20px', textAlign: 'center', color: '#94A3B8', fontSize: '13.5px' }}>
+              검색 조건에 해당하는 조직이 없습니다.
+            </div>
+          ) : (
+            filteredOrgs.map(org => (
+              <div
+                key={org.id}
+                onClick={() => {
+                  setEditingOrg({ 
+                    ...org,
+                    leaderName: cleanLeaderName(org.leaderName)
+                  });
+                  setIsAddModalOpen(true);
+                }}
+                style={{
+                  background: '#FFFFFF',
+                  borderRadius: '12px',
+                  border: '1px solid #E2E8F0',
+                  padding: '14px 16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', flex: 1, paddingRight: '10px' }}>
+                  <div style={{
+                    fontSize: '14px',
+                    fontWeight: 800,
+                    color: '#0F172A',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                  title="지정 근무지 보기"
-                >
-                  <MapPin size={16} />
-                </button>
-                <ChevronRight size={18} color="#94A3B8" />
+                    gap: '6px',
+                    flexWrap: 'wrap'
+                  }}>
+                    <span>{org.hierarchyPath}</span>
+                    <span style={{
+                      fontSize: '11px',
+                      padding: '2px 7px',
+                      borderRadius: '4px',
+                      background: 'rgba(0, 82, 255, 0.08)',
+                      color: '#0052FF',
+                      fontWeight: 700
+                    }}>
+                      {org.teamName}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '11.5px', color: '#64748B', flexWrap: 'wrap' }}>
+                    {org.leaderName && (
+                      <span style={{ fontWeight: 700, color: '#1E293B' }}>
+                        👤 {cleanLeaderName(org.leaderName)}
+                      </span>
+                    )}
+                    {org.leaderName && <span>•</span>}
+                    <span>
+                      👥 협력사 투입 인원: <strong>{org.memberCount}명</strong>
+                    </span>
+                    <span>•</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#0052FF', fontWeight: 600 }}>
+                      <MapPin size={12} />
+                      {org.locationName}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onNavigateToLocationDetail) {
+                        onNavigateToLocationDetail(org.locationName);
+                      } else {
+                        onSelectOrg(org);
+                      }
+                    }}
+                    style={{
+                      background: 'rgba(0, 82, 255, 0.08)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '8px',
+                      color: '#0052FF',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                    title="지정 근무지 보기"
+                  >
+                    <MapPin size={16} />
+                  </button>
+                  <ChevronRight size={18} color="#94A3B8" />
+                </div>
               </div>
+            ))
+          )
+        ) : (
+          /* ================= [협력사 리스트] ================= */
+          filteredCompanies.length === 0 ? (
+            <div style={{ padding: '40px 20px', textAlign: 'center', color: '#94A3B8', fontSize: '13.5px' }}>
+              검색 조건에 해당하는 협력사가 없습니다.
             </div>
-          ))
+          ) : (
+            filteredCompanies.map(comp => {
+              const isDS = comp.company_type === 'SHINHAN_DS' || comp.company_name === '신한DS';
+              return (
+                <div
+                  key={comp.id}
+                  onClick={() => {
+                    setEditingCompany({ ...comp });
+                    setIsCompanyModalOpen(true);
+                  }}
+                  style={{
+                    background: '#FFFFFF',
+                    borderRadius: '12px',
+                    border: isDS ? '1.5px solid #0052FF' : '1px solid #E2E8F0',
+                    padding: '14px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    boxShadow: isDS ? '0 2px 8px rgba(0, 82, 255, 0.08)' : '0 1px 3px rgba(0,0,0,0.04)',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', flex: 1, paddingRight: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A' }}>
+                        {comp.company_name}
+                      </span>
+                      {isDS ? (
+                        <span style={{
+                          fontSize: '11px',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          background: '#0052FF',
+                          color: '#FFFFFF',
+                          fontWeight: 800
+                        }}>
+                          원청사 (신한DS)
+                        </span>
+                      ) : (
+                        <span style={{
+                          fontSize: '11px',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          background: 'rgba(0, 229, 255, 0.12)',
+                          color: '#0072FF',
+                          fontWeight: 700,
+                          border: '1px solid rgba(0, 114, 255, 0.2)'
+                        }}>
+                          {comp.company_type === 'SUB_CONTRACTOR' ? '2차 수급사' : '도급 협력사'}
+                        </span>
+                      )}
+                      {comp.biz_number && (
+                        <span style={{ fontSize: '11.5px', color: '#64748B', fontWeight: 500 }}>
+                          ({comp.biz_number})
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px', color: '#64748B', flexWrap: 'wrap' }}>
+                      {comp.contact_person && (
+                        <span>
+                          👤 담당자: <strong style={{ color: '#1E293B' }}>{comp.contact_person}</strong>
+                        </span>
+                      )}
+                      {comp.contact_person && comp.contact_phone && <span>•</span>}
+                      {comp.contact_phone && (
+                        <span>
+                          📞 {comp.contact_phone}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <ChevronRight size={18} color="#94A3B8" />
+                </div>
+              );
+            })
+          )
         )}
       </div>
 
-      {/* 5. 조직 상세 정보 및 편집/추가 모달 */}
+      {/* 6. 조직 상세 정보 및 편집/추가 모달 */}
       {isAddModalOpen && editingOrg && (
         <div style={{
           position: 'fixed',
@@ -526,7 +864,6 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
             overflow: 'hidden',
             boxShadow: '0 20px 40px rgba(0,0,0,0.25)'
           }}>
-            {/* 모달 헤더 */}
             <div style={{
               padding: '16px 20px',
               borderBottom: '1px solid #E2E8F0',
@@ -549,9 +886,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
               </button>
             </div>
 
-            {/* 모달 폼 본문 */}
             <div style={{ padding: '18px 20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {/* 1. 최상위 원청 조직 */}
               <div>
                 <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
                   최상위 원청 조직
@@ -574,7 +909,6 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
                 />
               </div>
 
-              {/* 2. 소속 팀 & 파트 */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
@@ -588,13 +922,12 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
                       width: '100%',
                       padding: '8px 10px',
                       borderRadius: '8px',
-                      border: '1px solid #E2E8F0',
-                      background: '#F1F5F9',
+                      border: '1px solid #CBD5E1',
                       fontSize: '13px',
-                      fontWeight: 700,
-                      color: '#334155',
+                      fontWeight: 600,
+                      color: '#0F172A',
                       boxSizing: 'border-box',
-                      cursor: 'not-allowed'
+                      outline: 'none'
                     }}
                   />
                 </div>
@@ -607,44 +940,65 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
                     type="text"
                     value={editingOrg.partName}
                     onChange={e => setEditingOrg({ ...editingOrg, partName: e.target.value })}
-                    placeholder="예: 상담, 오토금융, 카드IS"
+                    placeholder="예: 상담"
                     style={{
                       width: '100%',
                       padding: '8px 10px',
                       borderRadius: '8px',
                       border: '1px solid #CBD5E1',
                       fontSize: '13px',
-                      boxSizing: 'border-box'
+                      fontWeight: 600,
+                      color: '#0F172A',
+                      boxSizing: 'border-box',
+                      outline: 'none'
                     }}
                   />
                 </div>
               </div>
 
-              {/* 3. 담당 PM / 현장대리인 성명 (이름만 입력) & 투입 인원 수 */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '10px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
+                  신한DS 담당 PM (성명)
+                </label>
+                <input
+                  type="text"
+                  value={editingOrg.leaderName}
+                  onChange={e => setEditingOrg({ ...editingOrg, leaderName: cleanLeaderName(e.target.value) })}
+                  placeholder="예: 조경훈"
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    borderRadius: '8px',
+                    border: '1px solid #CBD5E1',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: '#0F172A',
+                    boxSizing: 'border-box',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '10px' }}>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
-                    담당 PM / 현장대리인 (이름만 입력)
+                    지정 근무지 위치
                   </label>
                   <input
                     type="text"
-                    value={editingOrg.leaderName}
-                    onChange={e => {
-                      const clean = e.target.value
-                        .replace(/PM/gi, '')
-                        .replace(/신한DS/gi, '')
-                        .replace(/[\(\)\[\]]/g, '')
-                        .trimStart();
-                      setEditingOrg({ ...editingOrg, leaderName: clean });
-                    }}
-                    placeholder="예: 조경훈, 박성진"
+                    value={editingOrg.locationName}
+                    onChange={e => setEditingOrg({ ...editingOrg, locationName: e.target.value })}
+                    placeholder="예: 파인에비뉴(카드)"
                     style={{
                       width: '100%',
                       padding: '8px 10px',
                       borderRadius: '8px',
                       border: '1px solid #CBD5E1',
                       fontSize: '13px',
-                      boxSizing: 'border-box'
+                      fontWeight: 600,
+                      color: '#0F172A',
+                      boxSizing: 'border-box',
+                      outline: 'none'
                     }}
                   />
                 </div>
@@ -655,50 +1009,24 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
                   </label>
                   <input
                     type="number"
-                    value={editingOrg.memberCount || ''}
+                    min="0"
+                    value={editingOrg.memberCount}
                     onChange={e => setEditingOrg({ ...editingOrg, memberCount: Number(e.target.value) })}
-                    placeholder="0"
                     style={{
                       width: '100%',
                       padding: '8px 10px',
                       borderRadius: '8px',
                       border: '1px solid #CBD5E1',
                       fontSize: '13px',
-                      boxSizing: 'border-box'
+                      fontWeight: 700,
+                      color: '#0052FF',
+                      boxSizing: 'border-box',
+                      outline: 'none'
                     }}
                   />
                 </div>
               </div>
 
-              {/* 4. 지정 근무지 */}
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
-                  지정 근무지 위치 *
-                </label>
-                <select
-                  value={editingOrg.locationName}
-                  onChange={e => setEditingOrg({ ...editingOrg, locationName: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '8px 10px',
-                    borderRadius: '8px',
-                    border: '1px solid #CBD5E1',
-                    fontSize: '13px',
-                    background: '#FFFFFF',
-                    boxSizing: 'border-box'
-                  }}
-                >
-                  <option value="파인에비뉴(카드)">파인에비뉴(카드)</option>
-                  <option value="파인에비뉴(상담센터)">파인에비뉴(상담센터)</option>
-                  <option value="여의도 금융센터">여의도 금융센터</option>
-                  <option value="신한백암빌딩">신한백암빌딩</option>
-                  <option value="상암 IT센터">상암 IT센터</option>
-                  <option value="AIA타워">AIA타워</option>
-                  <option value="KT IDC">KT IDC</option>
-                </select>
-              </div>
-
-              {/* 5. 과업 설명 */}
               <div>
                 <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
                   도급 과업 개요 및 비고
@@ -715,7 +1043,8 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
                     border: '1px solid #CBD5E1',
                     fontSize: '13px',
                     boxSizing: 'border-box',
-                    resize: 'none'
+                    resize: 'none',
+                    outline: 'none'
                   }}
                 />
               </div>

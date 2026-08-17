@@ -51,6 +51,7 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
   // 로컬스토리지 완전 제거: Cloudflare D1 users 테이블 100% 실시간 직접 동기화
   const [employees, setEmployees] = useState<EmployeeItem[]>([]);
   const [dbOrgParts, setDbOrgParts] = useState<string[]>([]);
+  const [dbCompanies, setDbCompanies] = useState<string[]>(['신한DS', '유브갓', '(주)협력아이티에스']);
   const [isLoading, setIsLoading] = useState(false);
 
   // 3가지 역할 탭: PARTNER_WORKER | PARTNER_MANAGER | DS_PM
@@ -124,6 +125,22 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
     }
   };
 
+  // 3. Cloudflare D1 companies 원격 협력사 목록 실시간 조회
+  const fetchRemoteCompanies = async () => {
+    try {
+      const res = await fetch('https://sguardai.khcho0421.workers.dev/companies');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          const list = json.data.map((c: any) => c.company_name).filter(Boolean);
+          setDbCompanies(list);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to fetch remote companies:', err);
+    }
+  };
+
   useEffect(() => {
     // 잔여 로컬스토리지 정리
     try {
@@ -131,6 +148,7 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
     } catch (e) {}
     fetchRemoteUsers();
     fetchRemoteOrgs();
+    fetchRemoteCompanies();
   }, []);
 
   // 3. DB 기준으로만 존재하는 파트 목록 동적 계산 (하드코딩 완전 배제)
@@ -812,11 +830,9 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
                     }}
                   />
                 ) : (
-                  <input
-                    type="text"
+                  <select
                     value={editingEmp.company}
                     onChange={e => setEditingEmp({ ...editingEmp, company: e.target.value })}
-                    placeholder="예: 유브갓, (주)협력아이티에스, 현대IT솔루션"
                     style={{
                       width: '100%',
                       padding: '8px 10px',
@@ -826,7 +842,11 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
                       background: '#FFFFFF',
                       boxSizing: 'border-box'
                     }}
-                  />
+                  >
+                    {dbCompanies.filter(c => c !== '신한DS').map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
                 )}
               </div>
 

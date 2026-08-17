@@ -233,6 +233,26 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [timerKey, setTimerKey] = useState(Date.now());
+  const [dbCompanies, setDbCompanies] = useState<string[]>(['신한DS', '유브갓', '(주)협력아이티에스']);
+
+  // D1 DB 실시간 협력사 목록 로드 (회원가입 소속 선택용)
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      try {
+        const res = await fetch('https://sguardai.khcho0421.workers.dev/companies');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+            const list = json.data.map((c: any) => c.company_name).filter(Boolean);
+            setDbCompanies(list);
+          }
+        }
+      } catch (err) {
+        console.warn('LoginView companies fetch error:', err);
+      }
+    };
+    fetchCompanies();
+  }, []);
 
   // 회원가입 폼 상태 (팀/파트, 직책 8단계, 퍼블릭 메일, 휴대전화번호)
   const [signupForm, setSignupForm] = useState({
@@ -1269,12 +1289,9 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                 }}
                 style={selectStyle}
               >
-                <option value="신한DS">신한DS</option>
-                <option value="유브갓">유브갓</option>
-                <option value="(주)협력아이티에스">(주)협력아이티에스</option>
-                <option value="현대IT솔루션">현대IT솔루션</option>
-                <option value="오토시스">오토시스</option>
-                <option value="파이낸스ITS">파이낸스ITS</option>
+                {dbCompanies.map(comp => (
+                  <option key={comp} value={comp}>{comp}</option>
+                ))}
               </select>
             </div>
 
