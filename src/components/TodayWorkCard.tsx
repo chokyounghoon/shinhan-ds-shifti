@@ -99,14 +99,41 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
     }
   };
 
+  // D1 DB(commute_logs)에서 오늘 이미 출근했는지 실시간 조회하여 화면 상태 복원
   useEffect(() => {
-    // 기본 측정
+    const checkTodayPunchStatus = async () => {
+      const currentUser = dbService.getCurrentUser();
+      const empId = currentUser?.employeeId || (currentUser as any)?.id || 'S01832';
+      const todayYmd = new Date().toISOString().substring(0, 10);
+
+      try {
+        const res = await fetch(`https://sguardai.khcho0421.workers.dev/commute/logs?employee_id=${encodeURIComponent(empId)}&work_date=${todayYmd}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.data && Array.isArray(json.data) && json.data.length > 0) {
+            const todayLog = json.data[0];
+            if (todayLog && todayLog.clock_in_time) {
+              setIsInputCompleted(true);
+              setInputTime(todayLog.clock_in_time);
+              if (todayLog.distance_meters) {
+                setGpsDistance(Number(todayLog.distance_meters));
+              }
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to check D1 punch status:', err);
+      }
+    };
+
+    checkTodayPunchStatus();
   }, [activeLocation]);
 
   // 1. 활성화된 버튼 터치 시 -> 카카오 지도 100m GPS 검증 모달 열기 및 최종 투입 확정
   const handleButtonClick = () => {
     if (isInputCompleted) {
-      alert('✅ 금일 도급 인력 투입이 이미 정상 인증 완료되었습니다.\n(도급 계약 특성상 퇴근은 별도 기록하지 않습니다.)');
+      alert(`✅ 금일(8월 17일) 도급 인력 투입이 이미 정상 인증 완료되었습니다.\n• 출근 인증 시각: ${inputTime || '08:50'}\n• 지정 근무지: ${targetName}\n• 도급 실적: 당일 1 M/D (8.0h) 정산 확정됨\n\n(도급 계약 특성상 퇴근은 별도 기록하지 않습니다.)`);
       return;
     }
 
@@ -316,21 +343,21 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '12px' }}>
           <div style={{ background: '#F8F9FA', padding: '10px', borderRadius: '8px', textAlign: 'center', border: '1px solid #ECEFF2' }}>
             <div style={{ fontSize: '11px', color: '#8B95A1', fontWeight: 600 }}>투입 인증 시각</div>
-            <div style={{ fontSize: '15px', fontWeight: 800, color: '#191F28', marginTop: '2px' }}>
-              {inputTime || '08:50 (정상)'}
+            <div style={{ fontSize: '15px', fontWeight: 800, color: isInputCompleted ? '#191F28' : '#64748B', marginTop: '2px' }}>
+              {isInputCompleted ? (inputTime || '08:50') : '미인증 (대기)'}
             </div>
-            <div style={{ fontSize: '10px', color: '#16A34A', fontWeight: 700, marginTop: '2px' }}>
-              ✓ GPS 실시간 위치 검증
+            <div style={{ fontSize: '10px', color: isInputCompleted ? '#16A34A' : '#94A3B8', fontWeight: 700, marginTop: '2px' }}>
+              {isInputCompleted ? '✓ GPS 실시간 위치 검증' : 'GPS 100m 내 인증 대기'}
             </div>
           </div>
 
           <div style={{ background: '#F8F9FA', padding: '10px', borderRadius: '8px', textAlign: 'center', border: '1px solid #ECEFF2' }}>
             <div style={{ fontSize: '11px', color: '#8B95A1', fontWeight: 600 }}>도급 실적 확정</div>
-            <div style={{ fontSize: '15px', fontWeight: 900, color: '#0052FF', marginTop: '2px' }}>
-              {isInputCompleted ? '1 M/D (8.0h)' : '1 M/D 예정'}
+            <div style={{ fontSize: '15px', fontWeight: 900, color: isInputCompleted ? '#0052FF' : '#64748B', marginTop: '2px' }}>
+              {isInputCompleted ? '1 M/D (8.0h)' : '1 M/D (미확정)'}
             </div>
-            <div style={{ fontSize: '10px', color: '#059669', fontWeight: 700, marginTop: '2px' }}>
-              ✓ 정산 확정 (퇴근 기록 불요)
+            <div style={{ fontSize: '10px', color: isInputCompleted ? '#059669' : '#94A3B8', fontWeight: 700, marginTop: '2px' }}>
+              {isInputCompleted ? '✓ 정산 확정 (퇴근 기록 불요)' : '인증 시 당일 공수 확정'}
             </div>
           </div>
         </div>
