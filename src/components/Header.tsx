@@ -20,32 +20,56 @@ export const Header: React.FC<HeaderProps> = ({
   currentUser,
   themeMode
 }) => {
-  const avatarPhoto = currentUser?.avatarUrl || currentUser?.profileImage;
-  const avatarInitial = (currentUser?.name || '').trim().replace(/\s*\([^)]*\)/g, '')[0] || '?';
+  // 로컬 기준 프로필 아바타 (기본 캐릭터 이미지 지원)
+  const defaultCharacterAvatar = 'https://api.dicebear.com/7.x/bottts/svg?seed=ChoKyoungHoon&backgroundColor=0052ff';
+  const avatarPhoto = currentUser?.avatarUrl || currentUser?.profileImage || (currentUser?.name?.includes('조경훈') ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80' : null);
+  const avatarInitial = (currentUser?.name || '').trim().replace(/\s*\([^)]*\)/g, '')[0] || '조';
+
   return (
-    <header className="top-header">
-      <div className="top-header-left">
+    <header className="top-header" style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '0 14px',
+      height: '56px',
+      background: '#FFFFFF',
+      borderBottom: '1px solid #ECEFF2',
+      position: 'sticky',
+      top: 0,
+      zIndex: 100,
+      boxSizing: 'border-box'
+    }}>
+      {/* 좌측: 메뉴 토글 + 신한DS 브랜드 로고 (절대 줄바꿈 방지) */}
+      <div className="top-header-left" style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        flexShrink: 0,
+        whiteSpace: 'nowrap'
+      }}>
         <button 
           onClick={onOpenDrawer} 
           className="icon-btn-badge" 
           aria-label="메뉴 열기"
-          style={{ width: '28px', height: '28px' }}
+          style={{ width: '28px', height: '28px', padding: 0, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <Menu size={24} strokeWidth={2.2} color="#191F28" />
         </button>
 
-        <div className="brand-logo-wrap">
+        <div className="brand-logo-wrap" style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '7px',
+          flexShrink: 0,
+          whiteSpace: 'nowrap'
+        }}>
           {/* 신한금융그룹 공식 CI 심볼 마크 + 신한DS 브랜드 로고 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, whiteSpace: 'nowrap' }}>
             <svg width="24" height="24" viewBox="0 0 36 36" fill="none" style={{ flexShrink: 0 }}>
               <circle cx="18" cy="18" r="18" fill="#0046FF" />
               {/* 신한금융그룹 공식 비둘기 날개 & 태양 모티프 CI */}
               <path 
                 d="M9.5 20.2C10.8 14.5 15.2 11.2 21 12C18.2 14 16.6 16.8 16.2 21.2C16.2 24.2 18.2 25.2 20.2 25.2C14.8 25.2 10.2 23 9.5 20.2Z" 
-                fill="white" 
-              />
-              <path 
-                d="M19.5 14C22.6 14.8 25.8 18 26.5 22C25 21.5 22.5 20.8 21 19.2C19.8 18 19.3 16 19.5 14Z" 
                 fill="white" 
               />
               <circle cx="23" cy="16.5" r="2.5" fill="white" />
@@ -55,8 +79,10 @@ export const Header: React.FC<HeaderProps> = ({
               fontSize: '18px', 
               letterSpacing: '-0.5px', 
               color: '#0046FF',
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
               gap: '3px'
             }}>
               신한<span style={{ fontWeight: 900 }}>DS</span>
@@ -65,7 +91,12 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      <div className="top-header-right">
+      <div className="top-header-right" style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        flexShrink: 0
+      }}>
         {/* 메시지 / 상담 채팅 아이콘 (뱃지 0) */}
         <button 
           onClick={onOpenMessages} 
@@ -105,7 +136,8 @@ export const Header: React.FC<HeaderProps> = ({
               boxShadow: '0 2px 8px rgba(0, 82, 255, 0.25)',
               color: '#FFFFFF',
               cursor: 'pointer',
-              marginLeft: '4px',
+              marginLeft: '2px',
+              flexShrink: 0,
               transition: 'all 0.15s ease'
             }}
             title="S-GUARD 회원 정보 관리"
@@ -120,7 +152,7 @@ export const Header: React.FC<HeaderProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '11.5px',
+              fontSize: '11px',
               fontWeight: 900,
               overflow: 'hidden',
               flexShrink: 0
@@ -130,9 +162,13 @@ export const Header: React.FC<HeaderProps> = ({
                   src={avatarPhoto} 
                   alt="프로필" 
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                  onError={(e) => {
+                    // 이미지 로드 실패 시 이니셜 대체
+                    (e.currentTarget as HTMLElement).style.display = 'none';
+                  }}
                 />
               ) : (
-                <span>{avatarInitial}</span>
+                <span style={{ color: '#0052FF', fontWeight: 900, fontSize: '11px' }}>{avatarInitial}</span>
               )}
             </div>
 
@@ -140,9 +176,10 @@ export const Header: React.FC<HeaderProps> = ({
             {(() => {
               const rawName = (currentUser?.name || '조경훈').trim();
               const pureName = rawName.replace(/\s*\(.*?\)/g, '').trim();
-              const partText = (currentUser?.partName && currentUser.partName !== '전사 총괄' && currentUser.partName !== '총괄')
+              // 로컬 기준: 파트명이 없거나 '신한DS' 또는 '전사 총괄'이면 '상담'으로 표기
+              const partText = (currentUser?.partName && currentUser.partName !== '전사 총괄' && currentUser.partName !== '총괄' && currentUser.partName !== '신한DS')
                 ? currentUser.partName.replace(/파트$/, '')
-                : (currentUser?.companyName || '신한DS');
+                : '상담';
               
               let roleBadge = '';
               if (currentUser?.role === 'DS_PRINCIPAL_PM' || currentUser?.companyName === '신한DS') {
@@ -155,11 +192,12 @@ export const Header: React.FC<HeaderProps> = ({
 
               return (
                 <span style={{
-                  fontSize: '12.5px',
+                  fontSize: '12px',
                   letterSpacing: '-0.2px',
                   whiteSpace: 'nowrap',
                   display: 'flex',
-                  alignItems: 'center'
+                  alignItems: 'center',
+                  flexShrink: 0
                 }}>
                   <span style={{ color: '#BAE6FD', fontWeight: 700 }}>
                     {partText}
