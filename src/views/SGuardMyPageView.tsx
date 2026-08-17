@@ -14,7 +14,7 @@ import {
   Briefcase,
   LogOut
 } from 'lucide-react';
-import { User as UserType } from '../types';
+import { User as UserType, UserRole } from '../types';
 import { dbService } from '../services/db';
 
 interface SGuardMyPageViewProps {
@@ -33,19 +33,38 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
   themeMode
 }) => {
   const [deviceType, setDeviceType] = useState<'Android' | 'iOS'>('Android');
-  const [name, setName] = useState(user.name.split(' ')[0] || '송무준');
+  const [name, setName] = useState<string>(() => {
+    const raw = user.name || '조경훈';
+    return raw.replace(/\s*\([^)]*\)/g, '').trim();
+  });
   const [phone, setPhone] = useState(user.phone || '010-4732-8880');
-  const [email, setEmail] = useState(user.email || 'moojun.song@naver.com');
-  const [company, setCompany] = useState(user.companyName || user.partnerCompany || '유브갓');
+  const [email, setEmail] = useState(user.email || 'khcho0421@gmail.com');
+  const [company, setCompany] = useState(user.companyName || user.partnerCompany || '신한DS');
   
-  // 업체별 현장관리인 여부 체크 상태
-  const [isPartnerManager, setIsPartnerManager] = useState<boolean>(
-    user.role === 'PARTNER_PART_LEADER' || (user as any).role === 'PARTNER_MANAGER'
-  );
+  // 업체별 현장관리인 여부 체크 상태 (정확한 영속성 바인딩)
+  const [isPartnerManager, setIsPartnerManager] = useState<boolean>(() => {
+    return (
+      (user as any).isPartnerManager === true ||
+      user.role === 'PARTNER_PART_LEADER' || 
+      (user as any).role === 'PARTNER_MANAGER' ||
+      (user.roleTitle || '').includes('관리인') ||
+      (user.roleTitle || '').includes('영업대표')
+    );
+  });
 
-  const [team, setTeam] = useState(user.deptName || '상담팀');
-  const [part, setPart] = useState(user.partName || '상담');
-  const [position, setPosition] = useState('과장');
+  const [team, setTeam] = useState(user.deptName || '카드개발팀');
+  const [part, setPart] = useState(user.partName || '카드IS');
+
+  // 직책 초기화 (user.position 또는 roleTitle/name에서 추출)
+  const [position, setPosition] = useState<string>(() => {
+    if ((user as any).position) return (user as any).position;
+    const match = (user.name || '').match(/\(([^)]+)\)/);
+    if (match && match[1] && match[1] !== '관리인') return match[1];
+    if (user.role === 'DS_PRINCIPAL_PM') return '부장';
+    if (user.role === 'PARTNER_PART_LEADER' || (user as any).role === 'PARTNER_MANAGER') return '이사';
+    return '과장';
+  });
+
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
@@ -66,7 +85,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
     : `${emailUser}*@${emailDomain}`;
 
   // 프로필 아바타 이니셜 (이름의 첫 글자 동적 연동)
-  const avatarInitial = (name.trim() || '송')[0];
+  const avatarInitial = (name.trim() || '조')[0];
 
   const handleSaveProfile = () => {
     if (!name.trim()) {
@@ -78,13 +97,21 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
       return;
     }
 
-    const assignedRole = isPartnerManager ? 'PARTNER_PART_LEADER' : company === '신한DS' ? 'DS_PRINCIPAL_PM' : 'PARTNER_WORKER';
+    const assignedRole: UserRole = isPartnerManager 
+      ? 'PARTNER_PART_LEADER' 
+      : company === '신한DS' 
+        ? 'DS_PRINCIPAL_PM' 
+        : 'PARTNER_WORKER';
     const assignedTeam = isPartnerManager ? '영업총괄팀' : team;
     const assignedPart = isPartnerManager ? '전사총괄' : part;
-    const roleTitle = isPartnerManager ? `${company} 현장관리인 (영업대표)` : '도급 인력';
+    const roleTitle = isPartnerManager 
+      ? `${company} 현장관리인 (영업대표)` 
+      : company === '신한DS' 
+        ? `신한DS ${assignedTeam} PM` 
+        : `${position}`;
 
     const updated = dbService.updateUser({
-      name: `${name} (${isPartnerManager ? '관리인' : position})`,
+      name: `${name}`,
       phone: phone,
       email: email,
       companyName: company,
@@ -92,14 +119,73 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
       deptName: assignedTeam,
       partName: assignedPart,
       role: assignedRole,
-      roleTitle: roleTitle
-    });
+      roleTitle: roleTitle,
+      isPartnerManager: isPartnerManager,
+      position: position
+    } as any);
+
+    // 1. 세션 로컬스토리지(SGUARD_AUTH_SESSION) 영구 보관
+    try {
+      const savedSession = localStorage.getItem('SGUARD_AUTH_SESSION');
+      if (savedSession) {
+        const sessionObj = JSON.parse(savedSession);
+        const newSession = {
+          ...sessionObj,
+          ...updated,
+          name: name,
+          companyName: company,
+          partnerCompany: company,
+          deptName: assignedTeam,
+          partName: assignedPart,
+          role: assignedRole,
+          roleTitle: roleTitle,
+          isPartnerManager: isPartnerManager,
+          position: position
+        };
+        localStorage.setItem('SGUARD_AUTH_SESSION', JSON.stringify(newSession));
+      }
+    } catch (e) {}
+
+    // 2. 전체 직원 관리 목록(SGUARD_EMPLOYEES_DATA) CRUD 실시간 동기화
+    try {
+      const empDataStr = localStorage.getItem('SGUARD_EMPLOYEES_DATA');
+      let empList: any[] = empDataStr ? JSON.parse(empDataStr) : [];
+      const userEmpId = (user as any).employeeId || user.id || 'S01832';
+      const targetEmpIdx = empList.findIndex((e: any) => e.employeeId === userEmpId || (e.email && e.email.toLowerCase() === email.toLowerCase()));
+      const roleCategory = isPartnerManager ? 'PARTNER_MANAGER' : company === '신한DS' ? 'DS_PM' : 'PARTNER_WORKER';
+      
+      const updatedEmpItem = {
+        id: targetEmpIdx >= 0 ? empList[targetEmpIdx].id : `emp-${Date.now()}`,
+        name: name,
+        employeeId: userEmpId,
+        company: company,
+        team: assignedTeam,
+        part: assignedPart,
+        role: roleCategory,
+        position: isPartnerManager ? `현장관리인 (${position})` : position,
+        phone: phone,
+        email: email,
+        status: 'ACTIVE',
+        joinedDate: targetEmpIdx >= 0 ? empList[targetEmpIdx].joinedDate : new Date().toISOString().substring(0, 10)
+      };
+
+      if (targetEmpIdx >= 0) {
+        empList[targetEmpIdx] = updatedEmpItem;
+      } else {
+        empList.unshift(updatedEmpItem);
+      }
+      localStorage.setItem('SGUARD_EMPLOYEES_DATA', JSON.stringify(empList));
+    } catch (e) {}
 
     if (onUserUpdated) {
-      onUserUpdated(updated);
+      onUserUpdated({
+        ...updated,
+        isPartnerManager: isPartnerManager,
+        position: position
+      } as any);
     }
 
-    alert(`🎉 S-GUARD 회원 정보가 실제 DB(users)에 안전하게 저장되었습니다.\n• 이름: ${name}\n• 현장관리인 여부: ${isPartnerManager ? 'YES (업체 관리자/영업대표)' : 'NO (일반 도급 인력)'}\n• 외부메일: ${email}\n• 소속: ${company} (${isPartnerManager ? '전사 총괄' : `${assignedTeam} / ${assignedPart} 파트`})\n• 직책: ${position}`);
+    alert(`🎉 회원 정보가 안전하게 저장되었습니다.\n• 이름: ${name}\n• 현장관리인: ${isPartnerManager ? 'YES (업체별 현장관리인 / 전사 총괄)' : 'NO (일반)'}\n• 소속: ${company} (${isPartnerManager ? '전사 총괄' : `${assignedTeam} / ${assignedPart} 파트`})\n• 직책: ${position}`);
     onClose();
   };
 

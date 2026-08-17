@@ -23,6 +23,8 @@ export interface User {
   language?: string;
   timezone?: string;
   isJoined?: boolean;
+  isPartnerManager?: boolean;
+  position?: string;
 }
 
 export type InputRequestType = 
