@@ -1,6 +1,12 @@
-import React from 'react';
-import { ArrowLeft, MapPin } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, MapPin, Navigation } from 'lucide-react';
 import { WorkLocation } from './WorkLocationSelectView';
+
+declare global {
+  interface Window {
+    kakao: any;
+  }
+}
 
 interface WorkLocationDetailViewProps {
   location: WorkLocation | null;
@@ -13,8 +19,107 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
   onBack,
   themeMode
 }) => {
-  const locName = location ? location.name.replace('[좌표] ', '') : '파인에비뉴(카드)';
-  const locAddress = location ? location.address : '서울 중구 을지로 100 파인에비뉴';
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [currentCoords, setCurrentCoords] = useState<{ lat: number; lng: number }>({
+    lat: location?.lat || 37.5255,
+    lng: location?.lng || 126.9242
+  });
+
+  const locName = location ? location.name.replace('[좌표] ', '') : 'KT IDC';
+  const locAddress = location ? location.address : '서울 영등포구 여의대로 14 KT여의도타워';
+
+  useEffect(() => {
+    let lat = location?.lat || 37.5255;
+    let lng = location?.lng || 126.9242;
+
+    const initMap = (targetLat: number, targetLng: number) => {
+      if (!mapContainerRef.current) return;
+      if (!window.kakao || !window.kakao.maps) {
+        setMapLoaded(false);
+        return;
+      }
+
+      window.kakao.maps.load(() => {
+        if (!mapContainerRef.current) return;
+        const center = new window.kakao.maps.LatLng(targetLat, targetLng);
+        const options = {
+          center: center,
+          level: 4
+        };
+
+        const map = new window.kakao.maps.Map(mapContainerRef.current, options);
+
+        // 1. 마커 표시
+        const marker = new window.kakao.maps.Marker({
+          position: center,
+          map: map
+        });
+
+        // 2. 100m 지오펜스 반경 원 표시
+        const circle = new window.kakao.maps.Circle({
+          center: center,
+          radius: 100, // 100m
+          strokeWeight: 2,
+          strokeColor: '#0052FF',
+          strokeOpacity: 0.8,
+          strokeStyle: 'dashed',
+          fillColor: '#0052FF',
+          fillOpacity: 0.15
+        });
+        circle.setMap(map);
+
+        // 3. 커스텀 인포윈도우 / 오버레이 표시
+        const content = `
+          <div style="
+            background: #FFFFFF;
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: 1px solid #CBD5E1;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-family: 'Pretendard', sans-serif;
+            font-size: 11.5px;
+            font-weight: 800;
+            color: #0F172A;
+            text-align: center;
+            transform: translateY(-45px);
+            white-space: nowrap;
+          ">
+            <span>📍 ${locName}</span>
+            <div style="font-size: 9.5px; color: #0052FF; font-weight: 700; margin-top: 2px;">인증 반경 100m</div>
+          </div>
+        `;
+
+        const customOverlay = new window.kakao.maps.CustomOverlay({
+          position: center,
+          content: content,
+          yAnchor: 1
+        });
+        customOverlay.setMap(map);
+
+        setMapLoaded(true);
+      });
+    };
+
+    // 카카오 지오코더로 주소 기반 정밀 위경도 확인 (있을 경우)
+    if (window.kakao && window.kakao.maps && window.kakao.maps.services && locAddress) {
+      const geocoder = new window.kakao.maps.services.Geocoder();
+      geocoder.addressSearch(locAddress, (result: any, status: any) => {
+        if (status === window.kakao.maps.services.Status.OK && result && result.length > 0) {
+          const exactLat = parseFloat(result[0].y);
+          const exactLng = parseFloat(result[0].x);
+          setCurrentCoords({ lat: exactLat, lng: exactLng });
+          initMap(exactLat, exactLng);
+        } else {
+          setCurrentCoords({ lat, lng });
+          initMap(lat, lng);
+        }
+      });
+    } else {
+      setCurrentCoords({ lat, lng });
+      initMap(lat, lng);
+    }
+  }, [location, locAddress, locName]);
 
   return (
     <div style={{ background: '#FFFFFF', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -51,7 +156,7 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
         </div>
       </div>
 
-      {/* 3. 좌표 섹션 헤더 & 반경 */}
+      {/* 3. 좌표 섹션 헤더 */}
       <div style={{
         background: '#F8F9FA',
         padding: '12px 18px 8px 18px',
@@ -64,6 +169,14 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
         좌표
       </div>
 
+      {/* GPS 좌표값 표시 행 */}
+      <div style={infoRowStyle}>
+        <span style={labelStyle}>GPS 위경도 좌표</span>
+        <span style={{ ...valueStyle, fontFamily: 'monospace', color: '#0052FF', fontWeight: 700 }}>
+          {currentCoords.lat.toFixed(6)}, {currentCoords.lng.toFixed(6)}
+        </span>
+      </div>
+
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -73,115 +186,92 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
         background: '#FFFFFF'
       }}>
         <span style={labelStyle}>좌표 반경</span>
-        <span style={valueStyle}>100m</span>
+        <span style={{ ...valueStyle, fontWeight: 700, color: '#0F172A' }}>100m (정밀 지오펜스)</span>
       </div>
 
-      {/* 4. 좌표 지도 시각화 (Geofence 반경 원 및 핀) */}
+      {/* 4. 실제 카카오 지도 렌더링 컨테이너 */}
       <div style={{
         position: 'relative',
         width: '100%',
-        height: '240px',
+        height: '280px',
         background: '#E8ECEF',
         overflow: 'hidden',
         borderBottom: '1px solid #ECEFF2'
       }}>
-        {/* 지도 배경 그래픽 / 일러스트레이션 맵 */}
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          background: '#E6E9EE',
-          backgroundImage: `
-            linear-gradient(#D8DCE3 1px, transparent 1px),
-            linear-gradient(90deg, #D8DCE3 1px, transparent 1px)
-          `,
-          backgroundSize: '24px 24px'
-        }}>
-          {/* 주변 블록 및 도로 시뮬레이션 */}
-          <div style={{ position: 'absolute', top: '15px', left: '10px', width: '90px', height: '60px', background: '#FFFFFF', borderRadius: '4px', border: '1px solid #D0D5DD', padding: '6px', fontSize: '9px', color: '#4E5968', fontWeight: 600 }}>
-            IBK 기업은행
-          </div>
+        {/* 실제 카카오 지도 DOM */}
+        <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
 
-          <div style={{ position: 'absolute', bottom: '15px', left: '10px', width: '100px', height: '50px', background: '#FFFFFF', borderRadius: '4px', border: '1px solid #D0D5DD', padding: '6px', fontSize: '9px', color: '#4E5968', fontWeight: 600 }}>
-            서울YWCA 스포츠센터
-          </div>
-
-          <div style={{ position: 'absolute', top: '10px', right: '15px', width: '90px', height: '55px', background: '#FFFFFF', borderRadius: '4px', border: '1px solid #D0D5DD', padding: '6px', fontSize: '9px', color: '#4E5968', fontWeight: 600 }}>
-            을지로3가역
-          </div>
-
-          <div style={{ position: 'absolute', bottom: '20px', right: '15px', width: '85px', height: '55px', background: '#FFFFFF', borderRadius: '4px', border: '1px solid #D0D5DD', padding: '6px', fontSize: '9px', color: '#4E5968', fontWeight: 600 }}>
-            조선호텔 명동
-          </div>
-
-          {/* 중앙 근무지 빌딩 박스 */}
+        {/* 카카오맵 SDK 로딩 전 또는 폴백 인터랙티브 그래픽 */}
+        {!mapLoaded && (
           <div style={{
             position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: '120px',
-            height: '90px',
-            background: '#FFFFFF',
-            borderRadius: '6px',
-            border: '1.5px solid #BAC4D0',
+            inset: 0,
+            background: '#EEF2F6',
+            backgroundImage: `
+              linear-gradient(#D8DCE3 1px, transparent 1px),
+              linear-gradient(90deg, #D8DCE3 1px, transparent 1px)
+            `,
+            backgroundSize: '24px 24px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+            justifyContent: 'center'
           }}>
-            <span style={{ fontSize: '11px', fontWeight: 800, color: '#191F28' }}>신한카드 본사</span>
-            <span style={{ fontSize: '9px', color: '#8B95A1', marginTop: '2px' }}>{locName}</span>
-          </div>
+            {/* 100m 지오펜스 반경 원 */}
+            <div style={{
+              position: 'absolute',
+              width: '180px',
+              height: '180px',
+              borderRadius: '50%',
+              background: 'rgba(0, 82, 255, 0.12)',
+              border: '2px dashed #0052FF'
+            }} />
 
-          {/* 100m 지오펜스(Geofence) 반경 원 */}
-          <div style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: '180px',
-            height: '180px',
-            borderRadius: '50%',
-            background: 'rgba(0, 70, 255, 0.12)',
-            border: '1.5px dashed #0046FF',
-            pointerEvents: 'none'
-          }} />
+            {/* 마커 핀 */}
+            <div style={{
+              position: 'relative',
+              zIndex: 2,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              transform: 'translateY(-12px)'
+            }}>
+              <div style={{
+                background: '#FFFFFF',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: '1px solid #CBD5E1',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+                fontSize: '12px',
+                fontWeight: 800,
+                color: '#0F172A',
+                marginBottom: '6px'
+              }}>
+                📍 {locName}
+              </div>
+              <MapPin size={34} color="#EF4444" fill="#EF4444" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }} />
+            </div>
 
-          {/* 중심 위치 마커 핀 */}
-          <div style={{
-            position: 'absolute',
-            top: '44%',
-            left: '50%',
-            transform: 'translate(-50%, -100%)',
-            color: '#F04438',
-            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
-            animation: 'bouncePin 1.5s infinite ease-in-out'
-          }}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="#F04438" stroke="#B42318" strokeWidth="1">
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-              <circle cx="12" cy="9" r="2.5" fill="#FFFFFF" />
-            </svg>
+            {/* 축척 및 카카오 맵 로고 표시 */}
+            <div style={{
+              position: 'absolute',
+              bottom: '8px',
+              left: '10px',
+              background: 'rgba(255, 255, 255, 0.9)',
+              padding: '3px 8px',
+              borderRadius: '4px',
+              fontSize: '10px',
+              fontWeight: 700,
+              color: '#475569',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+            }}>
+              ━ 50m | Kakao Map GPS
+            </div>
           </div>
-
-          {/* 축척 및 카카오 맵 로고 표시 */}
-          <div style={{
-            position: 'absolute',
-            bottom: '6px',
-            left: '8px',
-            background: 'rgba(255, 255, 255, 0.85)',
-            padding: '2px 6px',
-            borderRadius: '3px',
-            fontSize: '9px',
-            fontWeight: 700,
-            color: '#4E5968'
-          }}>
-            ━ 50m | kakao
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* 5. 메모 섹션 (스크린샷 일치) */}
+      {/* 5. 메모 섹션 */}
       <div style={{
         background: '#F8F9FA',
         padding: '12px 18px 8px 18px',
@@ -195,20 +285,19 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
 
       <div style={{
         padding: '16px 18px 80px 18px',
-        fontSize: '15px',
+        fontSize: '14.5px',
         fontWeight: 700,
         color: '#191F28',
-        background: '#FFFFFF'
+        background: '#FFFFFF',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '6px'
       }}>
-        금융본부,카드IS팀
+        <div>금융본부, 카드IS팀</div>
+        <div style={{ fontSize: '12.5px', fontWeight: 500, color: '#64748B' }}>
+          약정된 도급수행지 반경 100m 이내에서만 출퇴근 인증이 가능합니다.
+        </div>
       </div>
-
-      <style>{`
-        @keyframes bouncePin {
-          0%, 100% { transform: translate(-50%, -100%); }
-          50% { transform: translate(-50%, -115%); }
-        }
-      `}</style>
     </div>
   );
 };
@@ -226,7 +315,7 @@ const labelStyle: React.CSSProperties = {
   fontSize: '14px',
   fontWeight: 700,
   color: '#191F28',
-  width: '100px'
+  width: '120px'
 };
 
 const valueStyle: React.CSSProperties = {
