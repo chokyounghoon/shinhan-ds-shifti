@@ -708,6 +708,19 @@ export function App() {
               themeMode={themeMode}
             />
 
+            {/* 소속사 휴가 신청 모달 (D1 DB attendance_requests 연동) */}
+            <VacationRegistrationModal
+              isOpen={isVacationModalOpen}
+              onClose={() => setIsVacationModalOpen(false)}
+              onSuccess={(type, dateRange) => {
+                setIsVacationModalOpen(false);
+                refreshData();
+              }}
+              currentUser={currentUser}
+              isManagerMode={currentUser.role === 'PARTNER_PART_LEADER' || (currentUser as any).isPartnerManager}
+              themeMode={themeMode}
+            />
+
             <DayDetailModal
               schedule={selectedDaySchedule}
               onClose={() => setSelectedDaySchedule(null)}

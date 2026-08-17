@@ -49,4 +49,11 @@ VALUES
 ('commute-PT20260818-2026-08-17', 'PT20260818', 'PT20260818', '2026-08-17', '08:50', '18:00', '파인에비뉴(카드)', 'GPS', 15, 'NORMAL', '2026-08-17 08:50:00', 'PT20260818'),
 ('commute-PT20260819-2026-08-17', 'PT20260819', 'PT20260819', '2026-08-17', '08:52', '18:00', '파인에비뉴(카드)', 'GPS', 18, 'NORMAL', '2026-08-17 08:52:00', 'PT20260819');
 
+-- 7. 소속사 휴가 및 근태 신청 시드 (attendance_requests)
+INSERT OR REPLACE INTO attendance_requests 
+(id, user_id, employee_id, request_type, vacation_type, target_date, start_date, end_date, hours, reason, status, partner_company, approver_name, created_at, created_by)
+VALUES 
+('req-vac-01', 'PT20260818', 'PT20260818', 'VACATION', '연차', '2026-08-18', '2026-08-18', '2026-08-18', 8.0, '소속사(유브갓) 하계 정기 연차 휴가 사용', 'APPROVED', '유브갓', '유브갓 현장관리인', '2026-08-17 06:15:00', 'PT20260818');
+
+
 
