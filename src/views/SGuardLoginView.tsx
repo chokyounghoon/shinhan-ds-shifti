@@ -233,16 +233,16 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
   const [error, setError] = useState('');
   const [timerKey, setTimerKey] = useState(Date.now());
 
-  // 회원가입 폼 상태 (지침 반영: 팀/파트, 직책 8단계, 퍼블릭 메일)
+  // 회원가입 폼 상태 (팀/파트, 직책 8단계, 퍼블릭 메일, 휴대전화번호)
   const [signupForm, setSignupForm] = useState({
     company: '신한DS',
     team: '카드개발팀',
     part: '카드IS (Part 1)',
     position: '사원',
-    empNo: 'S181210',
-    name: '홍길동',
-    email: 'khcho0421@gmail.com',
-    phone: '010-4732-8880',
+    empNo: '',
+    name: '',
+    email: '',
+    phone: '',
     deviceType: 'Android' as 'Android' | 'iOS',
     pw: '',
     confirmPw: '',
@@ -559,6 +559,11 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
     }
     if (signupForm.pw !== signupForm.confirmPw) {
       alert('비밀번호와 비밀번호 확인이 일치하지 않습니다.');
+      return;
+    }
+
+    if (!signupForm.phone.trim()) {
+      alert('휴대전화번호를 입력해주세요.');
       return;
     }
 
@@ -1418,18 +1423,42 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
               </div>
             </div>
 
-            {/* 이메일 주소 (OTP 인증용 퍼블릭 메일) */}
-            <div>
-              <label style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
-                이메일 주소 (OTP 인증용 퍼블릭 메일) *
-              </label>
-              <input
-                type="email"
-                value={signupForm.email}
-                onChange={e => setSignupForm({ ...signupForm, email: e.target.value })}
-                placeholder="예: hong.gildong@gmail.com"
-                style={inputStyle}
-              />
+            {/* 이메일 주소 & 휴대전화번호 */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <div>
+                <label style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                  이메일 (2FA 인증용) *
+                </label>
+                <input
+                  type="email"
+                  value={signupForm.email}
+                  onChange={e => setSignupForm({ ...signupForm, email: e.target.value })}
+                  placeholder="예: user@email.com"
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                  휴대전화번호 *
+                </label>
+                <input
+                  type="tel"
+                  maxLength={13}
+                  value={signupForm.phone}
+                  onChange={e => {
+                    const raw = e.target.value.replace(/[^0-9]/g, '');
+                    let formatted = raw;
+                    if (raw.length > 3 && raw.length <= 7) {
+                      formatted = `${raw.slice(0, 3)}-${raw.slice(3)}`;
+                    } else if (raw.length > 7) {
+                      formatted = `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 11)}`;
+                    }
+                    setSignupForm({ ...signupForm, phone: formatted });
+                  }}
+                  placeholder="010-1234-5678"
+                  style={inputStyle}
+                />
+              </div>
             </div>
 
             {/* 비밀번호 & 비밀번호 확인 */}
