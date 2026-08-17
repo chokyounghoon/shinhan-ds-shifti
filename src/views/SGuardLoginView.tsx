@@ -218,9 +218,10 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
   const [step, setStep] = useState<AuthStep>('ID');
   const [empId, setEmpId] = useState<string>(() => {
     try {
-      return localStorage.getItem('LAST_LOGIN_EMP_ID') || 'S181210';
+      const saved = localStorage.getItem('LAST_LOGIN_EMP_ID');
+      return saved ? saved.slice(0, 6) : 'S01832';
     } catch (e) {
-      return 'S181210';
+      return 'S01832';
     }
   });
   const [selectedUserPreset, setSelectedUserPreset] = useState('usr-ds-pm');
@@ -253,8 +254,15 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
   // 약관 전문 팝업 상태
   const [showTermsModal, setShowTermsModal] = useState(false);
 
-  // 비밀번호 초기화 상태
-  const [resetEmpId, setResetEmpId] = useState('S181210');
+  // 비밀번호 초기화 상태 (로그인 시 입력한 사번으로 6자리 연동)
+  const [resetEmpId, setResetEmpId] = useState(() => {
+    try {
+      const saved = localStorage.getItem('LAST_LOGIN_EMP_ID');
+      return saved ? saved.slice(0, 6) : 'S01832';
+    } catch (e) {
+      return 'S01832';
+    }
+  });
   const [newResetPw, setNewResetPw] = useState('');
   const [confirmResetPw, setConfirmResetPw] = useState('');
 
@@ -854,6 +862,9 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                   onChange={e => {
                     const val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 10);
                     setEmpId(val);
+                    if (val.length <= 6) {
+                      setResetEmpId(val);
+                    }
                     try {
                       localStorage.setItem('LAST_LOGIN_EMP_ID', val);
                     } catch (err) {}
@@ -922,7 +933,11 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
               <span style={{ color: 'rgba(255,255,255,0.2)' }}>|</span>
               <button
                 type="button"
-                onClick={() => setStep('RESET_A')}
+                onClick={() => {
+                  const currentTyped = (empId || '').trim().replace(/[^a-zA-Z0-9]/g, '').slice(0, 6);
+                  if (currentTyped) setResetEmpId(currentTyped);
+                  setStep('RESET_A');
+                }}
                 style={{ background: 'none', border: 'none', color: '#CFD8DC', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
               >
                 비밀번호 찾기
