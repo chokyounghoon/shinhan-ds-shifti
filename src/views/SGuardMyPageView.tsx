@@ -51,8 +51,10 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
   const [email, setEmail] = useState(user.email || 'khcho0421@gmail.com');
   const [company, setCompany] = useState(user.companyName || user.partnerCompany || '신한DS');
   
-  // 업체별 현장관리인 여부 체크 상태 (정확한 영속성 바인딩)
+  // 업체별 현장관리인 여부 (신한DS는 발주사이므로 무조건 false)
   const [isPartnerManager, setIsPartnerManager] = useState<boolean>(() => {
+    const isDS = (user.companyName || user.partnerCompany || '신한DS').includes('신한');
+    if (isDS) return false;
     return (
       (user as any).isPartnerManager === true ||
       user.role === 'PARTNER_PART_LEADER' || 
@@ -62,8 +64,12 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
     );
   });
 
-  const [team, setTeam] = useState(user.deptName || '카드개발팀');
-  const [part, setPart] = useState(user.partName || '카드IS');
+  const [team, setTeam] = useState(user.deptName || '카드개발');
+  const [part, setPart] = useState(user.partName || '상담');
+
+  // D1 DB 실제 조직 및 회사 목록 상태
+  const [dbOrganizations, setDbOrganizations] = useState<{ id: string; company_name: string; team_name: string; part_name: string }[]>([]);
+  const [dbCompanies, setDbCompanies] = useState<string[]>(['신한DS', '유브갓', '(주)협력아이티에스']);
 
   // 직책 초기화 (user.position 또는 roleTitle/name에서 추출)
   const [position, setPosition] = useState<string>(() => {
@@ -98,29 +104,77 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
     reader.readAsDataURL(file);
   };
 
-  // user prop 변경 시 모달 내부 폼 값 실시간 동기화
+  // D1 DB 실제 데이터 조회 및 사용자 프로필 실시간 동기화
   useEffect(() => {
-    if (user) {
-      setAvatarUrl((user as any).avatarUrl || (user as any).profileImage || '');
-      const dt = (user as any).deviceType || (user as any).device_type;
-      setDeviceType((dt === 'iOS' || dt === 'ios') ? 'iOS' : 'Android');
-      setName((user.name || '').replace(/\s*\([^)]*\)/g, '').trim());
-      setPhone(formatPhone344(user.phone || ''));
-      setEmail(user.email || '');
-      setCompany(user.companyName || user.partnerCompany || '신한DS');
-      setTeam(user.deptName || '카드개발팀');
-      setPart(user.partName || '카드IS');
-      setIsPartnerManager(
-        (user as any).isPartnerManager === true ||
-        user.role === 'PARTNER_PART_LEADER' || 
-        (user as any).role === 'PARTNER_MANAGER' ||
-        (user.roleTitle || '').includes('관리인') ||
-        (user.roleTitle || '').includes('영업대표')
-      );
-      const pos = (user as any).position || (user.role === 'DS_PRINCIPAL_PM' ? '부장' : '과장');
-      setPosition(pos);
-    }
+    let isMounted = true;
+    const fetchLiveD1Data = async () => {
+      try {
+        let rawEmpId = ((user as any).employeeId || user.id || 'S01832').toUpperCase().trim();
+        if (rawEmpId === 'USR-001') rawEmpId = 'UB0001';
+        else if (rawEmpId === 'USR-002') rawEmpId = 'MGRUB1';
+        else if (rawEmpId === 'S18121020' || rawEmpId === '01832') rawEmpId = 'S01832';
+
+        // 1. D1 실제 조직(organizations) 테이블 조회
+        const orgRes = await fetch('https://sguardai.khcho0421.workers.dev/organizations');
+        const orgJson = await orgRes.json();
+        if (orgJson.success && Array.isArray(orgJson.data) && orgJson.data.length > 0) {
+          if (isMounted) setDbOrganizations(orgJson.data);
+        }
+
+        // 2. D1 실제 사용자 목록에서 고유 회사 목록 조회
+        const userRes = await fetch('https://sguardai.khcho0421.workers.dev/users');
+        const userJson = await userRes.json();
+        if (userJson.success && Array.isArray(userJson.data)) {
+          const compSet = new Set<string>(['신한DS']);
+          userJson.data.forEach((u: any) => {
+            if (u.company) compSet.add(u.company);
+          });
+          if (isMounted) setDbCompanies(Array.from(compSet));
+        }
+
+        // 3. 현재 로그인 사용자 최신 D1 정보 로드
+        const meRes = await fetch(`https://sguardai.khcho0421.workers.dev/users/${rawEmpId}`);
+        const meJson = await meRes.json();
+        const d = meJson.data || (meJson.employee_id ? meJson : null);
+        if (d && isMounted) {
+          if (d.name) setName(d.name.replace(/\s*\([^)]*\)/g, '').trim());
+          if (d.email) setEmail(d.email);
+          if (d.phone) setPhone(formatPhone344(d.phone));
+          if (d.company) setCompany(d.company);
+          if (d.team) setTeam(d.team);
+          if (d.part) setPart(d.part);
+          if (d.position) setPosition(d.position);
+          const dt = d.device_type || d.deviceType;
+          if (dt) setDeviceType(dt === 'iOS' || dt === 'ios' ? 'iOS' : 'Android');
+          setIsPartnerManager(d.company !== '신한DS' && (d.is_partner_manager === 1 || d.is_partner_manager === true));
+        }
+      } catch (e) {
+        console.warn('[MyPage live fetch error]', e);
+      }
+    };
+    fetchLiveD1Data();
+    return () => { isMounted = false; };
   }, [user]);
+
+  // DB 조직 목록 기준 동적 팀 & 파트 목록 추출
+  const availableTeams = Array.from(
+    new Set(
+      dbOrganizations
+        .map(o => o.team_name)
+        .filter(Boolean)
+    )
+  );
+  if (availableTeams.length === 0) availableTeams.push('카드개발');
+
+  const availableParts = Array.from(
+    new Set(
+      dbOrganizations
+        .filter(o => !team || o.team_name === team)
+        .map(o => o.part_name)
+        .filter(Boolean)
+    )
+  );
+  if (availableParts.length === 0) availableParts.push('상담', '오토금융', '국제');
 
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [currentPw, setCurrentPw] = useState('');
@@ -630,7 +684,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
             </div>
           </div>
 
-          {/* 회사소속 드롭다운 */}
+          {/* 회사소속 드롭다운 (D1 DB 실제 회사 목록 바인딩) */}
           <div>
             <label style={fieldLabelStyle}>회사소속</label>
             <div style={selectContainerStyle}>
@@ -638,76 +692,79 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
                 <Building2 size={17} color="#90A4AE" />
                 <select
                   value={company}
-                  onChange={e => setCompany(e.target.value)}
+                  onChange={e => {
+                    const newComp = e.target.value;
+                    setCompany(newComp);
+                    if (newComp === '신한DS') {
+                      setIsPartnerManager(false);
+                    }
+                  }}
                   style={selectFieldStyle}
                 >
-                  <option value="유브갓" style={optionStyle}>유브갓</option>
-                  <option value="(주)협력아이티에스" style={optionStyle}>(주)협력아이티에스</option>
-                  <option value="현대IT솔루션" style={optionStyle}>현대IT솔루션</option>
-                  <option value="오토시스" style={optionStyle}>오토시스</option>
-                  <option value="파이낸스ITS" style={optionStyle}>파이낸스ITS</option>
-                  <option value="신한DS" style={optionStyle}>신한DS</option>
+                  {dbCompanies.map(c => (
+                    <option key={c} value={c} style={optionStyle}>{c}</option>
+                  ))}
                 </select>
               </div>
               <ChevronDown size={17} color="#90A4AE" />
             </div>
           </div>
 
-          {/* ⭐ 업체별 현장관리인(영업대표) 여부 체크박스 카드 */}
-          <div 
-            onClick={() => setIsPartnerManager(!isPartnerManager)}
-            style={{
-              background: isPartnerManager ? 'rgba(0, 229, 255, 0.1)' : 'rgba(255, 255, 255, 0.04)',
-              border: isPartnerManager ? '1.5px solid #00E5FF' : '1px solid rgba(255, 255, 255, 0.12)',
-              borderRadius: '12px',
-              padding: '12px 14px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-              boxShadow: isPartnerManager ? '0 0 16px rgba(0, 229, 255, 0.2)' : 'none'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{
-                width: '22px',
-                height: '22px',
-                borderRadius: '6px',
-                background: isPartnerManager ? '#00E5FF' : 'rgba(255, 255, 255, 0.1)',
-                border: isPartnerManager ? 'none' : '1.5px solid #90A4AE',
+          {/* ⭐ 협력사 현장관리인(영업대표) 여부 체크박스 (신한DS는 발주사이므로 협력사 소속일 때만 표출) */}
+          {company !== '신한DS' && (
+            <div 
+              onClick={() => setIsPartnerManager(!isPartnerManager)}
+              style={{
+                background: isPartnerManager ? 'rgba(0, 229, 255, 0.1)' : 'rgba(255, 255, 255, 0.04)',
+                border: isPartnerManager ? '1.5px solid #00E5FF' : '1px solid rgba(255, 255, 255, 0.12)',
+                borderRadius: '12px',
+                padding: '12px 14px',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                color: '#0F172A',
-                flexShrink: 0
-              }}>
-                {isPartnerManager && <Check size={16} strokeWidth={3.5} />}
-              </div>
-              <div>
-                <div style={{ fontSize: '13.5px', fontWeight: 800, color: isPartnerManager ? '#00E5FF' : '#FFFFFF' }}>
-                  {company === '신한DS' ? '신한DS 현장대리인 (PM/총괄)' : '협력사 현장관리인 (영업대표/총괄)'}
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                boxShadow: isPartnerManager ? '0 0 16px rgba(0, 229, 255, 0.2)' : 'none'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '22px',
+                  height: '22px',
+                  borderRadius: '6px',
+                  background: isPartnerManager ? '#00E5FF' : 'rgba(255, 255, 255, 0.1)',
+                  border: isPartnerManager ? 'none' : '1.5px solid #90A4AE',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#0F172A',
+                  flexShrink: 0
+                }}>
+                  {isPartnerManager && <Check size={16} strokeWidth={3.5} />}
                 </div>
-                <div style={{ fontSize: '11px', color: '#90A4AE', marginTop: '1px' }}>
-                  {company === '신한DS' 
-                    ? `✓ 신한DS 관리인: 선택하신 [${team} / ${part}]의 도급 공정을 총괄 관제합니다` 
-                    : isPartnerManager 
-                      ? '✓ 체크됨: 자사 전체 인력 총괄 권한 (팀·파트 선택 잠금)' 
+                <div>
+                  <div style={{ fontSize: '13.5px', fontWeight: 800, color: isPartnerManager ? '#00E5FF' : '#FFFFFF' }}>
+                    협력사 현장관리인 (영업대표 / 전사 총괄)
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#90A4AE', marginTop: '1px' }}>
+                    {isPartnerManager 
+                      ? '✓ 체크됨: 자사 전체 인력 총괄 권한 (팀·파트 전사 총괄)' 
                       : '체크 시 자사 전체 인력 관제 권한 부여 (팀·파트 선택 불가)'}
+                  </div>
                 </div>
               </div>
+              <Briefcase size={18} color={isPartnerManager ? '#00E5FF' : '#64748B'} />
             </div>
-            <Briefcase size={18} color={isPartnerManager ? '#00E5FF' : '#64748B'} />
-          </div>
+          )}
 
-          {/* 팀 & 파트 (2열 그리드 - 협력사 현장관리인일 때만 비활성화 잠금, 신한DS는 선택 허용) */}
+          {/* 팀 & 파트 (2열 그리드 - D1 DB 실제 organizations 테이블 데이터 연동) */}
           {(() => {
             const isLocked = isPartnerManager && company !== '신한DS';
             return (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', opacity: isLocked ? 0.45 : 1 }}>
                 <div>
                   <label style={fieldLabelStyle}>
-                    팀 {isLocked ? <span style={{ color: '#FF8A80', fontSize: '10.5px' }}>(관리자 선택불가)</span> : (company === '신한DS' && isPartnerManager ? <span style={{ color: '#00E5FF', fontSize: '10.5px' }}>(DS PM 관제팀)</span> : null)}
+                    팀 {isLocked ? <span style={{ color: '#FF8A80', fontSize: '10.5px' }}>(관리자 선택불가)</span> : null}
                   </label>
                   <div style={{
                     ...selectContainerStyle,
@@ -719,7 +776,14 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
                       <select
                         disabled={isLocked}
                         value={isLocked ? '전사 총괄' : team}
-                        onChange={e => setTeam(e.target.value)}
+                        onChange={e => {
+                          const selectedTeam = e.target.value;
+                          setTeam(selectedTeam);
+                          const partsForTeam = dbOrganizations.filter(o => o.team_name === selectedTeam).map(o => o.part_name);
+                          if (partsForTeam.length > 0 && !partsForTeam.includes(part)) {
+                            setPart(partsForTeam[0]);
+                          }
+                        }}
                         style={{
                           ...selectFieldStyle,
                           cursor: isLocked ? 'not-allowed' : 'pointer',
@@ -729,14 +793,9 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
                         {isLocked ? (
                           <option value="전사 총괄" style={optionStyle}>전사 총괄 (선택 불가)</option>
                         ) : (
-                          <>
-                            <option value="상담팀" style={optionStyle}>상담팀</option>
-                            <option value="오토팀" style={optionStyle}>오토팀</option>
-                            <option value="재무팀" style={optionStyle}>재무팀</option>
-                            <option value="카드개발팀" style={optionStyle}>카드개발팀</option>
-                            <option value="결제개발팀" style={optionStyle}>결제개발팀</option>
-                            <option value="데이터인프라팀" style={optionStyle}>데이터인프라팀</option>
-                          </>
+                          availableTeams.map(t => (
+                            <option key={t} value={t} style={optionStyle}>{t}</option>
+                          ))
                         )}
                       </select>
                     </div>
@@ -746,7 +805,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
 
                 <div>
                   <label style={fieldLabelStyle}>
-                    파트 {isLocked ? <span style={{ color: '#FF8A80', fontSize: '10.5px' }}>(관리자 선택불가)</span> : (company === '신한DS' && isPartnerManager ? <span style={{ color: '#00E5FF', fontSize: '10.5px' }}>(DS PM 관제파트)</span> : null)}
+                    파트 {isLocked ? <span style={{ color: '#FF8A80', fontSize: '10.5px' }}>(관리자 선택불가)</span> : null}
                   </label>
                   <div style={{
                     ...selectContainerStyle,
@@ -768,18 +827,9 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
                         {isLocked ? (
                           <option value="전 파트 총괄" style={optionStyle}>전 파트 총괄 (선택 불가)</option>
                         ) : (
-                          <>
-                            <option value="상담" style={optionStyle}>상담</option>
-                            <option value="오토" style={optionStyle}>오토</option>
-                            <option value="재무" style={optionStyle}>재무</option>
-                            <option value="카드IS" style={optionStyle}>카드IS</option>
-                            <option value="결제망" style={optionStyle}>결제망</option>
-                            <option value="데이터" style={optionStyle}>데이터</option>
-                            <option value="FDS" style={optionStyle}>FDS</option>
-                            <option value="CRM" style={optionStyle}>CRM</option>
-                            <option value="모바일" style={optionStyle}>모바일</option>
-                            <option value="인프라" style={optionStyle}>인프라</option>
-                          </>
+                          availableParts.map(p => (
+                            <option key={p} value={p} style={optionStyle}>{p}</option>
+                          ))
                         )}
                       </select>
                     </div>
