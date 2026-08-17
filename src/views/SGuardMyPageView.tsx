@@ -11,7 +11,8 @@ import {
   ShieldCheck,
   CheckCircle2,
   Check,
-  Briefcase
+  Briefcase,
+  LogOut
 } from 'lucide-react';
 import { User as UserType } from '../types';
 import { dbService } from '../services/db';
@@ -19,6 +20,7 @@ import { dbService } from '../services/db';
 interface SGuardMyPageViewProps {
   user: UserType;
   onClose: () => void;
+  onLogout?: () => void;
   onUserUpdated?: (updated: UserType) => void;
   themeMode: 'ddangyo' | 'shinhan';
 }
@@ -26,6 +28,7 @@ interface SGuardMyPageViewProps {
 export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
   user,
   onClose,
+  onLogout,
   onUserUpdated,
   themeMode
 }) => {
@@ -151,7 +154,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <User size={20} color="#00E5FF" strokeWidth={2.4} />
             <span style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.3px' }}>
-              회원 정보 관리 (DB 연동)
+              회원 정보 관리
             </span>
           </div>
 
@@ -599,6 +602,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
         </div>
 
         {/* 3. 하단 액션 버튼 바 */}
+        {/* 3. 하단 버튼 바 (로그아웃 / 닫기 / 저장) */}
         <div style={{
           padding: '14px 22px',
           borderTop: '1px solid rgba(255, 255, 255, 0.08)',
@@ -606,6 +610,35 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
           gap: '10px',
           background: '#0F1A2C'
         }}>
+          {onLogout && (
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm('로그아웃 하시겠습니까?\n로그아웃 시 최초 로그인 화면으로 이동합니다.')) {
+                  onLogout();
+                }
+              }}
+              style={{
+                flex: 1.1,
+                height: '46px',
+                borderRadius: '10px',
+                background: 'rgba(239, 68, 68, 0.12)',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
+                color: '#FF5252',
+                fontSize: '14px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
+              }}
+            >
+              <LogOut size={16} />
+              <span>로그아웃</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={onClose}
@@ -628,7 +661,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
             type="button"
             onClick={handleSaveProfile}
             style={{
-              flex: 2,
+              flex: 1.5,
               height: '46px',
               borderRadius: '10px',
               background: 'linear-gradient(90deg, #0052FF 0%, #00D4FF 100%)',

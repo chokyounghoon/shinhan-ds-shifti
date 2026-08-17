@@ -188,6 +188,16 @@ export function App() {
     }
   };
 
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+    } catch (e) {}
+    setIsLoggedIn(false);
+    setIsMyPageOpen(false);
+    setIsDrawerOpen(false);
+    setCurrentPage('home');
+  };
+
   const handleToggleTheme = () => {
     const newMode = themeMode === 'ddangyo' ? 'shinhan' : 'ddangyo';
     setThemeMode(newMode);
@@ -544,13 +554,7 @@ export function App() {
               onToggleTheme={handleToggleTheme}
               isMobileFrame={isMobileFrame}
               onToggleFrame={() => setIsMobileFrame(!isMobileFrame)}
-              onLogout={() => {
-                try {
-                  localStorage.removeItem(SESSION_STORAGE_KEY);
-                } catch (e) {}
-                setIsLoggedIn(false);
-                setCurrentPage('home');
-              }}
+              onLogout={handleLogout}
               onOpenReport={() => setCurrentPage('attendance_report')}
               onOpenMissedPunch={() => setCurrentPage('missed_punch_records')}
               onOpenRequests={() => setCurrentPage('request')}
@@ -567,6 +571,7 @@ export function App() {
               <SGuardMyPageView
                 user={currentUser}
                 onClose={() => setIsMyPageOpen(false)}
+                onLogout={handleLogout}
                 onUserUpdated={(updated) => {
                   setCurrentUser(updated);
                   refreshData();
