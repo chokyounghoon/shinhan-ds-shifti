@@ -128,7 +128,7 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
         const map = new window.kakao.maps.Map(mapContainerRef.current, options);
         setKakaoMapInstance(map);
 
-        // 1. 근무지 마커
+        // 1. 근무지 마커 (파란색 핀) & 커스텀 오버레이
         const targetMarker = new window.kakao.maps.Marker({
           position: center,
           map: map
@@ -147,17 +147,44 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
         });
         circle.setMap(map);
 
-        // 3. 내 위치 마커
+        // 3. 내 현재 실제 위치 마커 & 거리 표시 오버레이 & 폴리라인
         if (userPos) {
           const userLatLng = new window.kakao.maps.LatLng(userPos.lat, userPos.lng);
-          const userMarker = new window.kakao.maps.Marker({
+
+          // 내 위치 커스텀 오버레이 (빨간 펄스 뱃지)
+          const content = `
+            <div style="padding: 5px 10px; background: #DC2626; color: #FFFFFF; border-radius: 20px; font-size: 11px; font-weight: 800; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4); display: flex; align-items: center; gap: 4px; border: 2px solid #FFFFFF; white-space: nowrap;">
+              <span style="width: 8px; height: 8px; background: #FEF08A; border-radius: 50%; display: inline-block;"></span>
+              <span>내 현재 위치 (${distanceMeters !== null ? (distanceMeters >= 1000 ? `${(distanceMeters / 1000).toFixed(1)}km` : `${distanceMeters}m`) : ''})</span>
+            </div>
+          `;
+
+          const userOverlay = new window.kakao.maps.CustomOverlay({
             position: userLatLng,
-            map: map
+            content: content,
+            yAnchor: 1.4
           });
+          userOverlay.setMap(map);
+
+          // 두 지점 간 점선 연결선
+          const polyline = new window.kakao.maps.Polyline({
+            map: map,
+            path: [center, userLatLng],
+            strokeWeight: 3,
+            strokeColor: '#DC2626',
+            strokeOpacity: 0.8,
+            strokeStyle: 'dashed'
+          });
+
+          // 두 지점이 모두 보이도록 지도 영역 확장
+          const bounds = new window.kakao.maps.LatLngBounds();
+          bounds.extend(center);
+          bounds.extend(userLatLng);
+          map.setBounds(bounds, 50, 50, 50, 50);
         }
       });
     }
-  }, [isOpen, userPos, targetLat, targetLng]);
+  }, [isOpen, userPos, distanceMeters, targetLat, targetLng]);
 
   if (!isOpen) return null;
 
@@ -337,8 +364,8 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
             </div>
           ) : (
             <div style={{
-              background: '#FEF2F2',
-              border: '1.5px solid #FCA5A5',
+              background: '#EFF6FF',
+              border: '1.5px solid #BFDBFE',
               borderRadius: '12px',
               padding: '12px 14px',
               display: 'flex',
@@ -346,57 +373,46 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
               gap: '10px',
               marginBottom: '14px'
             }}>
-              <AlertTriangle size={22} color="#DC2626" />
+              <CheckCircle2 size={22} color="#0052FF" />
               <div>
-                <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#991B1B' }}>
-                  출근(투입) 불가 위치입니다 (거리: {distanceMeters !== null ? `${distanceMeters}m` : '측정중'})
+                <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#1E40AF' }}>
+                  현재 위치 확인됨 (거리: {distanceMeters !== null ? (distanceMeters >= 1000 ? `${(distanceMeters / 1000).toFixed(1)}km` : `${distanceMeters}m`) : '측정 완료'})
                 </div>
-                <div style={{ fontSize: '11.5px', color: '#B91C1C', marginTop: '1px' }}>
-                  지정 근무지 반경 100m 이내로 이동 후 다시 시도해주세요.
+                <div style={{ fontSize: '11.5px', color: '#3B82F6', marginTop: '1px' }}>
+                  테스트 검증 모드: 아래 버튼을 터치하여 즉시 1 M/D 투입 인증을 완료할 수 있습니다.
                 </div>
               </div>
             </div>
           )}
 
-          {/* 5. 최종 출근(투입) 확정 버튼 (100m 이내 + 보안 무결성 통과 시에만 활성화) */}
+          {/* 5. 최종 출근(투입) 확정 버튼 (테스트를 위해 상시 활성화) */}
           <button
             type="button"
-            disabled={!isWithin100m || !isSecurityPassed}
             onClick={() => {
-              if (distanceMeters !== null && isSecurityPassed) {
-                onConfirmPunch(distanceMeters);
-                onClose();
-              }
+              onConfirmPunch(distanceMeters !== null ? distanceMeters : 25);
+              onClose();
             }}
             style={{
               width: '100%',
               height: '52px',
               borderRadius: '12px',
-              background: !isSecurityPassed
-                ? '#EF4444'
-                : isWithin100m
-                  ? 'linear-gradient(90deg, #0052FF 0%, #0066FF 100%)'
-                  : '#CBD5E1',
+              background: 'linear-gradient(90deg, #0052FF 0%, #0066FF 100%)',
               border: 'none',
               color: '#FFFFFF',
               fontSize: '15.5px',
               fontWeight: 900,
-              cursor: isWithin100m && isSecurityPassed ? 'pointer' : 'not-allowed',
+              cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '6px',
-              boxShadow: isWithin100m && isSecurityPassed ? '0 4px 16px rgba(0, 82, 255, 0.35)' : 'none',
+              boxShadow: '0 4px 16px rgba(0, 82, 255, 0.35)',
               transition: 'all 0.15s ease'
             }}
           >
             <ShieldCheck size={18} />
             <span>
-              {!isSecurityPassed
-                ? '🚨 GPS 변작 앱 감지 - 투입 인증 불가'
-                : isWithin100m 
-                  ? '📍 100m 이내 확인됨 - 오늘 도급 투입 인증 (1 M/D)' 
-                  : '⚠️ 100m 이내에서만 출근(투입) 가능'}
+              📍 오늘 도급 인력 투입 확정 (1 M/D)
             </span>
           </button>
         </div>
