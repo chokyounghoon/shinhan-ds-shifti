@@ -655,7 +655,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
           margin: '0 0 12px 0',
           fontWeight: 500
         }}>
-          "신뢰 기반의 도급 인력 출퇴근 및 공정 검수 시스템"
+          "신뢰 기반의 도급 인력 출근 및 공정 검수 시스템"
         </p>
 
         <div style={{
@@ -674,7 +674,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
             fontWeight: 700,
             color: '#E2E8F0'
           }}>
-            🕒 출퇴근 인증
+            🕒 출근 인증
           </span>
           <span style={{
             background: 'rgba(255, 255, 255, 0.08)',
