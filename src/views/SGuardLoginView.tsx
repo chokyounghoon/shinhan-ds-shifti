@@ -1822,7 +1822,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                 <div style={{ marginBottom: '12px' }}>
                   <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>수집 및 이용 항목:</strong>
                   <ul style={{ margin: 0, paddingLeft: '18px', color: '#B0BEC5' }}>
-                    <li><strong>필수 항목:</strong> 성명, 소속 협력사, 담당 파트, 현장 투입 인증 정보(GPS 위치 데이터)</li>
+                    <li><strong>필수 항목:</strong> 성명, 이메일 주소, 휴대전화번호, 소속 협력사, 담당 파트, 현장 투입 인증 정보(GPS 위치 데이터)</li>
                   </ul>
                 </div>
 
