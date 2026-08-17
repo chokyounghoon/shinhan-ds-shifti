@@ -271,6 +271,7 @@ export function App() {
                 onOpenMessages={() => setCurrentPage('request')}
                 onOpenNotifications={() => alert('신규 공지: 2026년 8월 30인 도급 공정 검수 및 SLA 기준이 업데이트되었습니다.')}
                 onOpenMyPage={() => setIsMyPageOpen(true)}
+                currentUser={currentUser}
                 themeMode={themeMode}
               />
             )}

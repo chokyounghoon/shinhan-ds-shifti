@@ -26,6 +26,8 @@ export interface User {
   isPartnerManager?: boolean;
   position?: string;
   deviceType?: 'Android' | 'iOS' | string;
+  avatarUrl?: string;
+  profileImage?: string;
 }
 
 export type InputRequestType = 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   User, 
   X, 
@@ -12,7 +12,10 @@ import {
   CheckCircle2,
   Check,
   Briefcase,
-  LogOut
+  LogOut,
+  Camera,
+  Upload,
+  Trash2
 } from 'lucide-react';
 import { User as UserType, UserRole } from '../types';
 import { dbService } from '../services/db';
@@ -32,6 +35,10 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
   onUserUpdated,
   themeMode
 }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string>(() => {
+    return (user as any).avatarUrl || (user as any).profileImage || '';
+  });
   const [deviceType, setDeviceType] = useState<'Android' | 'iOS'>(() => {
     const dt = (user as any).deviceType || (user as any).device_type;
     return (dt === 'iOS' || dt === 'ios') ? 'iOS' : 'Android';
@@ -75,9 +82,26 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
     return `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 11)}`;
   };
 
+  // 사진 업로드 핸들러
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert('사진 파일 크기는 5MB 이하만 업로드 가능합니다.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setAvatarUrl(base64);
+    };
+    reader.readAsDataURL(file);
+  };
+
   // user prop 변경 시 모달 내부 폼 값 실시간 동기화
   useEffect(() => {
     if (user) {
+      setAvatarUrl((user as any).avatarUrl || (user as any).profileImage || '');
       const dt = (user as any).deviceType || (user as any).device_type;
       setDeviceType((dt === 'iOS' || dt === 'ios') ? 'iOS' : 'Android');
       setName((user.name || '').replace(/\s*\([^)]*\)/g, '').trim());
@@ -164,7 +188,9 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
       roleTitle: roleTitle,
       isPartnerManager: isPartnerManager,
       position: position,
-      deviceType: deviceType
+      deviceType: deviceType,
+      avatarUrl: avatarUrl,
+      profileImage: avatarUrl
     } as any);
 
     // 1. 세션 로컬스토리지(SGUARD_AUTH_SESSION) 갱신
@@ -186,7 +212,9 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
           roleTitle: roleTitle,
           isPartnerManager: isPartnerManager,
           position: position,
-          deviceType: deviceType
+          deviceType: deviceType,
+          avatarUrl: avatarUrl,
+          profileImage: avatarUrl
         };
         localStorage.setItem('SGUARD_AUTH_SESSION', JSON.stringify(newSession));
       }
@@ -209,6 +237,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
           role: assignedRole,
           isPartnerManager: isPartnerManager ? 1 : 0,
           deviceType: deviceType,
+          avatarUrl: avatarUrl,
           actor: userEmpId
         })
       });
@@ -223,11 +252,13 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
         employeeId: userEmpId,
         isPartnerManager: isPartnerManager,
         position: position,
-        deviceType: deviceType
+        deviceType: deviceType,
+        avatarUrl: avatarUrl,
+        profileImage: avatarUrl
       } as any);
     }
 
-    alert(`🎉 회원 정보가 안전하게 저장되었습니다.\n• 이름: ${name}\n• 휴대폰 기종: ${deviceType === 'iOS' ? 'iOS (iPhone)' : 'Android'}\n• 현장관리인: ${isPartnerManager ? 'YES (업체별 현장관리인 / 전사 총괄)' : 'NO (일반)'}\n• 소속: ${company} (${isPartnerManager ? '전사 총괄' : `${assignedTeam} / ${assignedPart} 파트`})\n• 직책: ${position}`);
+    alert(`🎉 회원 정보가 안전하게 저장되었습니다.\n• 이름: ${name}\n• 프로필 사진: ${avatarUrl ? '등록 완료' : '기본 이니셜'}\n• 휴대폰 기종: ${deviceType === 'iOS' ? 'iOS (iPhone)' : 'Android'}\n• 소속: ${company} (${isPartnerManager ? '전사 총괄' : `${assignedTeam} / ${assignedPart} 파트`})\n• 직책: ${position}`);
     onClose();
   };
 
@@ -255,6 +286,15 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
       justifyContent: 'center',
       padding: '16px'
     }}>
+      {/* 숨겨진 파일 업로드 인풋 */}
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        accept="image/*" 
+        style={{ display: 'none' }} 
+        onChange={handleFileChange} 
+      />
+
       <div 
         style={{
           width: '100%',
@@ -320,43 +360,67 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
             alignItems: 'center',
             gap: '14px'
           }}>
-            <div style={{
-              width: '52px',
-              height: '52px',
-              borderRadius: '50%',
-              background: isPartnerManager 
-                ? 'linear-gradient(135deg, #0284C7 0%, #0052FF 100%)'
-                : 'linear-gradient(135deg, #0052FF 0%, #00D4FF 100%)',
-              border: '2.5px solid #00E5FF',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '20px',
-              fontWeight: 900,
-              color: '#FFFFFF',
-              boxShadow: '0 4px 12px rgba(0, 229, 255, 0.3)',
-              position: 'relative',
-              flexShrink: 0
-            }}>
-              <span>{avatarInitial}</span>
+            {/* 사진 업로드 가능한 원형 아바타 */}
+            <div 
+              onClick={() => fileInputRef.current?.click()}
+              title="클릭하여 프로필 사진 등록/변경"
+              style={{
+                width: '56px',
+                height: '56px',
+                position: 'relative',
+                flexShrink: 0,
+                cursor: 'pointer'
+              }}
+            >
+              <div style={{
+                width: '100%',
+                height: '100%',
+                borderRadius: '50%',
+                background: isPartnerManager 
+                  ? 'linear-gradient(135deg, #0284C7 0%, #0052FF 100%)'
+                  : 'linear-gradient(135deg, #0052FF 0%, #00D4FF 100%)',
+                border: '2.5px solid #00E5FF',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '21px',
+                fontWeight: 900,
+                color: '#FFFFFF',
+                boxShadow: '0 4px 14px rgba(0, 229, 255, 0.4)',
+                overflow: 'hidden'
+              }}>
+                {avatarUrl ? (
+                  <img 
+                    src={avatarUrl} 
+                    alt="프로필" 
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                  />
+                ) : (
+                  <span>{avatarInitial}</span>
+                )}
+              </div>
+
+              {/* 카메라 아이콘 뱃지 */}
               <div style={{
                 position: 'absolute',
                 bottom: '-2px',
                 right: '-2px',
-                width: '18px',
-                height: '18px',
+                width: '22px',
+                height: '22px',
                 borderRadius: '50%',
                 background: '#00E5FF',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                boxShadow: '0 2px 6px rgba(0, 0, 0, 0.5)',
+                zIndex: 2
               }}>
-                <ShieldCheck size={11} color="#0D1B2A" strokeWidth={3} />
+                <Camera size={12} color="#0D1B2A" strokeWidth={2.6} />
               </div>
             </div>
 
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '17px', fontWeight: 800, color: '#FFFFFF' }}>
                   {maskedName}
                 </span>
@@ -366,8 +430,52 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
                   </span>
                 )}
               </div>
-              <div style={{ fontSize: '12.5px', color: '#90A4AE', letterSpacing: '0.2px', wordBreak: 'break-all' }}>
+              <div style={{ fontSize: '12px', color: '#90A4AE', letterSpacing: '0.2px', wordBreak: 'break-all' }}>
                 {maskedEmail}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    background: 'rgba(0, 229, 255, 0.15)',
+                    border: '1px solid rgba(0, 229, 255, 0.4)',
+                    borderRadius: '6px',
+                    color: '#00E5FF',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    padding: '2px 7px',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '3px'
+                  }}
+                >
+                  <Camera size={11} />
+                  <span>{avatarUrl ? '사진 변경' : '사진 등록'}</span>
+                </button>
+                {avatarUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setAvatarUrl('')}
+                    style={{
+                      background: 'rgba(239, 68, 68, 0.12)',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      borderRadius: '6px',
+                      color: '#F87171',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      padding: '2px 6px',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '2px'
+                    }}
+                  >
+                    <Trash2 size={11} />
+                    <span>삭제</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>

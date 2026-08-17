@@ -1,11 +1,14 @@
 import React from 'react';
 import { Menu, MessageSquare, Bell } from 'lucide-react';
 
+import { User } from '../types';
+
 interface HeaderProps {
   onOpenDrawer: () => void;
   onOpenMessages: () => void;
   onOpenNotifications: () => void;
   onOpenMyPage?: () => void;
+  currentUser?: User;
   themeMode: 'ddangyo' | 'shinhan';
 }
 
@@ -14,8 +17,11 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenMessages,
   onOpenNotifications,
   onOpenMyPage,
+  currentUser,
   themeMode
 }) => {
+  const avatarPhoto = currentUser?.avatarUrl || currentUser?.profileImage;
+  const avatarInitial = (currentUser?.name || '조').trim().replace(/\s*\([^)]*\)/g, '')[0] || '조';
   return (
     <header className="top-header">
       <div className="top-header-left">
@@ -94,11 +100,21 @@ export const Header: React.FC<HeaderProps> = ({
               fontWeight: 800,
               cursor: 'pointer',
               boxShadow: '0 2px 6px rgba(0, 82, 255, 0.3)',
-              marginLeft: '4px'
+              marginLeft: '4px',
+              overflow: 'hidden',
+              padding: 0
             }}
             title="S-GUARD 회원 정보 관리"
           >
-            조
+            {avatarPhoto ? (
+              <img 
+                src={avatarPhoto} 
+                alt="프로필" 
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+              />
+            ) : (
+              <span>{avatarInitial}</span>
+            )}
           </button>
         )}
       </div>
