@@ -21,7 +21,7 @@ export const Header: React.FC<HeaderProps> = ({
   themeMode
 }) => {
   const avatarPhoto = currentUser?.avatarUrl || currentUser?.profileImage;
-  const avatarInitial = (currentUser?.name || '조').trim().replace(/\s*\([^)]*\)/g, '')[0] || '조';
+  const avatarInitial = (currentUser?.name || '').trim().replace(/\s*\([^)]*\)/g, '')[0] || '?';
   return (
     <header className="top-header">
       <div className="top-header-left">
@@ -145,11 +145,11 @@ export const Header: React.FC<HeaderProps> = ({
               alignItems: 'center'
             }}>
               <span style={{ color: '#BAE6FD', fontWeight: 700 }}>
-                {(currentUser?.partName || '카드IS').replace(/파트$/, '')}
+                {(currentUser?.partName || '').replace(/파트$/, '')}
               </span>
               <span style={{ margin: '0 3px', color: '#E0F2FE', opacity: 0.8 }}>:</span>
               <span style={{ fontWeight: 800, color: '#FFFFFF' }}>
-                {(currentUser?.name || '조경훈').trim()}
+                {(currentUser?.name || '').trim()}
               </span>
             </span>
           </button>

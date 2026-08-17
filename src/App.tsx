@@ -123,70 +123,37 @@ export function App() {
     setStats(dbService.getWeeklyStats());
   };
 
+  // [개발 모드] 역할 시뮬레이션: 실제 로그인 사용자 이름/정보는 그대로 유지하고 role + page만 변경
   const handleSwitchUser = (roleKey: 'PARTNER' | 'PARTNER_MANAGER' | 'DS_PM') => {
+    const base = { ...currentUser }; // 로그인한 실제 사용자 정보 보존
     if (roleKey === 'DS_PM') {
-      const dsUser: User = {
-        id: 'S01832',
-        name: '조경훈',
-        firstName: '경훈',
-        lastName: '조',
-        companyName: '신한DS',
-        partnerCompany: '신한DS',
-        deptName: '카드개발팀',
-        partName: '카드IS',
+      const switched: User = {
+        ...base,
         role: 'DS_PRINCIPAL_PM',
-        roleTitle: '신한DS 현장대리인 (PM)',
-        location: '파인에비뉴(카드)',
-        phone: '010-4421-8890',
-        email: 'khcho0421@gmail.com',
-        language: '한국어',
-        timezone: 'Asia/Seoul (GMT+9)'
+        roleTitle: '신한DS 현장대리인 (PM)'
       };
-      dbService.setCurrentUser(dsUser);
-      setCurrentUser(dsUser);
+      dbService.setCurrentUser(switched);
+      setCurrentUser(switched);
       setCurrentPage('principal_portal');
     } else if (roleKey === 'PARTNER_MANAGER') {
-      const managerUser: User = {
-        id: 'MGRUB1',
-        name: '최영호',
-        firstName: '영호',
-        lastName: '최',
-        companyName: '유브갓',
-        partnerCompany: '유브갓',
-        deptName: '영업총괄팀',
-        partName: '전사총괄',
+      const switched: User = {
+        ...base,
         role: 'PARTNER_PART_LEADER',
-        roleTitle: '협력사 현장관리인 (대표)',
-        location: '파인에비뉴(카드)',
-        phone: '010-8888-9999',
-        email: 'ceo.choi@ubgot.co.kr',
-        language: '한국어',
-        timezone: 'Asia/Seoul (GMT+9)',
+        roleTitle: '협력사 현장관리인',
         isPartnerManager: true
       };
-      dbService.setCurrentUser(managerUser);
-      setCurrentUser(managerUser);
+      dbService.setCurrentUser(switched);
+      setCurrentUser(switched);
       setCurrentPage('partner_portal');
     } else {
-      const partnerUser: User = {
-        id: 'UB0001',
-        name: '송무준',
-        firstName: '무준',
-        lastName: '송',
-        companyName: '유브갓',
-        partnerCompany: '유브갓',
-        deptName: '상담운영팀',
-        partName: '상담',
+      const switched: User = {
+        ...base,
         role: 'PARTNER_WORKER',
         roleTitle: '협력사 투입 인력',
-        location: '파인에비뉴(카드)',
-        phone: '010-4732-8880',
-        email: 'moojun.song@ubgot.co.kr',
-        language: '한국어',
-        timezone: 'Asia/Seoul (GMT+9)'
+        isPartnerManager: false
       };
-      dbService.setCurrentUser(partnerUser);
-      setCurrentUser(partnerUser);
+      dbService.setCurrentUser(switched);
+      setCurrentUser(switched);
       setCurrentPage('home');
     }
   };
