@@ -32,19 +32,25 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
     }
 
     try {
-      // 1. Leaflet 지도 생성
+      // 1. Leaflet 지도 생성 (기본 줌 레벨 17.5로 상세 건물 뷰)
       const map = L.map(mapContainerRef.current, {
         center: [targetLat, targetLng],
-        zoom: 16,
+        zoom: 17.5,
+        minZoom: 14,
+        maxZoom: 20,
         zoomControl: false,
-        attributionControl: false
+        attributionControl: false,
+        scrollWheelZoom: true,
+        touchZoom: true,
+        doubleClickZoom: true
       });
 
       mapInstanceRef.current = map;
 
-      // 2. 고해상도 지도 타일 레이어 (OpenStreetMap / CartoDB Voyager 밝은 테마)
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19,
+      // 2. 고해상도 레티나 타일 레이어 (@2x 타일로 고해상도 건물/상호 렌더링)
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png', {
+        maxZoom: 20,
+        maxNativeZoom: 19,
         subdomains: 'abcd'
       }).addTo(map);
 
@@ -57,24 +63,27 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
             flex-direction: column;
             align-items: center;
             transform: translate(-50%, -100%);
-            filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3));
+            filter: drop-shadow(0 3px 8px rgba(0,0,0,0.35));
           ">
             <div style="
               background: #0052FF;
               color: #FFFFFF;
-              padding: 5px 10px;
-              border-radius: 8px;
+              padding: 6px 12px;
+              border-radius: 20px;
               font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', sans-serif;
-              font-size: 11.5px;
+              font-size: 12px;
               font-weight: 800;
               white-space: nowrap;
-              border: 1.5px solid #FFFFFF;
-              box-shadow: 0 2px 8px rgba(0,82,255,0.4);
+              border: 2px solid #FFFFFF;
+              box-shadow: 0 4px 12px rgba(0,82,255,0.45);
               margin-bottom: 4px;
+              display: flex;
+              align-items: center;
+              gap: 4px;
             ">
-              📍 ${locName}
+              <span>📍</span> <span>${locName}</span>
             </div>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.5">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.8">
               <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
               <circle cx="12" cy="9" r="2.5" fill="#FFFFFF" />
             </svg>
@@ -90,10 +99,10 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
       L.circle([targetLat, targetLng], {
         radius: 100, // 100m
         color: '#0052FF',
-        weight: 2,
-        dashArray: '5, 6',
+        weight: 2.5,
+        dashArray: '6, 6',
         fillColor: '#0052FF',
-        fillOpacity: 0.18
+        fillOpacity: 0.16
       }).addTo(map);
 
       // 지도 렌더링 갱신
@@ -112,6 +121,24 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
       }
     };
   }, [targetLat, targetLng, locName]);
+
+  const handleZoomIn = () => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.zoomIn();
+    }
+  };
+
+  const handleZoomOut = () => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.zoomOut();
+    }
+  };
+
+  const handleResetCenter = () => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.setView([targetLat, targetLng], 18, { animate: true });
+    }
+  };
 
   return (
     <div style={{ background: '#FFFFFF', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -185,7 +212,7 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
       <div style={{
         position: 'relative',
         width: '100%',
-        height: '280px',
+        height: '300px',
         background: '#F1F5F9',
         overflow: 'hidden',
         borderBottom: '1px solid #ECEFF2'
@@ -193,21 +220,103 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
         {/* 실제 인터랙티브 지도 DOM */}
         <div ref={mapContainerRef} style={{ width: '100%', height: '100%', zIndex: 1 }} />
 
+        {/* 인터랙티브 줌 컨트롤 (+, -) & 센터 복귀 버튼 */}
+        <div style={{
+          position: 'absolute',
+          top: '12px',
+          right: '12px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '6px',
+          zIndex: 10
+        }}>
+          <button
+            type="button"
+            onClick={handleZoomIn}
+            aria-label="지도 확대"
+            style={{
+              width: '34px',
+              height: '34px',
+              background: '#FFFFFF',
+              border: '1px solid #CBD5E1',
+              borderRadius: '8px',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+              fontSize: '18px',
+              fontWeight: 800,
+              color: '#0F172A',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer'
+            }}
+          >
+            +
+          </button>
+          <button
+            type="button"
+            onClick={handleZoomOut}
+            aria-label="지도 축소"
+            style={{
+              width: '34px',
+              height: '34px',
+              background: '#FFFFFF',
+              border: '1px solid #CBD5E1',
+              borderRadius: '8px',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+              fontSize: '18px',
+              fontWeight: 800,
+              color: '#0F172A',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer'
+            }}
+          >
+            −
+          </button>
+          <button
+            type="button"
+            onClick={handleResetCenter}
+            aria-label="중심 위치로 이동"
+            title="약정 도급지 중심으로 이동"
+            style={{
+              width: '34px',
+              height: '34px',
+              background: '#0052FF',
+              border: 'none',
+              borderRadius: '8px',
+              boxShadow: '0 2px 8px rgba(0,82,255,0.3)',
+              color: '#FFFFFF',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer'
+            }}
+          >
+            <Navigation size={16} />
+          </button>
+        </div>
+
         {/* 축척 및 안내 로고 표시 */}
         <div style={{
           position: 'absolute',
           bottom: '8px',
           left: '10px',
-          background: 'rgba(255, 255, 255, 0.92)',
+          background: 'rgba(255, 255, 255, 0.94)',
           padding: '3px 8px',
           borderRadius: '4px',
-          fontSize: '10px',
+          fontSize: '10.5px',
           fontWeight: 700,
-          color: '#475569',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
-          zIndex: 10
+          color: '#334155',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+          zIndex: 10,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '5px'
         }}>
-          ━ 50m | GPS Geofence Map
+          <span>━ 50m</span>
+          <span style={{ color: '#94A3B8' }}>|</span>
+          <span style={{ color: '#0052FF', fontWeight: 800 }}>GPS Geofence</span>
         </div>
       </div>
 
