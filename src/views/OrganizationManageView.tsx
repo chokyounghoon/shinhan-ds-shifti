@@ -1118,6 +1118,271 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* 7. 협력사 상세 정보 및 편집/추가 모달 */}
+      {isCompanyModalOpen && editingCompany && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '430px',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.25)'
+          }}>
+            <div style={{
+              padding: '16px 20px',
+              borderBottom: '1px solid #E2E8F0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: '#F8FAFC'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Users size={18} color="#0052FF" />
+                <span style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A' }}>
+                  {editingCompany.company_name ? `${editingCompany.company_name} 정보 수정` : '새 협력사 등록'}
+                </span>
+              </div>
+              <button
+                onClick={() => { setIsCompanyModalOpen(false); setEditingCompany(null); }}
+                style={{ background: 'none', border: 'none', color: '#64748B', cursor: 'pointer', padding: '4px' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ padding: '18px 20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
+                  회사명 (소속명) *
+                </label>
+                <input
+                  type="text"
+                  value={editingCompany.company_name}
+                  disabled={editingCompany.company_name === '신한DS'}
+                  onChange={e => setEditingCompany({ ...editingCompany, company_name: e.target.value })}
+                  placeholder="예: 유브갓, (주)협력아이티에스"
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    borderRadius: '8px',
+                    border: '1px solid #CBD5E1',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    color: editingCompany.company_name === '신한DS' ? '#0052FF' : '#0F172A',
+                    background: editingCompany.company_name === '신한DS' ? '#F1F5F9' : '#FFFFFF',
+                    boxSizing: 'border-box',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
+                    회사 구분 *
+                  </label>
+                  <select
+                    value={editingCompany.company_type}
+                    disabled={editingCompany.company_name === '신한DS'}
+                    onChange={e => setEditingCompany({ ...editingCompany, company_type: e.target.value as any })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: '1px solid #CBD5E1',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: '#0F172A',
+                      background: editingCompany.company_name === '신한DS' ? '#F1F5F9' : '#FFFFFF',
+                      boxSizing: 'border-box',
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="PARTNER">도급 협력사 (1차)</option>
+                    <option value="SUB_CONTRACTOR">재도급사 (2차)</option>
+                    <option value="SHINHAN_DS">신한DS (원청)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
+                    사업자등록번호
+                  </label>
+                  <input
+                    type="text"
+                    value={editingCompany.biz_number || ''}
+                    onChange={e => setEditingCompany({ ...editingCompany, biz_number: e.target.value })}
+                    placeholder="예: 220-88-67890"
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: '1px solid #CBD5E1',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: '#0F172A',
+                      boxSizing: 'border-box',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
+                    담당자 성명/직책
+                  </label>
+                  <input
+                    type="text"
+                    value={editingCompany.contact_person || ''}
+                    onChange={e => setEditingCompany({ ...editingCompany, contact_person: e.target.value })}
+                    placeholder="예: 최영호 대표"
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: '1px solid #CBD5E1',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: '#0F172A',
+                      boxSizing: 'border-box',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
+                    담당자 연락처
+                  </label>
+                  <input
+                    type="text"
+                    value={editingCompany.contact_phone || ''}
+                    onChange={e => setEditingCompany({ ...editingCompany, contact_phone: e.target.value })}
+                    placeholder="예: 010-8888-9999"
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: '1px solid #CBD5E1',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: '#0F172A',
+                      boxSizing: 'border-box',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
+                  회사 비고 및 도급 계약 정보
+                </label>
+                <textarea
+                  value={editingCompany.description || ''}
+                  onChange={e => setEditingCompany({ ...editingCompany, description: e.target.value })}
+                  placeholder="협력사 주요 담당 업무, 계약 기간 등 비고를 입력하세요."
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    borderRadius: '8px',
+                    border: '1px solid #CBD5E1',
+                    fontSize: '12.5px',
+                    color: '#0F172A',
+                    boxSizing: 'border-box',
+                    outline: 'none',
+                    resize: 'none'
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{
+              padding: '14px 20px',
+              borderTop: '1px solid #E2E8F0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: '#F8FAFC'
+            }}>
+              {editingCompany.company_name && editingCompany.company_name !== '신한DS' && (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteCompany(editingCompany.id, editingCompany.company_name)}
+                  style={{
+                    background: '#FEE2E2',
+                    color: '#EF4444',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '8px 14px',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  협력사 삭제
+                </button>
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+                <button
+                  type="button"
+                  onClick={() => { setIsCompanyModalOpen(false); setEditingCompany(null); }}
+                  style={{
+                    background: '#E2E8F0',
+                    color: '#475569',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '8px 14px',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveCompany}
+                  style={{
+                    background: '#0052FF',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '8px 18px',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(0, 82, 255, 0.25)'
+                  }}
+                >
+                  저장하기
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
