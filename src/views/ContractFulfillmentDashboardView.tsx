@@ -34,10 +34,21 @@ interface ContractFulfillmentDashboardViewProps {
   themeMode: 'ddangyo' | 'shinhan';
 }
 
+export interface OrgPartInfo {
+  id: string;
+  partName: string;
+  leaderName: string;
+  memberCount: number;
+  companyName: string;
+  partnerCompany?: string;
+  locationName: string;
+}
+
 export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashboardViewProps> = ({
   currentUser,
   themeMode
 }) => {
+  const [dbPartList, setDbPartList] = useState<OrgPartInfo[]>([]);
   const [activePart, setActivePart] = useState<string>(currentUser.partName || '상담');
   const [records, setRecords] = useState<ManpowerInputRecord[]>([]);
   const [exceptionRecords, setExceptionRecords] = useState<ManpowerInputRecord[]>([]);
@@ -45,6 +56,40 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
   const [summary, setSummary] = useState<PartFulfillmentSummary>(dbService.getPartSummary('상담'));
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
   
+  // D1 DB에서 실제 등록된 파트 목록 조회
+  useEffect(() => {
+    const fetchDbParts = async () => {
+      try {
+        const res = await fetch('https://sguardai.khcho0421.workers.dev/organizations');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.data && Array.isArray(json.data) && json.data.length > 0) {
+            const mapped: OrgPartInfo[] = json.data.map((item: any) => ({
+              id: item.id,
+              partName: item.part_name,
+              leaderName: item.leader_name || 'PM',
+              memberCount: item.member_count || 0,
+              companyName: item.company_name || '신한DS',
+              locationName: item.location_name || '파인에비뉴(카드)'
+            }));
+            setDbPartList(mapped);
+
+            // 현재 사용자의 파트가 등록 목록에 있는지 확인
+            const matched = mapped.find(p => p.partName === currentUser.partName);
+            if (matched) {
+              setActivePart(matched.partName);
+            } else if (mapped.length > 0) {
+              setActivePart(mapped[0].partName);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch db parts, fallback to defaults:', err);
+      }
+    };
+    fetchDbParts();
+  }, [currentUser.partName]);
+
   // 모달 상태
   const [isAddWorkerModalOpen, setIsAddWorkerModalOpen] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
@@ -65,7 +110,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
   const [newWorkerForm, setNewWorkerForm] = useState({
     workerName: '',
     employeeId: '',
-    partnerCompany: PM_PART_LIST.find(p => p.partName === activePart)?.partnerCompany || '유브갓',
+    partnerCompany: '유브갓',
     workDate: new Date().toISOString().substring(0, 10),
     clockInTime: '08:50',
     clockOutTime: '18:00',
@@ -102,12 +147,12 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
 
   useEffect(() => {
     loadData();
-    const currentPartInfo = PM_PART_LIST.find(p => p.partName === activePart);
+    const currentPartInfo = dbPartList.find(p => p.partName === activePart) || PM_PART_LIST.find(p => p.partName === activePart);
     setNewWorkerForm(prev => ({
       ...prev,
       partnerCompany: currentPartInfo?.partnerCompany || '유브갓'
     }));
-  }, [activePart]);
+  }, [activePart, dbPartList]);
 
   const handleSelectAll = () => {
     if (selectedRecordIds.length === records.length) {
@@ -232,83 +277,93 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
     setIsDefenseReportModalOpen(true);
   };
 
-  return (
-    <div style={{
-      background: '#060B14',
-      minHeight: '100vh',
-      color: '#FFFFFF',
-      display: 'flex',
-      flexDirection: 'column',
-      paddingBottom: '120px'
-    }}>
-      {/* 1. 상단 Header: 10인 PM 체제 & 파트 전담 격리 헤더 */}
+    const displayPartList: OrgPartInfo[] = dbPartList.length > 0
+      ? dbPartList
+      : [
+          { id: 'org-counsel-01', partName: '상담', leaderName: '조경훈', memberCount: 5, companyName: '신한DS', locationName: '파인에비뉴(카드)' },
+          { id: 'org-auto-01', partName: '오토금융', leaderName: '김종현', memberCount: 10, companyName: '신한DS', locationName: '파인에비뉴(카드)' },
+          { id: 'org-global-01', partName: '국제', leaderName: '박남호', memberCount: 1, companyName: '신한DS', locationName: '파인에비뉴(카드)' }
+        ];
+
+    const currentPartInfo = displayPartList.find(p => p.partName === activePart) || displayPartList[0];
+
+    return (
       <div style={{
-        background: 'linear-gradient(180deg, #0F1E36 0%, #060B14 100%)',
-        padding: '18px 18px 14px 18px',
-        borderBottom: '1px solid rgba(0, 229, 255, 0.18)'
+        background: '#060B14',
+        minHeight: '100vh',
+        color: '#FFFFFF',
+        display: 'flex',
+        flexDirection: 'column',
+        paddingBottom: '120px'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            background: 'rgba(0, 229, 255, 0.12)',
-            border: '1px solid rgba(0, 229, 255, 0.35)',
-            padding: '3px 10px',
-            borderRadius: '16px',
-            fontSize: '11px',
-            fontWeight: 800,
-            color: '#00E5FF'
-          }}>
-            <ShieldCheck size={13} color="#00E5FF" />
-            <span>10인 PM 체제 도급 관리 시스템</span>
-          </div>
-
-          <span style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600 }}>
-            {currentUser.name}
-          </span>
-        </div>
-
-        {/* 파트명 (협력사 상단 독립 박스 제거) */}
-        <div>
-          <div style={{ fontSize: '12px', color: '#80D8FF', fontWeight: 700 }}>
-            전담 관제 파트 (120인 규모 도급 인력)
-          </div>
-          <h1 style={{ fontSize: '24px', fontWeight: 900, color: '#FFFFFF', margin: '2px 0 0 0', letterSpacing: '-0.5px' }}>
-            파트명({activePart})
-          </h1>
-        </div>
-
-        {/* 10개 파트 스위처 (10인 PM 파트 격리 탭) */}
+        {/* 1. 상단 Header: DB 등록 파트 전담 관제 헤더 */}
         <div style={{
-          display: 'flex',
-          gap: '6px',
-          overflowX: 'auto',
-          padding: '10px 0 4px 0',
-          scrollbarWidth: 'none'
+          background: 'linear-gradient(180deg, #0F1E36 0%, #060B14 100%)',
+          padding: '18px 18px 14px 18px',
+          borderBottom: '1px solid rgba(0, 229, 255, 0.18)'
         }}>
-          {PM_PART_LIST.map(p => (
-            <button
-              key={p.partId}
-              type="button"
-              onClick={() => setActivePart(p.partName)}
-              style={{
-                flexShrink: 0,
-                padding: '6px 10px',
-                borderRadius: '8px',
-                border: activePart === p.partName ? '1.5px solid #00E5FF' : '1px solid rgba(255, 255, 255, 0.08)',
-                background: activePart === p.partName ? '#0052FF' : 'rgba(255, 255, 255, 0.04)',
-                color: activePart === p.partName ? '#FFFFFF' : '#90A4AE',
-                fontSize: '11.5px',
-                fontWeight: activePart === p.partName ? 800 : 600,
-                cursor: 'pointer'
-              }}
-            >
-              {p.partName} {p.partName === '상담' && <span style={{ color: '#80D8FF' }}>★</span>}
-            </button>
-          ))}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'rgba(0, 229, 255, 0.12)',
+              border: '1px solid rgba(0, 229, 255, 0.35)',
+              padding: '3px 10px',
+              borderRadius: '16px',
+              fontSize: '11px',
+              fontWeight: 800,
+              color: '#00E5FF'
+            }}>
+              <ShieldCheck size={13} color="#00E5FF" />
+              <span>{displayPartList.length}개 도급 공정 파트 관제 시스템</span>
+            </div>
+
+            <span style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600 }}>
+              {currentPartInfo?.leaderName ? `${currentPartInfo.leaderName} PM` : currentUser.name}
+            </span>
+          </div>
+
+          {/* 파트명 */}
+          <div>
+            <div style={{ fontSize: '12px', color: '#80D8FF', fontWeight: 700 }}>
+              전담 관제 파트 ({currentPartInfo?.memberCount || 5}인 규모 도급 인력)
+            </div>
+            <h1 style={{ fontSize: '24px', fontWeight: 900, color: '#FFFFFF', margin: '2px 0 0 0', letterSpacing: '-0.5px' }}>
+              파트명({activePart})
+            </h1>
+          </div>
+
+          {/* DB 등록 파트 스위처 탭 */}
+          <div style={{
+            display: 'flex',
+            gap: '6px',
+            overflowX: 'auto',
+            padding: '10px 0 4px 0',
+            scrollbarWidth: 'none'
+          }}>
+            {displayPartList.map(p => (
+              <button
+                key={p.id || p.partName}
+                type="button"
+                onClick={() => setActivePart(p.partName)}
+                style={{
+                  flexShrink: 0,
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  border: activePart === p.partName ? '1.5px solid #00E5FF' : '1px solid rgba(255, 255, 255, 0.08)',
+                  background: activePart === p.partName ? '#0052FF' : 'rgba(255, 255, 255, 0.04)',
+                  color: activePart === p.partName ? '#FFFFFF' : '#90A4AE',
+                  fontSize: '12px',
+                  fontWeight: activePart === p.partName ? 800 : 600,
+                  cursor: 'pointer'
+                }}
+              >
+                {p.partName} {p.partName === currentUser.partName && <span style={{ color: '#80D8FF' }}>★</span>}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
 
       <div style={{ padding: '16px 16px 8px 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
