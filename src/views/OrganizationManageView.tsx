@@ -16,11 +16,20 @@ export interface OrgUnit {
   companyName: string;
   teamName: string;
   partName: string;
-  leaderName: string;
+  leaderName: string; // 성명만 저장 (예: 박성진, 조경훈)
   locationName: string;
   memberCount: number;
   description?: string;
 }
+
+// 이름 정제 헬퍼 함수 (PM, 신한DS, 괄호 제거)
+const cleanLeaderName = (name: string): string => {
+  return (name || '')
+    .replace(/PM/gi, '')
+    .replace(/신한DS/gi, '')
+    .replace(/[\(\)\[\]]/g, '')
+    .trim() || '조경훈';
+};
 
 // 신한DS ➔ 팀 ➔ 파트 도급 공정 수행 단일 표준 조직 데이터
 export const initialOrgUnits: OrgUnit[] = [
@@ -30,7 +39,7 @@ export const initialOrgUnits: OrgUnit[] = [
     companyName: '신한DS',
     teamName: '카드개발팀',
     partName: '카드IS파트',
-    leaderName: '박성진 PM (신한DS)',
+    leaderName: '박성진',
     locationName: '파인에비뉴(카드)',
     memberCount: 120,
     description: '신한카드 기간계 계정계 및 승인 코어 시스템 도급 인력 투입 조직'
@@ -41,7 +50,7 @@ export const initialOrgUnits: OrgUnit[] = [
     companyName: '신한DS',
     teamName: '상담운영팀',
     partName: '상담파트',
-    leaderName: '조경훈 PM (신한DS)',
+    leaderName: '조경훈',
     locationName: '파인에비뉴(상담센터)',
     memberCount: 120,
     description: '신한카드 고객 인바운드/VIP 전문 상담 도급 투입 조직'
@@ -52,7 +61,7 @@ export const initialOrgUnits: OrgUnit[] = [
     companyName: '신한DS',
     teamName: '금융개발팀',
     partName: '오토파트',
-    leaderName: '강민우 PM (신한DS)',
+    leaderName: '강민우',
     locationName: '여의도 금융센터',
     memberCount: 120,
     description: '오토금융 다이렉트 할부 및 리스/렌터카 대금 정산 도급 투입'
@@ -63,7 +72,7 @@ export const initialOrgUnits: OrgUnit[] = [
     companyName: '신한DS',
     teamName: '재무회계팀',
     partName: '재무파트',
-    leaderName: '송진호 PM (신한DS)',
+    leaderName: '송진호',
     locationName: '신한백암빌딩',
     memberCount: 120,
     description: '일일 결제대금 대사 및 회계 전표 인터페이스 도급 투입'
@@ -74,7 +83,7 @@ export const initialOrgUnits: OrgUnit[] = [
     companyName: '신한DS',
     teamName: '결제인프라팀',
     partName: '결제망파트',
-    leaderName: '최동욱 PM (신한DS)',
+    leaderName: '최동욱',
     locationName: '상암 IT센터',
     memberCount: 120,
     description: '가맹점 VAN/PG 결제망 인터페이스 무중단 운영 도급 투입'
@@ -85,7 +94,7 @@ export const initialOrgUnits: OrgUnit[] = [
     companyName: '신한DS',
     teamName: '플랫폼개발팀',
     partName: '땡겨요파트',
-    leaderName: '임도현 PM (신한DS)',
+    leaderName: '임도현',
     locationName: 'AIA타워',
     memberCount: 120,
     description: '상생 배달앱 땡겨요 가맹점/라이더 실시간 주문 정산 도급 투입'
@@ -96,7 +105,7 @@ export const initialOrgUnits: OrgUnit[] = [
     companyName: '신한DS',
     teamName: '데이터센터운영팀',
     partName: '클라우드인프라파트',
-    leaderName: '고영진 PM (신한DS)',
+    leaderName: '고영진',
     locationName: 'KT IDC',
     memberCount: 120,
     description: '프라이빗/하이브리드 금융 클라우드 인프라 관제 도급 투입'
@@ -105,7 +114,7 @@ export const initialOrgUnits: OrgUnit[] = [
 
 export const defaultOrgUnits = initialOrgUnits;
 
-const STORAGE_KEY_ORGS = 'SGUARD_ORG_UNITS_DATA_V2';
+const STORAGE_KEY_ORGS = 'SGUARD_ORG_UNITS_DATA_V3';
 
 interface OrganizationManageViewProps {
   onBack: () => void;
@@ -124,7 +133,12 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
       const saved = localStorage.getItem(STORAGE_KEY_ORGS);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((item: any) => ({
+            ...item,
+            leaderName: cleanLeaderName(item.leaderName)
+          }));
+        }
       }
     } catch (e) {}
     return initialOrgUnits;
@@ -175,7 +189,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
       teamName: '카드개발팀',
       partName: '신규파트',
       hierarchyPath: '신한DS > 카드개발팀 > 신규파트',
-      leaderName: '조경훈 PM (신한DS)',
+      leaderName: '조경훈',
       locationName: '파인에비뉴(카드)',
       memberCount: 120,
       description: '도급 과업 수행 및 인력 투입 관제 조직'
@@ -185,18 +199,25 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
   };
 
   // 모달 저장
-  const handleSaveModal = (updated: OrgUnit) => {
-    if (!updated.teamName.trim() || !updated.partName.trim()) {
-      alert('팀명과 파트명을 모두 입력해 주세요.');
+  const handleSaveModal = () => {
+    if (!editingOrg) return;
+
+    if (!editingOrg.teamName.trim() || !editingOrg.partName.trim()) {
+      alert('소속 팀명과 파트명을 모두 입력해 주세요.');
       return;
     }
 
-    const computedPath = `신한DS > ${updated.teamName} > ${updated.partName}`;
+    const cleanLeader = cleanLeaderName(editingOrg.leaderName);
+    const computedPath = `신한DS > ${editingOrg.teamName.trim()} > ${editingOrg.partName.trim()}`;
 
     const finalItem: OrgUnit = {
-      ...updated,
+      ...editingOrg,
       companyName: '신한DS',
-      hierarchyPath: computedPath
+      teamName: editingOrg.teamName.trim(),
+      partName: editingOrg.partName.trim(),
+      leaderName: cleanLeader,
+      hierarchyPath: computedPath,
+      memberCount: Number(editingOrg.memberCount) || 120
     };
 
     const existsIdx = orgList.findIndex(o => o.id === finalItem.id);
@@ -211,7 +232,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
     saveOrgs(newList);
     setIsAddModalOpen(false);
     setEditingOrg(null);
-    alert(`✅ [${finalItem.hierarchyPath}] 조직이 성공적으로 저장되었습니다.`);
+    alert(`✅ [${finalItem.hierarchyPath}] 조직 정보가 안전하게 저장되었습니다.\n• 담당 PM / 현장대리인: ${cleanLeader}`);
   };
 
   // 삭제 처리
@@ -330,7 +351,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder="조직명, 팀, 파트, 담당자, 근무지 검색..."
+            placeholder="조직명, 팀, 파트, 담당자 성명, 근무지 검색..."
             style={{
               border: 'none',
               background: 'transparent',
@@ -360,7 +381,10 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
             <div
               key={org.id}
               onClick={() => {
-                setEditingOrg({ ...org });
+                setEditingOrg({ 
+                  ...org,
+                  leaderName: cleanLeaderName(org.leaderName)
+                });
                 setIsAddModalOpen(true);
               }}
               style={{
@@ -400,10 +424,10 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
                   </span>
                 </div>
 
-                {/* 하단 메타 정보 (담당자, 인원 수, 근무지) */}
+                {/* 하단 메타 정보 (담당자 이름, 인원 수, 근무지) */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '11.5px', color: '#64748B', flexWrap: 'wrap' }}>
-                  <span style={{ fontWeight: 600, color: '#334155' }}>
-                    👤 {org.leaderName}
+                  <span style={{ fontWeight: 700, color: '#1E293B' }}>
+                    👤 {cleanLeaderName(org.leaderName)}
                   </span>
                   <span>•</span>
                   <span>
@@ -569,17 +593,24 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
                 </div>
               </div>
 
-              {/* 3. 조직 책임자/PM 및 인원 수 */}
+              {/* 3. 담당 PM / 현장대리인 성명 (이름만 입력) & 투입 인원 수 */}
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '10px' }}>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
-                    담당 PM / 현장대리인
+                    담당 PM / 현장대리인 (이름만 입력) *
                   </label>
                   <input
                     type="text"
                     value={editingOrg.leaderName}
-                    onChange={e => setEditingOrg({ ...editingOrg, leaderName: e.target.value })}
-                    placeholder="예: 박성진 PM (신한DS)"
+                    onChange={e => {
+                      const clean = e.target.value
+                        .replace(/PM/gi, '')
+                        .replace(/신한DS/gi, '')
+                        .replace(/[\(\)\[\]]/g, '')
+                        .trimStart();
+                      setEditingOrg({ ...editingOrg, leaderName: clean });
+                    }}
+                    placeholder="예: 조경훈, 박성진"
                     style={{
                       width: '100%',
                       padding: '8px 10px',
@@ -710,7 +741,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
 
               <button
                 type="button"
-                onClick={() => handleSaveModal(editingOrg)}
+                onClick={handleSaveModal}
                 style={{
                   flex: 1.5,
                   padding: '10px 0',
