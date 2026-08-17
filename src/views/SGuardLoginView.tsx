@@ -525,31 +525,38 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
     setLoading(true);
     const cleanEmpId = signupForm.empNo.trim().replace(/^S/i, '').replace(/^emp-/i, '').replace(/^pt-/i, '');
 
-    // 1. 실제 Cloudflare D1 users 테이블에 INSERT
+    // 1. 실제 Cloudflare D1 shifti-db users 테이블에 INSERT
     try {
-      await fetch('https://sguardai.khcho0421.workers.dev/auth/signup', {
+      const response = await fetch('https://sguardai.khcho0421.workers.dev/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          employee_id: cleanEmpId || signupForm.empNo.trim(),
+          employee_id: signupForm.empNo.trim(),
           email: signupForm.email.trim(),
-          password: signupForm.pw || '••••••••',
+          password: signupForm.pw || 'Password123!',
           name: signupForm.name.trim(),
           company: signupForm.company,
-          team: signupForm.team,
-          part: signupForm.part,
+          team: signupForm.isPartnerManager ? '전사 총괄' : signupForm.team,
+          part: signupForm.isPartnerManager ? '전사 총괄' : signupForm.part,
           position: signupForm.position,
           phone: signupForm.phone.trim(),
-          role: signupForm.company === '신한DS' ? 'admin' : 'analyst',
-          os_type: (signupForm.deviceType || 'android').toLowerCase()
+          is_partner_manager: signupForm.isPartnerManager ? 1 : 0,
+          role: signupForm.company === '신한DS' 
+            ? 'DS_PRINCIPAL_PM' 
+            : signupForm.isPartnerManager 
+              ? 'PARTNER_PART_LEADER' 
+              : 'PARTNER_WORKER',
+          device_type: signupForm.deviceType || 'Android'
         })
       });
+      const data = await response.json();
+      console.log('[D1 Signup Success]', data);
     } catch (e) {
       console.warn('[Cloudflare D1 signup warning]', e);
     }
 
     // 2. 로컬 DB 동기화
-    const res = dbService.insertUser({
+    dbService.insertUser({
       employeeId: signupForm.empNo.trim(),
       name: signupForm.name.trim(),
       email: signupForm.email.trim(),
