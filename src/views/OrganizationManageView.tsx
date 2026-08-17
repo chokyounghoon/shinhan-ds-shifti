@@ -6,10 +6,11 @@ import {
   Building2, 
   Plus, 
   ChevronRight, 
-  X, 
+  X,
   Users,
   FolderPlus
 } from 'lucide-react';
+import { dbService } from '../services/db';
 
 export interface OrgUnit {
   id: string;
@@ -192,10 +193,15 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
 
     // Cloudflare D1 shifti-db organizations 테이블에 실시간 동기화
     try {
+      const currentUser = dbService.getCurrentUser();
+      const actorId = currentUser?.id || currentUser?.name || 'S01832';
       const res = await fetch('https://sguardai.khcho0421.workers.dev/organizations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(finalItem)
+        body: JSON.stringify({
+          ...finalItem,
+          actor: actorId
+        })
       });
       if (res.ok) {
         fetchRemoteOrgs();
