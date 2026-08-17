@@ -1,7 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, MapPin, Navigation } from 'lucide-react';
+import { ArrowLeft, MapPin, Navigation, Layers } from 'lucide-react';
 import L from 'leaflet';
 import { WorkLocation } from './WorkLocationSelectView';
+
+declare global {
+  interface Window {
+    kakao: any;
+  }
+}
 
 interface WorkLocationDetailViewProps {
   location: WorkLocation | null;
@@ -15,128 +21,219 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
   themeMode
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<L.Map | null>(null);
+  const kakaoMapRef = useRef<any>(null);
+  const leafletMapRef = useRef<L.Map | null>(null);
+  const [mapType, setMapType] = useState<'ROADMAP' | 'SKYVIEW'>('ROADMAP');
+  const [isKakaoActive, setIsKakaoActive] = useState<boolean>(true);
 
-  const locName = location ? location.name.replace('[좌표] ', '') : 'KT IDC';
-  const locAddress = location ? location.address : '서울 영등포구 여의대로 14 KT여의도타워';
-  const targetLat = location?.lat || 37.5255;
-  const targetLng = location?.lng || 126.9242;
+  const locName = location ? location.name.replace('[좌표] ', '') : '파인에비뉴(카드)';
+  const locAddress = location ? location.address : '서울 중구 을지로 100 파인에비뉴';
+  const targetLat = location?.lat || 37.5663;
+  const targetLng = location?.lng || 126.9890;
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    // 기존 맵 인스턴스가 있다면 정리
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.remove();
-      mapInstanceRef.current = null;
+    // 기존 맵 정리
+    if (leafletMapRef.current) {
+      leafletMapRef.current.remove();
+      leafletMapRef.current = null;
     }
+    mapContainerRef.current.innerHTML = '';
 
-    try {
-      // 1. Leaflet 지도 생성 (기본 줌 레벨 17.5로 상세 건물 뷰)
-      const map = L.map(mapContainerRef.current, {
-        center: [targetLat, targetLng],
-        zoom: 17.5,
-        minZoom: 14,
-        maxZoom: 20,
-        zoomControl: false,
-        attributionControl: false,
-        scrollWheelZoom: true,
-        touchZoom: true,
-        doubleClickZoom: true
-      });
+    // 1. 카카오 지도 SDK 초기화 시도
+    const initKakaoMap = () => {
+      if (window.kakao && window.kakao.maps) {
+        window.kakao.maps.load(() => {
+          if (!mapContainerRef.current) return;
 
-      mapInstanceRef.current = map;
+          const center = new window.kakao.maps.LatLng(targetLat, targetLng);
+          const options = {
+            center: center,
+            level: 3 // 카카오맵 3레벨 (건물명, 지하철역 출구, 상호명 상세 뷰)
+          };
 
-      // 2. 고해상도 레티나 타일 레이어 (@2x 타일로 고해상도 건물/상호 렌더링)
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png', {
-        maxZoom: 20,
-        maxNativeZoom: 19,
-        subdomains: 'abcd'
-      }).addTo(map);
+          const map = new window.kakao.maps.Map(mapContainerRef.current, options);
+          kakaoMapRef.current = map;
+          setIsKakaoActive(true);
 
-      // 3. 커스텀 마커 아이콘 생성
-      const customIcon = L.divIcon({
-        className: 'custom-map-marker',
-        html: `
-          <div style="
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            transform: translate(-50%, -100%);
-            filter: drop-shadow(0 3px 8px rgba(0,0,0,0.35));
-          ">
+          // 100m 지오펜스 반경 원 표시
+          const circle = new window.kakao.maps.Circle({
+            center: center,
+            radius: 100, // 100m
+            strokeWeight: 2.5,
+            strokeColor: '#0052FF',
+            strokeOpacity: 0.85,
+            strokeStyle: 'dashed',
+            fillColor: '#0052FF',
+            fillOpacity: 0.16
+          });
+          circle.setMap(map);
+
+          // 커스텀 오버레이 마커 핀
+          const content = document.createElement('div');
+          content.innerHTML = `
             <div style="
-              background: #0052FF;
-              color: #FFFFFF;
-              padding: 6px 12px;
-              border-radius: 20px;
-              font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', sans-serif;
-              font-size: 12px;
-              font-weight: 800;
-              white-space: nowrap;
-              border: 2px solid #FFFFFF;
-              box-shadow: 0 4px 12px rgba(0,82,255,0.45);
-              margin-bottom: 4px;
               display: flex;
+              flex-direction: column;
               align-items: center;
-              gap: 4px;
+              transform: translate(-50%, -100%);
+              filter: drop-shadow(0 4px 10px rgba(0,0,0,0.35));
+              cursor: pointer;
             ">
-              <span>📍</span> <span>${locName}</span>
+              <div style="
+                background: #0052FF;
+                color: #FFFFFF;
+                padding: 6px 14px;
+                border-radius: 20px;
+                font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', sans-serif;
+                font-size: 12px;
+                font-weight: 800;
+                white-space: nowrap;
+                border: 2px solid #FFFFFF;
+                box-shadow: 0 4px 12px rgba(0,82,255,0.45);
+                margin-bottom: 4px;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+              ">
+                <span>📍</span> <span>${locName}</span>
+                <span style="background: rgba(255,255,255,0.25); padding: 1px 6px; border-radius: 10px; font-size: 10px;">100m</span>
+              </div>
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.8">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+                <circle cx="12" cy="9" r="2.5" fill="#FFFFFF" />
+              </svg>
             </div>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.8">
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-              <circle cx="12" cy="9" r="2.5" fill="#FFFFFF" />
-            </svg>
-          </div>
-        `,
-        iconSize: [0, 0],
-        iconAnchor: [0, 0]
-      });
+          `;
 
-      // 4. 마커 및 100m 지오펜스 반경 원 추가
-      L.marker([targetLat, targetLng], { icon: customIcon }).addTo(map);
+          const customOverlay = new window.kakao.maps.CustomOverlay({
+            position: center,
+            content: content,
+            yAnchor: 1
+          });
+          customOverlay.setMap(map);
 
-      L.circle([targetLat, targetLng], {
-        radius: 100, // 100m
-        color: '#0052FF',
-        weight: 2.5,
-        dashArray: '6, 6',
-        fillColor: '#0052FF',
-        fillOpacity: 0.16
-      }).addTo(map);
+          // 지도 렌더링 리사이즈 보정
+          setTimeout(() => {
+            map.relayout();
+            map.setCenter(center);
+          }, 200);
+        });
+        return true;
+      }
+      return false;
+    };
 
-      // 지도 렌더링 갱신
-      setTimeout(() => {
-        map.invalidateSize();
-      }, 150);
-
-    } catch (err) {
-      console.warn('Map initialization error:', err);
+    // 2. 카카오맵 SDK 로드 대기 및 실행
+    if (!initKakaoMap()) {
+      // SDK가 아직 준비되지 않았다면 잠시 후 재시도
+      const timer = setTimeout(() => {
+        if (!initKakaoMap()) {
+          // 카카오맵 로드 실패 시 고해상도 Leaflet 타일맵으로 자동 폴백
+          initLeafletFallback();
+        }
+      }, 500);
+      return () => clearTimeout(timer);
     }
+
+    // 폴백 Leaflet 맵
+    const initLeafletFallback = () => {
+      if (!mapContainerRef.current) return;
+      setIsKakaoActive(false);
+      try {
+        const map = L.map(mapContainerRef.current, {
+          center: [targetLat, targetLng],
+          zoom: 18,
+          maxZoom: 20,
+          zoomControl: false,
+          attributionControl: false
+        });
+        leafletMapRef.current = map;
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png', {
+          maxZoom: 20,
+          subdomains: 'abcd'
+        }).addTo(map);
+
+        const customIcon = L.divIcon({
+          className: 'custom-map-marker',
+          html: `
+            <div style="display: flex; flex-direction: column; align-items: center; transform: translate(-50%, -100%);">
+              <div style="background: #0052FF; color: #FFFFFF; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 800; border: 2px solid #FFFFFF; margin-bottom: 4px;">
+                📍 ${locName}
+              </div>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.8">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+                <circle cx="12" cy="9" r="2.5" fill="#FFFFFF" />
+              </svg>
+            </div>
+          `,
+          iconSize: [0, 0],
+          iconAnchor: [0, 0]
+        });
+
+        L.marker([targetLat, targetLng], { icon: customIcon }).addTo(map);
+        L.circle([targetLat, targetLng], { radius: 100, color: '#0052FF', weight: 2.5, dashArray: '6, 6', fillColor: '#0052FF', fillOpacity: 0.16 }).addTo(map);
+        setTimeout(() => map.invalidateSize(), 200);
+      } catch (e) {
+        console.warn('Leaflet fallback error:', e);
+      }
+    };
 
     return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
+      if (leafletMapRef.current) {
+        leafletMapRef.current.remove();
+        leafletMapRef.current = null;
       }
     };
   }, [targetLat, targetLng, locName]);
 
+  // 줌인 (+)
   const handleZoomIn = () => {
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.zoomIn();
+    if (kakaoMapRef.current && window.kakao && window.kakao.maps) {
+      const level = kakaoMapRef.current.getLevel();
+      if (level > 1) {
+        kakaoMapRef.current.setLevel(level - 1, { animate: true });
+      }
+    } else if (leafletMapRef.current) {
+      leafletMapRef.current.zoomIn();
     }
   };
 
+  // 줌아웃 (-)
   const handleZoomOut = () => {
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.zoomOut();
+    if (kakaoMapRef.current && window.kakao && window.kakao.maps) {
+      const level = kakaoMapRef.current.getLevel();
+      if (level < 14) {
+        kakaoMapRef.current.setLevel(level + 1, { animate: true });
+      }
+    } else if (leafletMapRef.current) {
+      leafletMapRef.current.zoomOut();
     }
   };
 
+  // 중심 위치 복귀
   const handleResetCenter = () => {
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.setView([targetLat, targetLng], 18, { animate: true });
+    if (kakaoMapRef.current && window.kakao && window.kakao.maps) {
+      const center = new window.kakao.maps.LatLng(targetLat, targetLng);
+      kakaoMapRef.current.setLevel(3, { animate: true });
+      kakaoMapRef.current.panTo(center);
+    } else if (leafletMapRef.current) {
+      leafletMapRef.current.setView([targetLat, targetLng], 18, { animate: true });
+    }
+  };
+
+  // 일반지도 / 스카이뷰 위성사진 전환
+  const handleToggleMapType = () => {
+    if (kakaoMapRef.current && window.kakao && window.kakao.maps) {
+      if (mapType === 'ROADMAP') {
+        kakaoMapRef.current.setMapTypeId(window.kakao.maps.MapTypeId.HYBRID);
+        setMapType('SKYVIEW');
+      } else {
+        kakaoMapRef.current.setMapTypeId(window.kakao.maps.MapTypeId.ROADMAP);
+        setMapType('ROADMAP');
+      }
     }
   };
 
@@ -220,7 +317,7 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
         {/* 실제 인터랙티브 지도 DOM */}
         <div ref={mapContainerRef} style={{ width: '100%', height: '100%', zIndex: 1 }} />
 
-        {/* 인터랙티브 줌 컨트롤 (+, -) & 센터 복귀 버튼 */}
+        {/* 인터랙티브 줌 컨트롤 (+, -) & 센터 복귀 & 스카이뷰 전환 버튼 */}
         <div style={{
           position: 'absolute',
           top: '12px',
@@ -234,14 +331,15 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
             type="button"
             onClick={handleZoomIn}
             aria-label="지도 확대"
+            title="지도 확대 (건물/지하철역 POI 상세 보기)"
             style={{
-              width: '34px',
-              height: '34px',
+              width: '36px',
+              height: '36px',
               background: '#FFFFFF',
               border: '1px solid #CBD5E1',
               borderRadius: '8px',
               boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-              fontSize: '18px',
+              fontSize: '20px',
               fontWeight: 800,
               color: '#0F172A',
               display: 'flex',
@@ -256,14 +354,15 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
             type="button"
             onClick={handleZoomOut}
             aria-label="지도 축소"
+            title="지도 축소"
             style={{
-              width: '34px',
-              height: '34px',
+              width: '36px',
+              height: '36px',
               background: '#FFFFFF',
               border: '1px solid #CBD5E1',
               borderRadius: '8px',
               boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-              fontSize: '18px',
+              fontSize: '20px',
               fontWeight: 800,
               color: '#0F172A',
               display: 'flex',
@@ -280,12 +379,12 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
             aria-label="중심 위치로 이동"
             title="약정 도급지 중심으로 이동"
             style={{
-              width: '34px',
-              height: '34px',
+              width: '36px',
+              height: '36px',
               background: '#0052FF',
               border: 'none',
               borderRadius: '8px',
-              boxShadow: '0 2px 8px rgba(0,82,255,0.3)',
+              boxShadow: '0 2px 8px rgba(0,82,255,0.35)',
               color: '#FFFFFF',
               display: 'flex',
               alignItems: 'center',
@@ -293,8 +392,31 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
               cursor: 'pointer'
             }}
           >
-            <Navigation size={16} />
+            <Navigation size={17} />
           </button>
+          {isKakaoActive && (
+            <button
+              type="button"
+              onClick={handleToggleMapType}
+              aria-label="지도/위성사진 전환"
+              title="지도 / 스카이뷰(위성사진) 전환"
+              style={{
+                width: '36px',
+                height: '36px',
+                background: mapType === 'SKYVIEW' ? '#0F172A' : '#FFFFFF',
+                border: '1px solid #CBD5E1',
+                borderRadius: '8px',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                color: mapType === 'SKYVIEW' ? '#F8FAFC' : '#334155',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer'
+              }}
+            >
+              <Layers size={16} />
+            </button>
+          )}
         </div>
 
         {/* 축척 및 안내 로고 표시 */}
@@ -302,21 +424,21 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
           position: 'absolute',
           bottom: '8px',
           left: '10px',
-          background: 'rgba(255, 255, 255, 0.94)',
-          padding: '3px 8px',
-          borderRadius: '4px',
-          fontSize: '10.5px',
+          background: 'rgba(255, 255, 255, 0.95)',
+          padding: '4px 9px',
+          borderRadius: '6px',
+          fontSize: '11px',
           fontWeight: 700,
-          color: '#334155',
-          boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+          color: '#1E293B',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.18)',
           zIndex: 10,
           display: 'flex',
           alignItems: 'center',
-          gap: '5px'
+          gap: '6px'
         }}>
-          <span>━ 50m</span>
+          <span style={{ color: '#0052FF', fontWeight: 800 }}>● Kakao Map</span>
           <span style={{ color: '#94A3B8' }}>|</span>
-          <span style={{ color: '#0052FF', fontWeight: 800 }}>GPS Geofence</span>
+          <span>100m Geofence</span>
         </div>
       </div>
 
