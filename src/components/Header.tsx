@@ -35,21 +35,29 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
 
         <div className="brand-logo-wrap">
-          {/* 신한DS 로고 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="10" fill={themeMode === 'ddangyo' ? '#FF462D' : '#0046FF'} />
-              <path d="M7 13.5C7.5 10 10.5 7.5 14 8C12 9.5 11 11.5 11 14.5C11 16.5 12.5 17 14 17C10 17 7 15.5 7 13.5Z" fill="white" />
-              <circle cx="15.5" cy="11.5" r="2" fill="white" />
+          {/* 신한금융그룹 공식 CI 심볼 마크 + 신한DS 브랜드 로고 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+            <svg width="24" height="24" viewBox="0 0 36 36" fill="none" style={{ flexShrink: 0 }}>
+              <circle cx="18" cy="18" r="18" fill="#0046FF" />
+              {/* 신한금융그룹 공식 비둘기 날개 & 태양 모티프 CI */}
+              <path 
+                d="M9.5 20.2C10.8 14.5 15.2 11.2 21 12C18.2 14 16.6 16.8 16.2 21.2C16.2 24.2 18.2 25.2 20.2 25.2C14.8 25.2 10.2 23 9.5 20.2Z" 
+                fill="white" 
+              />
+              <path 
+                d="M19.5 14C22.6 14.8 25.8 18 26.5 22C25 21.5 22.5 20.8 21 19.2C19.8 18 19.3 16 19.5 14Z" 
+                fill="white" 
+              />
+              <circle cx="23" cy="16.5" r="2.5" fill="white" />
             </svg>
             <span style={{ 
               fontWeight: 800, 
               fontSize: '18px', 
-              letterSpacing: '-0.4px', 
-              color: themeMode === 'ddangyo' ? '#FF462D' : '#0046FF',
+              letterSpacing: '-0.5px', 
+              color: '#0046FF',
               display: 'flex',
               alignItems: 'center',
-              gap: '4px'
+              gap: '3px'
             }}>
               신한<span style={{ fontWeight: 900 }}>DS</span>
             </span>
@@ -82,39 +90,68 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </button>
 
-        {/* S-GUARD 마이페이지 프로필 버튼 */}
+        {/* S-GUARD 마이페이지 프로필 버튼 (파트 : 로그인 사용자 이름 풀네임) */}
         {onOpenMyPage && (
           <button
             onClick={onOpenMyPage}
             style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #0052FF 0%, #00D4FF 100%)',
-              border: '1.5px solid #FFFFFF',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
+              gap: '6px',
+              padding: '4px 10px 4px 5px',
+              borderRadius: '20px',
+              background: 'linear-gradient(135deg, #0052FF 0%, #0072FF 100%)',
+              border: '1px solid rgba(0, 82, 255, 0.3)',
+              boxShadow: '0 2px 8px rgba(0, 82, 255, 0.25)',
               color: '#FFFFFF',
-              fontSize: '13px',
-              fontWeight: 800,
               cursor: 'pointer',
-              boxShadow: '0 2px 6px rgba(0, 82, 255, 0.3)',
               marginLeft: '4px',
-              overflow: 'hidden',
-              padding: 0
+              transition: 'all 0.15s ease'
             }}
             title="S-GUARD 회원 정보 관리"
           >
-            {avatarPhoto ? (
-              <img 
-                src={avatarPhoto} 
-                alt="프로필" 
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-              />
-            ) : (
-              <span>{avatarInitial}</span>
-            )}
+            {/* 사용자 프로필 아바타 / 사진 */}
+            <div style={{
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              background: '#FFFFFF',
+              color: '#0052FF',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '11.5px',
+              fontWeight: 900,
+              overflow: 'hidden',
+              flexShrink: 0
+            }}>
+              {avatarPhoto ? (
+                <img 
+                  src={avatarPhoto} 
+                  alt="프로필" 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                />
+              ) : (
+                <span>{avatarInitial}</span>
+              )}
+            </div>
+
+            {/* 파트 : 로그인 사용자 풀네임 */}
+            <span style={{
+              fontSize: '12.5px',
+              letterSpacing: '-0.2px',
+              whiteSpace: 'nowrap',
+              display: 'flex',
+              alignItems: 'center'
+            }}>
+              <span style={{ color: '#BAE6FD', fontWeight: 700 }}>
+                {(currentUser?.partName || '카드IS').replace(/파트$/, '')}
+              </span>
+              <span style={{ margin: '0 3px', color: '#E0F2FE', opacity: 0.8 }}>:</span>
+              <span style={{ fontWeight: 800, color: '#FFFFFF' }}>
+                {(currentUser?.name || '조경훈').trim()}
+              </span>
+            </span>
           </button>
         )}
       </div>
