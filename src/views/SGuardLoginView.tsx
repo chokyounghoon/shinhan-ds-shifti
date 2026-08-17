@@ -1789,7 +1789,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                   <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>제2조 (시스템의 이용)</strong>
                   <ul style={{ margin: 0, paddingLeft: '18px', color: '#B0BEC5' }}>
                     <li style={{ marginBottom: '4px' }}>
-                      본 시스템은 프로젝트 수행 현장에서의 안전한 출입 관리 및 원활한 공정 운영을 위해 인력 투입 여부를 확인하는 목적으로만 사용됩니다.
+                      본 시스템은 프로젝트 수행 현장에서의 원활한 공정 운영을 위해 인력 투입 여부를 확인하는 목적으로만 사용됩니다.
                     </li>
                     <li>
                       사용자는 지정된 현장 위치에서 본인의 투입 사실을 정확하게 등록하여야 하며, 부정한 방법으로 투입 정보를 조작하여서는 안 됩니다.
@@ -1814,7 +1814,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                 <div style={{ marginBottom: '12px' }}>
                   <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>개인정보 수집 목적:</strong>
                   <ul style={{ margin: 0, paddingLeft: '18px', color: '#B0BEC5' }}>
-                    <li>프로젝트 수행 현장 보안 출입 및 투입 확인</li>
+                    <li>프로젝트 수행 현장 투입 확인</li>
                     <li>과업 수행에 따른 현장 인력 가동 상태 확인</li>
                   </ul>
                 </div>
