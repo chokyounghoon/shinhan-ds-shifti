@@ -172,27 +172,6 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
     };
   }, [employees]);
 
-  // 신규 등록 열기
-  const handleOpenAddModal = () => {
-    const defaultPart = availableParts.length > 0 ? availableParts[0] : '상담';
-    const newEmp: EmployeeItem = {
-      id: `emp-${Date.now()}`,
-      name: '',
-      employeeId: '',
-      company: activeRoleTab === 'DS_PM' ? '신한DS' : '유브갓',
-      team: activeRoleTab === 'PARTNER_MANAGER' ? '영업총괄팀' : '카드개발팀',
-      part: activeRoleTab === 'PARTNER_MANAGER' ? '전사총괄' : defaultPart,
-      role: activeRoleTab,
-      position: activeRoleTab === 'DS_PM' ? '수석 (전담 PM)' : activeRoleTab === 'PARTNER_MANAGER' ? '현장관리인' : '선임',
-      phone: '010-',
-      email: '',
-      status: '정상투입',
-      joinedDate: new Date().toISOString().substring(0, 10)
-    };
-    setEditingEmp(newEmp);
-    setIsEditModalOpen(true);
-  };
-
   // 기존 직원 수정 열기
   const handleOpenEditModal = (emp: EmployeeItem) => {
     setEditingEmp({ ...emp });
@@ -310,27 +289,6 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
             </div>
           </div>
         </div>
-
-        <button 
-          onClick={handleOpenAddModal}
-          style={{ 
-            background: '#0052FF', 
-            color: '#FFFFFF', 
-            border: 'none',
-            borderRadius: '8px',
-            padding: '7px 12px',
-            fontSize: '13px',
-            fontWeight: 700,
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '5px',
-            cursor: 'pointer',
-            boxShadow: '0 2px 8px rgba(0, 82, 255, 0.25)'
-          }}
-        >
-          <Plus size={16} />
-          <span>직원 등록</span>
-        </button>
       </div>
 
       {/* 2. 3대 역할 탭 바 (협력사 / 협력사 관리인 / DS 현장관리인) */}
@@ -714,7 +672,7 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <UserIcon size={18} color="#0052FF" />
                 <span style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A' }}>
-                  {editingEmp.name ? `${editingEmp.name} 직원 정보 수정` : '새 직원 등록'}
+                  {editingEmp.name} ({editingEmp.employeeId}) 정보 수정
                 </span>
               </div>
               <button
@@ -784,7 +742,7 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
                 </div>
               </div>
 
-              {/* 2. 성명 & 사번 */}
+              {/* 2. 성명 & 사번 (사번은 키값이므로 수정 불가 잠금) */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
@@ -807,19 +765,22 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
                 </div>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
-                    사원번호 / 아이디 *
+                    사원번호 / 아이디 (고유 키값)
                   </label>
                   <input
                     type="text"
                     value={editingEmp.employeeId}
-                    onChange={e => setEditingEmp({ ...editingEmp, employeeId: e.target.value.trim().toUpperCase() })}
-                    placeholder="예: S01832, UB0001"
+                    disabled
                     style={{
                       width: '100%',
                       padding: '8px 10px',
                       borderRadius: '8px',
-                      border: '1px solid #CBD5E1',
+                      border: '1px solid #E2E8F0',
                       fontSize: '13px',
+                      background: '#F1F5F9',
+                      color: '#64748B',
+                      cursor: 'not-allowed',
+                      fontWeight: 700,
                       boxSizing: 'border-box'
                     }}
                   />
