@@ -518,7 +518,7 @@ export function App() {
               {currentPage === 'employees' && (
                 <EmployeeManageView
                   onBack={() => setCurrentPage('home')}
-                  onSelectEmployee={emp => alert(`👤 ${emp.name} (${emp.deptName}) - ${emp.roleCategory}`)}
+                  onSelectEmployee={emp => alert(`👤 ${emp.name} (${emp.company} / ${emp.team} ${emp.part}파트) - ${emp.position}`)}
                   themeMode={themeMode}
                 />
               )}
