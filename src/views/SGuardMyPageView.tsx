@@ -37,6 +37,14 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [avatarUrl, setAvatarUrl] = useState<string>(() => {
+    // 세션, user prop, localStorage 순으로 복원
+    try {
+      const saved = localStorage.getItem('SGUARD_AUTH_SESSION');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.avatarUrl || parsed.profileImage) return parsed.avatarUrl || parsed.profileImage;
+      }
+    } catch (e) {}
     return (user as any).avatarUrl || (user as any).profileImage || '';
   });
   const [deviceType, setDeviceType] = useState<'Android' | 'iOS'>(() => {
@@ -144,6 +152,10 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
           if (d.team) setTeam(d.team);
           if (d.part) setPart(d.part);
           if (d.position) setPosition(d.position);
+          // D1 profile_picture가 있으면 avatarUrl로 반영 (사진 영속 복원)
+          if (d.profile_picture) {
+            if (isMounted) setAvatarUrl(d.profile_picture);
+          }
           const dt = d.device_type || d.deviceType;
           if (dt) setDeviceType(dt === 'iOS' || dt === 'ios' ? 'iOS' : 'Android');
           setIsPartnerManager(d.company !== '신한DS' && (d.is_partner_manager === 1 || d.is_partner_manager === true));
