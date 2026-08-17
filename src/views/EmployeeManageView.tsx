@@ -40,7 +40,7 @@ export const initialEmployeeDataset: EmployeeItem[] = [
   {
     id: 'emp-w-01',
     name: '송무준',
-    employeeId: 'PT-2026-001',
+    employeeId: 'PT2001',
     company: '유브갓',
     team: '상담운영팀',
     part: '상담',
@@ -54,7 +54,7 @@ export const initialEmployeeDataset: EmployeeItem[] = [
   {
     id: 'emp-w-02',
     name: '김성훈',
-    employeeId: 'PT-2026-002',
+    employeeId: 'PT2002',
     company: '유브갓',
     team: '상담운영팀',
     part: '상담',
@@ -68,7 +68,7 @@ export const initialEmployeeDataset: EmployeeItem[] = [
   {
     id: 'emp-w-03',
     name: '이제성',
-    employeeId: 'PT-2026-003',
+    employeeId: 'PT2003',
     company: '(주)협력아이티에스',
     team: '상담운영팀',
     part: '상담',
@@ -82,7 +82,7 @@ export const initialEmployeeDataset: EmployeeItem[] = [
   {
     id: 'emp-w-04',
     name: '김흥섭',
-    employeeId: 'PT-2026-004',
+    employeeId: 'PT2004',
     company: '유브갓',
     team: '상담운영팀',
     part: '상담',
@@ -96,7 +96,7 @@ export const initialEmployeeDataset: EmployeeItem[] = [
   {
     id: 'emp-w-05',
     name: '박민우',
-    employeeId: 'PT-2026-005',
+    employeeId: 'PT2005',
     company: '현대IT솔루션',
     team: '상담운영팀',
     part: '상담',
@@ -110,7 +110,7 @@ export const initialEmployeeDataset: EmployeeItem[] = [
   {
     id: 'emp-w-06',
     name: '박창훈',
-    employeeId: 'PT-2026-021',
+    employeeId: 'PT2021',
     company: '오토시스',
     team: '금융개발팀',
     part: '오토',
@@ -124,7 +124,7 @@ export const initialEmployeeDataset: EmployeeItem[] = [
   {
     id: 'emp-w-07',
     name: '김진수',
-    employeeId: 'PT-2026-022',
+    employeeId: 'PT2022',
     company: '오토시스',
     team: '금융개발팀',
     part: '오토',
@@ -138,7 +138,7 @@ export const initialEmployeeDataset: EmployeeItem[] = [
   {
     id: 'emp-w-08',
     name: '이민호',
-    employeeId: 'PT-2026-031',
+    employeeId: 'PT2031',
     company: '파이낸스ITS',
     team: '재무회계팀',
     part: '재무',
@@ -152,7 +152,7 @@ export const initialEmployeeDataset: EmployeeItem[] = [
   {
     id: 'emp-w-09',
     name: '한동훈',
-    employeeId: 'PT-2026-041',
+    employeeId: 'PT2041',
     company: '현대IT솔루션',
     team: '카드개발팀',
     part: '카드IS',
@@ -166,7 +166,7 @@ export const initialEmployeeDataset: EmployeeItem[] = [
   {
     id: 'emp-w-10',
     name: '김연섭',
-    employeeId: 'PT-2026-042',
+    employeeId: 'PT2042',
     company: '현대IT솔루션',
     team: '카드개발팀',
     part: '카드IS',
@@ -180,7 +180,7 @@ export const initialEmployeeDataset: EmployeeItem[] = [
   {
     id: 'emp-w-11',
     name: '서성훈',
-    employeeId: 'PT-2026-043',
+    employeeId: 'PT2043',
     company: '데이터인사이트',
     team: '카드개발팀',
     part: '데이터',
@@ -196,7 +196,7 @@ export const initialEmployeeDataset: EmployeeItem[] = [
   {
     id: 'emp-m-01',
     name: '최영호 대표',
-    employeeId: 'MGR-UBG-01',
+    employeeId: 'MGRUB1',
     company: '유브갓',
     team: '영업총괄팀',
     part: '전사총괄',
@@ -210,7 +210,7 @@ export const initialEmployeeDataset: EmployeeItem[] = [
   {
     id: 'emp-m-02',
     name: '정진우 부사장',
-    employeeId: 'MGR-ITS-01',
+    employeeId: 'MGRIT1',
     company: '(주)협력아이티에스',
     team: '영업총괄팀',
     part: '전사총괄',
@@ -224,7 +224,7 @@ export const initialEmployeeDataset: EmployeeItem[] = [
   {
     id: 'emp-m-03',
     name: '김태현 전무',
-    employeeId: 'MGR-HD-01',
+    employeeId: 'MGRHD1',
     company: '현대IT솔루션',
     team: 'SI사업본부',
     part: '전사총괄',
@@ -238,7 +238,7 @@ export const initialEmployeeDataset: EmployeeItem[] = [
   {
     id: 'emp-m-04',
     name: '이강현 상무',
-    employeeId: 'MGR-AUTO-01',
+    employeeId: 'MGRAU1',
     company: '오토시스',
     team: '오토사업본부',
     part: '전사총괄',
@@ -252,7 +252,7 @@ export const initialEmployeeDataset: EmployeeItem[] = [
   {
     id: 'emp-m-05',
     name: '문상철 대표',
-    employeeId: 'MGR-FIN-01',
+    employeeId: 'MGRFI1',
     company: '파이낸스ITS',
     team: '금융사업본부',
     part: '전사총괄',
@@ -282,7 +282,7 @@ export const initialEmployeeDataset: EmployeeItem[] = [
   {
     id: 'emp-ds-02',
     name: '강민우',
-    employeeId: 'S18121021',
+    employeeId: 'S18121',
     company: '신한DS',
     team: '금융개발팀',
     part: '오토',
@@ -296,7 +296,7 @@ export const initialEmployeeDataset: EmployeeItem[] = [
   {
     id: 'emp-ds-03',
     name: '송진호',
-    employeeId: 'S18121022',
+    employeeId: 'S18122',
     company: '신한DS',
     team: '재무회계팀',
     part: '재무',
@@ -310,7 +310,7 @@ export const initialEmployeeDataset: EmployeeItem[] = [
   {
     id: 'emp-ds-04',
     name: '박성진',
-    employeeId: 'S18121023',
+    employeeId: 'S18123',
     company: '신한DS',
     team: '카드개발팀',
     part: '카드IS',
@@ -324,7 +324,7 @@ export const initialEmployeeDataset: EmployeeItem[] = [
   {
     id: 'emp-ds-05',
     name: '최동욱',
-    employeeId: 'S18121024',
+    employeeId: 'S18124',
     company: '신한DS',
     team: '결제인프라팀',
     part: '결제망',
@@ -413,7 +413,7 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
     const newEmp: EmployeeItem = {
       id: `emp-${Date.now()}`,
       name: '',
-      employeeId: activeRoleTab === 'DS_PM' ? 'S' : activeRoleTab === 'PARTNER_MANAGER' ? 'MGR-' : 'PT-2026-',
+      employeeId: '',
       company: activeRoleTab === 'DS_PM' ? '신한DS' : '유브갓',
       team: activeRoleTab === 'PARTNER_MANAGER' ? '영업총괄팀' : '상담운영팀',
       part: activeRoleTab === 'PARTNER_MANAGER' ? '전사총괄' : '상담',
@@ -440,10 +440,15 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
       alert('성명을 입력해 주세요.');
       return;
     }
-    if (!updated.employeeId.trim()) {
-      alert('사번을 입력해 주세요.');
+    const cleanEmp = updated.employeeId.trim().replace(/[^a-zA-Z0-9]/g, '').slice(0, 6);
+    const hasLetter = /[a-zA-Z]/.test(cleanEmp);
+    const hasNumber = /[0-9]/.test(cleanEmp);
+    if (cleanEmp.length !== 6 || !hasLetter || !hasNumber) {
+      alert('사번은 영문과 숫자를 모두 포함한 정확히 6자리여야 합니다. (예: S01832, PT2001, MGRUB1)');
       return;
     }
+    updated.employeeId = cleanEmp;
+
     if (!updated.company.trim()) {
       alert('회사명을 입력해 주세요.');
       return;
@@ -953,13 +958,14 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
                 </div>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
-                    사원번호 *
+                    사원번호 (영문·숫자 6자리) *
                   </label>
                   <input
                     type="text"
+                    maxLength={6}
                     value={editingEmp.employeeId}
-                    onChange={e => setEditingEmp({ ...editingEmp, employeeId: e.target.value })}
-                    placeholder="예: S01832 / PT-001"
+                    onChange={e => setEditingEmp({ ...editingEmp, employeeId: e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6) })}
+                    placeholder="예: S01832, PT2001"
                     style={{
                       width: '100%',
                       padding: '8px 10px',

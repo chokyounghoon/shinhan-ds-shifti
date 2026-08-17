@@ -259,11 +259,22 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
 
   // Step 1: 사번 입력 -> 실제 s-guard_AI Cloudflare Worker (Resend/Brevo) 실시간 연동 메일 발송
   const handleInitAuth = async () => {
-    if (!empId.trim()) return setError('사번 또는 이메일을 입력해 주세요.');
+    if (!empId.trim()) return setError('사번(아이디)을 입력해 주세요.');
     setLoading(true);
     setError('');
 
     const rawEmpId = empId.trim();
+
+    // 이메일이 아닌 사번 입력인 경우 영문, 숫자 포함 6자리 검증
+    if (!rawEmpId.includes('@')) {
+      const hasLetter = /[a-zA-Z]/.test(rawEmpId);
+      const hasNumber = /[0-9]/.test(rawEmpId);
+      if (rawEmpId.length !== 6 || !hasLetter || !hasNumber) {
+        setLoading(false);
+        return setError('사번(아이디)은 영문과 숫자를 모두 포함한 6자리여야 합니다. (예: S01832, UB0001)');
+      }
+    }
+
     const localUser = dbService.findUserByEmpId(rawEmpId) || dbService.findUserByEmail(rawEmpId);
     const targetEmpId = localUser ? localUser.employeeId : rawEmpId;
     const cleanEmpId = targetEmpId.replace(/^S/i, '').replace(/^emp-/i, '').replace(/^pt-/i, '');
@@ -517,13 +528,21 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
       alert('이용약관 및 개인정보 처리방침에 동의해주세요.');
       return;
     }
-    if (!signupForm.empNo.trim() || !signupForm.name.trim() || !signupForm.email.trim()) {
+    const rawEmp = signupForm.empNo.trim();
+    if (!rawEmp || !signupForm.name.trim() || !signupForm.email.trim()) {
       alert('필수 입력 항목을 모두 입력해주세요.');
       return;
     }
 
+    const hasLetter = /[a-zA-Z]/.test(rawEmp);
+    const hasNumber = /[0-9]/.test(rawEmp);
+    if (rawEmp.length !== 6 || !hasLetter || !hasNumber) {
+      alert('사번(아이디)은 영문과 숫자를 모두 포함한 정확히 6자리여야 합니다. (예: S01832, UB0001, ITSM01)');
+      return;
+    }
+
     setLoading(true);
-    const cleanEmpId = signupForm.empNo.trim().replace(/^S/i, '').replace(/^emp-/i, '').replace(/^pt-/i, '');
+    const cleanEmpId = rawEmp;
 
     // 1. 실제 Cloudflare D1 shifti-db users 테이블에 INSERT
     try {
