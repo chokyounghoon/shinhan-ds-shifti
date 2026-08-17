@@ -30,6 +30,29 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
   const locAddress = location ? location.address : '서울 중구 을지로 100 파인에비뉴';
   const targetLat = location?.lat || 37.5663;
   const targetLng = location?.lng || 126.9890;
+  // 각 도급지별 인근 지하철역 및 주요 랜드마크 정보
+  const nearbyLandmarks: { [key: string]: { name: string; type: 'SUBWAY' | 'BUILDING'; lat: number; lng: number; tag: string }[] } = {
+    '파인에비뉴(카드)': [
+      { name: '을지로3가역 12번출구', type: 'SUBWAY', lat: 37.5662, lng: 126.9897, tag: '2호선·3호선' },
+      { name: '을지로3가역 11번출구', type: 'SUBWAY', lat: 37.5661, lng: 126.9888, tag: '2호선·3호선' },
+      { name: '파인에비뉴 B동', type: 'BUILDING', lat: 37.5665, lng: 126.9889, tag: '신한카드' },
+      { name: 'IBK기업은행 본점', type: 'BUILDING', lat: 37.5668, lng: 126.9875, tag: '금융본부' }
+    ],
+    'KT IDC': [
+      { name: '여의도역 5번출구', type: 'SUBWAY', lat: 37.5218, lng: 126.9240, tag: '5호선·9호선' },
+      { name: 'KT여의도타워', type: 'BUILDING', lat: 37.5255, lng: 126.9242, tag: 'KT IDC' },
+      { name: '여의도공원', type: 'BUILDING', lat: 37.5270, lng: 126.9220, tag: '공원' }
+    ],
+    '그레이츠 청계': [
+      { name: '종각역 4번출구', type: 'SUBWAY', lat: 37.5698, lng: 126.9835, tag: '1호선' },
+      { name: '을지로입구역 2번출구', type: 'SUBWAY', lat: 37.5660, lng: 126.9820, tag: '2호선' },
+      { name: '그레이츠청계 빌딩', type: 'BUILDING', lat: 37.5685, lng: 126.9840, tag: '도급사업장' }
+    ],
+    '광교 IDC': [
+      { name: '상현역 1번출구', type: 'SUBWAY', lat: 37.2975, lng: 127.0690, tag: '신분당선' },
+      { name: '광교신한IDC센터', type: 'BUILDING', lat: 37.2985, lng: 127.0710, tag: '전산센터' }
+    ]
+  };
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -41,145 +64,127 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
     }
     mapContainerRef.current.innerHTML = '';
 
-    // 1. 카카오 지도 SDK 초기화 시도
-    const initKakaoMap = () => {
-      if (window.kakao && window.kakao.maps) {
-        window.kakao.maps.load(() => {
-          if (!mapContainerRef.current) return;
+    try {
+      // 1. Leaflet 고배율 상세 지도 인스턴스 생성 (18.5 레벨로 초근접 뷰)
+      const map = L.map(mapContainerRef.current, {
+        center: [targetLat, targetLng],
+        zoom: 18,
+        minZoom: 14,
+        maxZoom: 20,
+        zoomControl: false,
+        attributionControl: false,
+        scrollWheelZoom: true,
+        touchZoom: true,
+        doubleClickZoom: true
+      });
 
-          const center = new window.kakao.maps.LatLng(targetLat, targetLng);
-          const options = {
-            center: center,
-            level: 3 // 카카오맵 3레벨 (건물명, 지하철역 출구, 상호명 상세 뷰)
-          };
+      leafletMapRef.current = map;
 
-          const map = new window.kakao.maps.Map(mapContainerRef.current, options);
-          kakaoMapRef.current = map;
-          setIsKakaoActive(true);
+      // 2. OpenStreetMap & CartoDB 레티나 고해상도 타일 레이어
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png', {
+        maxZoom: 20,
+        maxNativeZoom: 19,
+        subdomains: 'abcd'
+      }).addTo(map);
 
-          // 100m 지오펜스 반경 원 표시
-          const circle = new window.kakao.maps.Circle({
-            center: center,
-            radius: 100, // 100m
-            strokeWeight: 2.5,
-            strokeColor: '#0052FF',
-            strokeOpacity: 0.85,
-            strokeStyle: 'dashed',
-            fillColor: '#0052FF',
-            fillOpacity: 0.16
-          });
-          circle.setMap(map);
+      // 3. 약정 도급지 메인 핀 마커
+      const mainPinIcon = L.divIcon({
+        className: 'custom-main-pin',
+        html: `
+          <div style="
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transform: translate(-50%, -100%);
+            filter: drop-shadow(0 4px 12px rgba(0,82,255,0.45));
+            cursor: pointer;
+            z-index: 50;
+          ">
+            <div style="
+              background: #0052FF;
+              color: #FFFFFF;
+              padding: 6px 14px;
+              border-radius: 20px;
+              font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', sans-serif;
+              font-size: 12px;
+              font-weight: 800;
+              white-space: nowrap;
+              border: 2px solid #FFFFFF;
+              box-shadow: 0 4px 12px rgba(0,82,255,0.5);
+              margin-bottom: 4px;
+              display: flex;
+              align-items: center;
+              gap: 5px;
+            ">
+              <span>📍</span> <span>${locName}</span>
+              <span style="background: rgba(255,255,255,0.25); padding: 1px 6px; border-radius: 10px; font-size: 10px;">100m</span>
+            </div>
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.8">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+              <circle cx="12" cy="9" r="2.5" fill="#FFFFFF" />
+            </svg>
+          </div>
+        `,
+        iconSize: [0, 0],
+        iconAnchor: [0, 0]
+      });
 
-          // 커스텀 오버레이 마커 핀
-          const content = document.createElement('div');
-          content.innerHTML = `
+      L.marker([targetLat, targetLng], { icon: mainPinIcon }).addTo(map);
+
+      // 4. 100m 지오펜스 반경 원 표시
+      L.circle([targetLat, targetLng], {
+        radius: 100, // 100m
+        color: '#0052FF',
+        weight: 2.5,
+        dashArray: '6, 6',
+        fillColor: '#0052FF',
+        fillOpacity: 0.16
+      }).addTo(map);
+
+      // 5. 주변 지하철역 및 주요 빌딩 랜드마크 마커 자동 오버레이
+      const currentLandmarks = nearbyLandmarks[locName] || nearbyLandmarks['파인에비뉴(카드)'];
+      currentLandmarks.forEach((lm) => {
+        const isSubway = lm.type === 'SUBWAY';
+        const lmIcon = L.divIcon({
+          className: 'landmark-pin',
+          html: `
             <div style="
               display: flex;
-              flex-direction: column;
               align-items: center;
-              transform: translate(-50%, -100%);
-              filter: drop-shadow(0 4px 10px rgba(0,0,0,0.35));
+              gap: 4px;
+              background: ${isSubway ? '#059669' : '#334155'};
+              color: #FFFFFF;
+              padding: 3px 8px;
+              border-radius: 14px;
+              font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', sans-serif;
+              font-size: 10.5px;
+              font-weight: 700;
+              white-space: nowrap;
+              border: 1.5px solid #FFFFFF;
+              box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+              transform: translate(-50%, -50%);
               cursor: pointer;
             ">
-              <div style="
-                background: #0052FF;
-                color: #FFFFFF;
-                padding: 6px 14px;
-                border-radius: 20px;
-                font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', sans-serif;
-                font-size: 12px;
-                font-weight: 800;
-                white-space: nowrap;
-                border: 2px solid #FFFFFF;
-                box-shadow: 0 4px 12px rgba(0,82,255,0.45);
-                margin-bottom: 4px;
-                display: flex;
-                align-items: center;
-                gap: 5px;
-              ">
-                <span>📍</span> <span>${locName}</span>
-                <span style="background: rgba(255,255,255,0.25); padding: 1px 6px; border-radius: 10px; font-size: 10px;">100m</span>
-              </div>
-              <svg width="34" height="34" viewBox="0 0 24 24" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.8">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-                <circle cx="12" cy="9" r="2.5" fill="#FFFFFF" />
-              </svg>
-            </div>
-          `;
-
-          const customOverlay = new window.kakao.maps.CustomOverlay({
-            position: center,
-            content: content,
-            yAnchor: 1
-          });
-          customOverlay.setMap(map);
-
-          // 지도 렌더링 리사이즈 보정
-          setTimeout(() => {
-            map.relayout();
-            map.setCenter(center);
-          }, 200);
-        });
-        return true;
-      }
-      return false;
-    };
-
-    // 2. 카카오맵 SDK 로드 대기 및 실행
-    if (!initKakaoMap()) {
-      // SDK가 아직 준비되지 않았다면 잠시 후 재시도
-      const timer = setTimeout(() => {
-        if (!initKakaoMap()) {
-          // 카카오맵 로드 실패 시 고해상도 Leaflet 타일맵으로 자동 폴백
-          initLeafletFallback();
-        }
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-
-    // 폴백 Leaflet 맵
-    const initLeafletFallback = () => {
-      if (!mapContainerRef.current) return;
-      setIsKakaoActive(false);
-      try {
-        const map = L.map(mapContainerRef.current, {
-          center: [targetLat, targetLng],
-          zoom: 18,
-          maxZoom: 20,
-          zoomControl: false,
-          attributionControl: false
-        });
-        leafletMapRef.current = map;
-
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png', {
-          maxZoom: 20,
-          subdomains: 'abcd'
-        }).addTo(map);
-
-        const customIcon = L.divIcon({
-          className: 'custom-map-marker',
-          html: `
-            <div style="display: flex; flex-direction: column; align-items: center; transform: translate(-50%, -100%);">
-              <div style="background: #0052FF; color: #FFFFFF; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 800; border: 2px solid #FFFFFF; margin-bottom: 4px;">
-                📍 ${locName}
-              </div>
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.8">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-                <circle cx="12" cy="9" r="2.5" fill="#FFFFFF" />
-              </svg>
+              <span>${isSubway ? '🚇' : '🏢'}</span>
+              <span>${lm.name}</span>
+              <span style="font-size: 9px; opacity: 0.85; background: rgba(255,255,255,0.2); padding: 1px 4px; border-radius: 4px;">${lm.tag}</span>
             </div>
           `,
           iconSize: [0, 0],
           iconAnchor: [0, 0]
         });
 
-        L.marker([targetLat, targetLng], { icon: customIcon }).addTo(map);
-        L.circle([targetLat, targetLng], { radius: 100, color: '#0052FF', weight: 2.5, dashArray: '6, 6', fillColor: '#0052FF', fillOpacity: 0.16 }).addTo(map);
-        setTimeout(() => map.invalidateSize(), 200);
-      } catch (e) {
-        console.warn('Leaflet fallback error:', e);
-      }
-    };
+        L.marker([lm.lat, lm.lng], { icon: lmIcon }).addTo(map);
+      });
+
+      // 리사이즈 보정
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 150);
+
+    } catch (err) {
+      console.warn('Map initialization error:', err);
+    }
 
     return () => {
       if (leafletMapRef.current) {
@@ -191,47 +196,44 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
 
   // 줌인 (+)
   const handleZoomIn = () => {
-    if (kakaoMapRef.current && window.kakao && window.kakao.maps) {
-      const level = kakaoMapRef.current.getLevel();
-      if (level > 1) {
-        kakaoMapRef.current.setLevel(level - 1, { animate: true });
-      }
-    } else if (leafletMapRef.current) {
+    if (leafletMapRef.current) {
       leafletMapRef.current.zoomIn();
     }
   };
 
   // 줌아웃 (-)
   const handleZoomOut = () => {
-    if (kakaoMapRef.current && window.kakao && window.kakao.maps) {
-      const level = kakaoMapRef.current.getLevel();
-      if (level < 14) {
-        kakaoMapRef.current.setLevel(level + 1, { animate: true });
-      }
-    } else if (leafletMapRef.current) {
+    if (leafletMapRef.current) {
       leafletMapRef.current.zoomOut();
     }
   };
 
   // 중심 위치 복귀
   const handleResetCenter = () => {
-    if (kakaoMapRef.current && window.kakao && window.kakao.maps) {
-      const center = new window.kakao.maps.LatLng(targetLat, targetLng);
-      kakaoMapRef.current.setLevel(3, { animate: true });
-      kakaoMapRef.current.panTo(center);
-    } else if (leafletMapRef.current) {
+    if (leafletMapRef.current) {
       leafletMapRef.current.setView([targetLat, targetLng], 18, { animate: true });
     }
   };
 
-  // 일반지도 / 스카이뷰 위성사진 전환
+  // 일반지도 / 위성사진 레이어 전환
   const handleToggleMapType = () => {
-    if (kakaoMapRef.current && window.kakao && window.kakao.maps) {
+    if (leafletMapRef.current) {
+      leafletMapRef.current.eachLayer((layer) => {
+        if (layer instanceof L.TileLayer) {
+          leafletMapRef.current?.removeLayer(layer);
+        }
+      });
+
       if (mapType === 'ROADMAP') {
-        kakaoMapRef.current.setMapTypeId(window.kakao.maps.MapTypeId.HYBRID);
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+          maxZoom: 19
+        }).addTo(leafletMapRef.current);
         setMapType('SKYVIEW');
       } else {
-        kakaoMapRef.current.setMapTypeId(window.kakao.maps.MapTypeId.ROADMAP);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png', {
+          maxZoom: 20,
+          subdomains: 'abcd'
+        }).addTo(leafletMapRef.current);
         setMapType('ROADMAP');
       }
     }
@@ -436,9 +438,9 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
           alignItems: 'center',
           gap: '6px'
         }}>
-          <span style={{ color: '#0052FF', fontWeight: 800 }}>● Kakao Map</span>
+          <span style={{ color: '#0052FF', fontWeight: 800 }}>● GPS Geofence</span>
           <span style={{ color: '#94A3B8' }}>|</span>
-          <span>100m Geofence</span>
+          <span>100m 약정구역</span>
         </div>
       </div>
 
