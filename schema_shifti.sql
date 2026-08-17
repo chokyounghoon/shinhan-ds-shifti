@@ -18,14 +18,13 @@ CREATE TABLE IF NOT EXISTS companies (
 -- 2. 부서 및 조직 마스터 (Organizations)
 CREATE TABLE IF NOT EXISTS organizations (
     id TEXT PRIMARY KEY,
-    category TEXT CHECK(category IN ('PARTNER_WORKER', 'PARTNER_MANAGER', 'DS_PM')) NOT NULL DEFAULT 'PARTNER_WORKER',
-    company_name TEXT NOT NULL,
-    team_name TEXT NOT NULL,
+    company_name TEXT NOT NULL DEFAULT '신한DS',
+    team_name TEXT NOT NULL DEFAULT '카드개발',
     part_name TEXT NOT NULL,
     hierarchy_path TEXT NOT NULL,
     leader_name TEXT,
     location_name TEXT DEFAULT '파인에비뉴(카드)',
-    member_count INTEGER DEFAULT 120,
+    member_count INTEGER DEFAULT 0,
     description TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -186,14 +185,8 @@ VALUES
 ('MGRUB1', '최영호', 'ceo.choi@ubgot.co.kr', '010-8888-9999', '유브갓', '영업총괄팀', '전사총괄', '대표', 'PARTNER_PART_LEADER', 1, '••••••••', 'ACTIVE', 1, 0),
 ('MGRIT1', '정진우', 'jw.jung@partner-its.co.kr', '010-5555-1234', '(주)협력아이티에스', '영업총괄팀', '전사총괄', '부사장', 'PARTNER_PART_LEADER', 1, '••••••••', 'ACTIVE', 1, 0);
 
--- 기본 조직 시드 데이터
+-- 기본 조직 시드 데이터 (신한DS > 카드개발 > 상담)
 INSERT OR REPLACE INTO organizations 
-(id, category, company_name, team_name, part_name, hierarchy_path, leader_name, location_name, member_count, description)
+(id, company_name, team_name, part_name, hierarchy_path, leader_name, location_name, member_count, description)
 VALUES
-('org-pw-01', 'PARTNER_WORKER', '신한DS', '카드개발팀', '카드IS파트', '신한DS > 카드개발팀 > 카드IS파트', '박성진 PM (신한DS)', '파인에비뉴(카드)', 120, '신한카드 기간계 계정계 및 승인 코어 시스템 도급 투입'),
-('org-pw-02', 'PARTNER_WORKER', '신한DS', '상담운영팀', '상담파트', '신한DS > 상담운영팀 > 상담파트', '조경훈 PM (신한DS)', '파인에비뉴(상담센터)', 120, '신한카드 고객 인바운드/VIP 전문 상담 도급 투입'),
-('org-pw-03', 'PARTNER_WORKER', '신한DS', '금융개발팀', '오토파트', '신한DS > 금융개발팀 > 오토파트', '강민우 PM (신한DS)', '여의도 금융센터', 120, '오토금융 다이렉트 할부 및 리스/렌터카 정산'),
-('org-pm-01', 'PARTNER_MANAGER', '유브갓', '고객서비스사업본부', '영업총괄팀', '유브갓 > 고객서비스사업본부 > 영업총괄팀', '최영호 대표', '유브갓 본사 (파인에비뉴)', 120, '상담/운영 부문 공식 수급 협력사 총괄 관리'),
-('org-pm-02', 'PARTNER_MANAGER', '(주)협력아이티에스', 'SI사업부문', '코어개발본부', '(주)협력아이티에스 > SI사업부문 > 코어개발본부', '정진우 부사장', '파인에비뉴(카드)', 85, '신한카드 코어 및 금융 CTI 솔루션 파견 협력사'),
-('org-ds-01', 'DS_PM', '신한DS', '카드개발팀', '카드IS 관제파트', '신한DS > 카드개발팀 > 카드IS 관제파트', '조경훈 부장 (전담 PM)', '파인에비뉴(카드)', 8, '카드 기간계 도급 계약 이행 및 공정 검수 총괄 PM'),
-('org-ds-02', 'DS_PM', '신한DS', '상담운영팀', '상담 관제파트', '신한DS > 상담운영팀 > 상담 관제파트', '조경훈 PM (총괄)', '파인에비뉴(상담센터)', 6, '상담 부문 120인 도급 공정 검수 및 SLA 관제 PM');
+('org-counsel-01', '신한DS', '카드개발', '상담', '신한DS > 카드개발 > 상담', '조경훈', '파인에비뉴(카드)', 4, '상담 시스템 유지 관리');
