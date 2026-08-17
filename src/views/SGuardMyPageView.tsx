@@ -171,7 +171,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
     let rawEmpId = ((user as any).employeeId || user.id || 'S01832').toUpperCase().trim();
     if (rawEmpId === 'USR-001') rawEmpId = 'UB0001';
     else if (rawEmpId === 'USR-002') rawEmpId = 'MGRUB1';
-    else if (rawEmpId === 'S18121020') rawEmpId = 'S01832';
+    else if (rawEmpId === 'S18121020' || rawEmpId === '01832') rawEmpId = 'S01832';
     const userEmpId = rawEmpId;
 
     const updated = dbService.updateUser({

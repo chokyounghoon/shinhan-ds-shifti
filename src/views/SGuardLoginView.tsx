@@ -277,8 +277,8 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
     }
 
     const localUser = dbService.findUserByEmpId(rawEmpId) || dbService.findUserByEmail(rawEmpId);
-    const targetEmpId = localUser ? localUser.employeeId : rawEmpId;
-    const cleanEmpId = targetEmpId.replace(/^S/i, '').replace(/^emp-/i, '').replace(/^pt-/i, '');
+    let targetEmpId = (localUser ? localUser.employeeId : rawEmpId).toUpperCase().trim();
+    if (targetEmpId === '01832') targetEmpId = 'S01832';
 
     try {
       // 1. 실제 s-guard_AI 백엔드 (Cloudflare Workers) 호출하여 실제 Gmail 발송
@@ -286,7 +286,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          employee_id: cleanEmpId || targetEmpId,
+          employee_id: targetEmpId,
           password: 'dummy_for_init',
           check_only: false // 실제 이메일 발송 실행!
         })
@@ -301,7 +301,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              employee_id: cleanEmpId || targetEmpId,
+              employee_id: targetEmpId,
               email: localUser.email,
               password: localUser.passwordHash || '••••••••',
               name: localUser.name,
@@ -310,7 +310,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
               part: localUser.part,
               position: localUser.position,
               phone: localUser.phone,
-              role: localUser.company === '신한DS' ? 'admin' : 'analyst',
+              role: localUser.company === '신한DS' ? 'DS_PRINCIPAL_PM' : 'PARTNER_WORKER',
               os_type: (localUser.deviceType || 'android').toLowerCase()
             })
           });
@@ -320,7 +320,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              employee_id: cleanEmpId || targetEmpId,
+              employee_id: targetEmpId,
               password: 'dummy_for_init',
               check_only: false
             })
@@ -1028,15 +1028,15 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                     setError('');
                     const rawEmpId = empId.trim();
                     const localUser = dbService.findUserByEmpId(rawEmpId) || dbService.findUserByEmail(rawEmpId);
-                    const targetEmpId = localUser ? localUser.employeeId : rawEmpId;
-                    const cleanEmpId = targetEmpId.replace(/^S/i, '').replace(/^emp-/i, '').replace(/^pt-/i, '');
+                    let targetEmpId = (localUser ? localUser.employeeId : rawEmpId).toUpperCase().trim();
+                    if (targetEmpId === '01832') targetEmpId = 'S01832';
 
                     try {
                       const res = await fetch('https://sguardai.khcho0421.workers.dev/auth/init', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                          employee_id: cleanEmpId || targetEmpId,
+                          employee_id: targetEmpId,
                           password: 'dummy_for_init',
                           check_only: false
                         })
