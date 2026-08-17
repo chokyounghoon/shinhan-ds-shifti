@@ -405,9 +405,12 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
     }
   };
 
-  // Step 3: 비밀번호 -> 최종 로그인
+  // Step 3: 비밀번호 -> 실제 Cloudflare D1 DB 및 백엔드 비밀번호 정밀 검증
   const handleLogin = async () => {
-    if (!password.trim()) return setError('비밀번호를 입력해 주세요.');
+    if (!password.trim()) {
+      setError('비밀번호를 입력해 주세요.');
+      return;
+    }
     setLoading(true);
     setError('');
 
@@ -416,13 +419,58 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
       localStorage.setItem('LAST_LOGIN_EMP_ID', rawEmpId);
     } catch (e) {}
 
-    setTimeout(() => {
-      setLoading(false);
+    // 1. 실시간 Cloudflare D1 /auth/login 비밀번호 검증 API 호출
+    try {
+      const res = await fetch('https://sguardai.khcho0421.workers.dev/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employee_id: rawEmpId,
+          password: password.trim()
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || data.code === 'AUTH_WRONG_PASSWORD' || data.code === 'WRONG_PASSWORD') {
+        setLoading(false);
+        setError('비밀번호가 올바르지 않습니다. 다시 입력해 주세요.');
+        return; // ⛔ 검증 실패 시 다음 화면으로 절대 넘어가지 않고 중단
+      }
+
+      if (res.ok && (data.token || data.status === 'success' || data.user)) {
+        setLoading(false);
+        const user = dbService.switchUserRole(rawEmpId);
+        user.id = rawEmpId;
+        (user as any).employeeId = rawEmpId;
+        if (data.token) {
+          (user as any).token = data.token;
+        }
+        onLoginSuccess(user);
+        return;
+      }
+
+      if (data.detail) {
+        setLoading(false);
+        setError(data.detail);
+        return;
+      }
+    } catch (e) {
+      console.warn('[Live Worker Password Verification fallback]', e);
+    }
+
+    // 2. 로컬 DB 비밀번호 폴백 검증 (오프라인/네트워크 장애 시)
+    const isValidLocal = dbService.verifyPasswordInDb(rawEmpId, password.trim());
+    setLoading(false);
+
+    if (isValidLocal) {
       const user = dbService.switchUserRole(rawEmpId);
       user.id = rawEmpId;
       (user as any).employeeId = rawEmpId;
       onLoginSuccess(user);
-    }, 350);
+    } else {
+      setError('비밀번호가 올바르지 않습니다. 다시 확인 후 입력해 주세요.');
+    }
   };
 
   // 회원가입 제출 -> 실제 Cloudflare D1 + 로컬 DB 양방향 INSERT

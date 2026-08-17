@@ -390,6 +390,18 @@ export class PureDatabaseEngine {
     return true;
   }
 
+  public verifyPasswordInDb(empId: string, plainPw: string): boolean {
+    const user = this.findUserByEmpId(empId);
+    if (!user) return false;
+
+    // 등록된 비밀번호가 있고 플레이스홀더가 아닌 경우 일치 여부 확인
+    if (user.passwordHash && user.passwordHash !== '••••••••') {
+      return user.passwordHash === plainPw;
+    }
+    // 기본 계정의 경우 최소 8자리 이상 유효한 비밀번호 패턴 확인
+    return plainPw.length >= 8;
+  }
+
   public createOtp(empId: string): {
     success: boolean;
     otpCode: string;
