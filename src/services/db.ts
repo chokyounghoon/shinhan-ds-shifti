@@ -1095,11 +1095,151 @@ export class PureDatabaseEngine {
   public getInspections(): ServiceDeliveryInspection[] { return []; }
   public acceptContractInspection(id: string, memo?: string): boolean { return true; }
 
+  // =========================================================================
+  // 6. 실시간 알림 & 메시지/소통 센터 시스템 (Notifications & Messages)
+  // =========================================================================
+  private notifications: DbAppNotification[] = [];
+  private messages: DbAppMessage[] = [];
+
+  private initDefaultNotificationsAndMessages(): void {
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    this.notifications = [
+      {
+        id: 'noti-01',
+        type: 'SLA_ALERT',
+        title: '도급 인력 투입 지연 발생',
+        content: '상담 파트 이하은(유브갓) 45분 지각 - 소명서 접수 대기 중',
+        targetRole: 'DS_PRINCIPAL_PM',
+        partName: '상담',
+        isRead: false,
+        createdAt: nowStr,
+        linkUrl: 'principal_portal'
+      },
+      {
+        id: 'noti-02',
+        type: 'GAP_NOTICE',
+        title: '투입 공백 사전 통보 접수',
+        content: '유브갓(상담 파트) 김성훈 8/18 1일 연차 공백 대체인력 투입 통보',
+        targetRole: 'DS_PRINCIPAL_PM',
+        partName: '상담',
+        isRead: false,
+        createdAt: nowStr,
+        linkUrl: 'principal_portal'
+      },
+      {
+        id: 'noti-03',
+        type: 'CONTRACT_SETTLE',
+        title: '일일 도급 공정 검수 완료',
+        content: '카드개발팀 상담 파트 8명 전원 투입 확인 및 공정 정산 승인 완료',
+        targetRole: 'ALL',
+        partName: '상담',
+        isRead: true,
+        createdAt: '2026-08-16 18:30',
+        linkUrl: 'principal_portal'
+      }
+    ];
+
+    this.messages = [
+      {
+        id: 'msg-01',
+        senderName: '유브갓 파트관리자',
+        senderRole: '협력사 현장관리인',
+        partName: '상담',
+        title: '이하은 45분 지각 관련 대중교통 지연 소명서 제출',
+        content: '안녕하세요 PM님, 금일 오전 지하철 2호선 고장으로 인한 45분 지각 소명서 및 지연증명서를 첨부 제출하였습니다. 검토 부탁드립니다.',
+        isRead: false,
+        createdAt: nowStr,
+        replyStatus: 'PENDING'
+      },
+      {
+        id: 'msg-02',
+        senderName: '현대IT솔루션 담당',
+        senderRole: '협력사 현장대리인',
+        partName: '상담',
+        title: '8월 도급 투입인력 보안 교육 이수 확인서 발송',
+        content: '상담 파트 투입인력 5인 대상 정보보호 및 클라우드 보안 컴플라이언스 이수증을 등록 완료하였습니다.',
+        isRead: false,
+        createdAt: '2026-08-16 14:20',
+        replyStatus: 'COMPLETED'
+      }
+    ];
+  }
+
+  public getNotifications(userRole?: string, partName?: string): DbAppNotification[] {
+    if (this.notifications.length === 0) {
+      this.initDefaultNotificationsAndMessages();
+    }
+    return [...this.notifications];
+  }
+
+  public getUnreadNotificationCount(userRole?: string, partName?: string): number {
+    const list = this.getNotifications(userRole, partName);
+    return list.filter(n => !n.isRead).length;
+  }
+
+  public markNotificationAsRead(id: string): void {
+    const item = this.notifications.find(n => n.id === id);
+    if (item) {
+      item.isRead = true;
+    }
+  }
+
+  public markAllNotificationsAsRead(): void {
+    this.notifications.forEach(n => { n.isRead = true; });
+  }
+
+  public getMessages(userRole?: string, partName?: string): DbAppMessage[] {
+    if (this.messages.length === 0) {
+      this.initDefaultNotificationsAndMessages();
+    }
+    return [...this.messages];
+  }
+
+  public getUnreadMessageCount(userRole?: string, partName?: string): number {
+    const list = this.getMessages(userRole, partName);
+    return list.filter(m => !m.isRead).length;
+  }
+
+  public markMessageAsRead(id: string): void {
+    const item = this.messages.find(m => m.id === id);
+    if (item) {
+      item.isRead = true;
+    }
+  }
+
+  public markAllMessagesAsRead(): void {
+    this.messages.forEach(m => { m.isRead = true; });
+  }
+
   public getUserByEmpId(empId: string) { return this.findUserByEmpId(empId); }
   public registerUser(dto: any) { return this.insertUser(dto); }
   public resetPassword(empId: string, pw: string) { return this.updatePassword(empId, pw); }
   public generateAndStoreOtp(empId: string) { return this.createOtp(empId); }
   public verifyOtpInDb(empId: string, otp: string) { return this.verifyOtp(empId, otp); }
+}
+
+export interface DbAppNotification {
+  id: string;
+  type: 'SLA_ALERT' | 'GAP_NOTICE' | 'CONTRACT_SETTLE' | 'GENERAL';
+  title: string;
+  content: string;
+  targetRole: string;
+  partName: string;
+  isRead: boolean;
+  createdAt: string;
+  linkUrl?: string;
+}
+
+export interface DbAppMessage {
+  id: string;
+  senderName: string;
+  senderRole: string;
+  partName: string;
+  title: string;
+  content: string;
+  isRead: boolean;
+  createdAt: string;
+  replyStatus?: 'PENDING' | 'COMPLETED';
 }
 
 export const dbService = new PureDatabaseEngine();

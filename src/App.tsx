@@ -42,9 +42,11 @@ import { NoScheduleModal } from './components/modals/NoScheduleModal';
 import { QRScannerModal } from './components/modals/QRScannerModal';
 import { DayDetailModal } from './components/modals/DayDetailModal';
 import { VacationRegistrationModal } from './components/modals/VacationRegistrationModal';
+import { NotificationListModal } from './components/modals/NotificationListModal';
+import { MessagesListModal } from './components/modals/MessagesListModal';
 
 // DB & Types
-import { dbService } from './services/db';
+import { dbService, DbAppNotification, DbAppMessage } from './services/db';
 import { User, DaySchedule, AttendanceRequest, WeeklyWorkStat } from './types';
 import './styles/theme.css';
 
@@ -116,6 +118,35 @@ export function App() {
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [selectedDaySchedule, setSelectedDaySchedule] = useState<DaySchedule | null>(null);
 
+  // 실시간 알림 & 메시지 센터 상태
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  const [isMessagesModalOpen, setIsMessagesModalOpen] = useState(false);
+  const [notifications, setNotifications] = useState<DbAppNotification[]>(() => dbService.getNotifications());
+  const [messagesList, setMessagesList] = useState<DbAppMessage[]>(() => dbService.getMessages());
+
+  const unreadNotificationCount = notifications.filter(n => !n.isRead).length;
+  const unreadMessageCount = messagesList.filter(m => !m.isRead).length;
+
+  const handleMarkNotificationRead = (id: string) => {
+    dbService.markNotificationAsRead(id);
+    setNotifications([...dbService.getNotifications()]);
+  };
+
+  const handleMarkAllNotificationsRead = () => {
+    dbService.markAllNotificationsAsRead();
+    setNotifications([...dbService.getNotifications()]);
+  };
+
+  const handleMarkMessageRead = (id: string) => {
+    dbService.markMessageAsRead(id);
+    setMessagesList([...dbService.getMessages()]);
+  };
+
+  const handleMarkAllMessagesRead = () => {
+    dbService.markAllMessagesAsRead();
+    setMessagesList([...dbService.getMessages()]);
+  };
+
   // D1 DB 실시간 프로필 사진 & 정보 동기화
   useEffect(() => {
     const syncProfileFromD1 = async () => {
@@ -162,6 +193,8 @@ export function App() {
     setSchedules(dbService.getWeeklySchedules());
     setRequests(dbService.getRequests());
     setStats(dbService.getWeeklyStats());
+    setNotifications([...dbService.getNotifications()]);
+    setMessagesList([...dbService.getMessages()]);
   };
 
   // [개발 모드] 역할 시뮬레이션: 실제 로그인 사용자 이름/정보는 그대로 유지하고 role + page만 변경
@@ -285,11 +318,13 @@ export function App() {
               {!hideHeaderPages.includes(currentPage) && (
                 <Header
                   onOpenDrawer={() => setIsDrawerOpen(true)}
-                  onOpenMessages={() => setCurrentPage('request')}
-                  onOpenNotifications={() => alert('신규 공지: 2026년 8월 30인 도급 공정 검수 및 SLA 기준이 업데이트되었습니다.')}
+                  onOpenMessages={() => setIsMessagesModalOpen(true)}
+                  onOpenNotifications={() => setIsNotificationModalOpen(true)}
                   onOpenMyPage={() => setIsMyPageOpen(true)}
                   currentUser={currentUser}
                   themeMode={themeMode}
+                  unreadMessageCount={unreadMessageCount}
+                  unreadNotificationCount={unreadNotificationCount}
                 />
               )}
             </div>
@@ -658,15 +693,26 @@ export function App() {
               themeMode={themeMode}
             />
 
-            {/* 휴가 / 사전 공수 제외 등록 모달 */}
-            <VacationRegistrationModal
-              isOpen={isVacationModalOpen}
-              onClose={() => setIsVacationModalOpen(false)}
-              onSuccess={(type, range) => {
-                refreshData();
+            {/* 실시간 공정/SLA 알림 센터 모달 */}
+            <NotificationListModal
+              isOpen={isNotificationModalOpen}
+              onClose={() => setIsNotificationModalOpen(false)}
+              notifications={notifications}
+              onMarkRead={handleMarkNotificationRead}
+              onMarkAllRead={handleMarkAllNotificationsRead}
+              onNavigate={(url) => {
+                if (url) setCurrentPage(url as PageView);
               }}
-              currentUser={currentUser}
-              themeMode={themeMode}
+            />
+
+            {/* 도급 소통 / 메시지 및 소명 센터 모달 */}
+            <MessagesListModal
+              isOpen={isMessagesModalOpen}
+              onClose={() => setIsMessagesModalOpen(false)}
+              messages={messagesList}
+              onMarkRead={handleMarkMessageRead}
+              onMarkAllRead={handleMarkAllMessagesRead}
+              currentUserRole={currentUser?.role}
             />
           </>
         )}

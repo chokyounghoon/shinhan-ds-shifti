@@ -10,6 +10,8 @@ interface HeaderProps {
   onOpenMyPage?: () => void;
   currentUser?: User;
   themeMode: 'ddangyo' | 'shinhan';
+  unreadMessageCount?: number;
+  unreadNotificationCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -18,7 +20,9 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenNotifications,
   onOpenMyPage,
   currentUser,
-  themeMode
+  themeMode,
+  unreadMessageCount = 0,
+  unreadNotificationCount = 0
 }) => {
   // D1 데이터베이스에 등록된 실제 프로필 사진 우선 적용
   const avatarPhoto = (currentUser as any)?.profile_picture || currentUser?.avatarUrl || currentUser?.profileImage || (currentUser?.name?.includes('조경훈') ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80' : null);
@@ -96,27 +100,69 @@ export const Header: React.FC<HeaderProps> = ({
         gap: '6px',
         flexShrink: 0
       }}>
-        {/* 메시지 / 상담 채팅 아이콘 (뱃지 0) */}
+        {/* 메시지 / 도급 소통 아이콘 (실시간 뱃지) */}
         <button 
           onClick={onOpenMessages} 
           className="icon-btn-badge"
-          aria-label="메시지"
+          aria-label="도급 메시지함"
+          title={`미확인 메시지 ${unreadMessageCount}건`}
+          style={{ width: '34px', height: '34px', position: 'relative' }}
         >
-          <div style={{ position: 'relative' }}>
-            <MessageSquare size={22} strokeWidth={1.8} />
-            <span className="badge-count" style={{ top: '-4px', right: '-8px' }}>0</span>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <MessageSquare size={22} strokeWidth={1.8} color={unreadMessageCount > 0 ? '#0052FF' : '#333D4B'} />
+            <span 
+              className="badge-count" 
+              style={{ 
+                top: '-5px', 
+                right: '-8px',
+                background: unreadMessageCount > 0 ? '#0052FF' : '#64748B',
+                color: '#FFFFFF',
+                fontSize: '10.5px',
+                fontWeight: 800,
+                minWidth: '17px',
+                height: '17px',
+                borderRadius: '9px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: unreadMessageCount > 0 ? '0 2px 5px rgba(0,82,255,0.4)' : 'none'
+              }}
+            >
+              {unreadMessageCount}
+            </span>
           </div>
         </button>
 
-        {/* 알림 벨 아이콘 (뱃지 0) */}
+        {/* 실시간 공정/SLA 알림 벨 아이콘 */}
         <button 
           onClick={onOpenNotifications} 
           className="icon-btn-badge"
-          aria-label="알림"
+          aria-label="알림 센터"
+          title={`미확인 알림 ${unreadNotificationCount}건`}
+          style={{ width: '34px', height: '34px', position: 'relative' }}
         >
-          <div style={{ position: 'relative' }}>
-            <Bell size={22} strokeWidth={1.8} />
-            <span className="badge-count" style={{ top: '-4px', right: '-8px' }}>0</span>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Bell size={22} strokeWidth={1.8} color={unreadNotificationCount > 0 ? '#EF4444' : '#333D4B'} />
+            <span 
+              className="badge-count" 
+              style={{ 
+                top: '-5px', 
+                right: '-8px',
+                background: unreadNotificationCount > 0 ? '#EF4444' : '#64748B',
+                color: '#FFFFFF',
+                fontSize: '10.5px',
+                fontWeight: 800,
+                minWidth: '17px',
+                height: '17px',
+                borderRadius: '9px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: unreadNotificationCount > 0 ? '0 2px 5px rgba(239,68,68,0.4)' : 'none'
+              }}
+            >
+              {unreadNotificationCount}
+            </span>
           </div>
         </button>
 
