@@ -1,12 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, MapPin, Navigation } from 'lucide-react';
+import L from 'leaflet';
 import { WorkLocation } from './WorkLocationSelectView';
-
-declare global {
-  interface Window {
-    kakao: any;
-  }
-}
 
 interface WorkLocationDetailViewProps {
   location: WorkLocation | null;
@@ -20,106 +15,103 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
   themeMode
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const [mapLoaded, setMapLoaded] = useState(false);
-  const [currentCoords, setCurrentCoords] = useState<{ lat: number; lng: number }>({
-    lat: location?.lat || 37.5255,
-    lng: location?.lng || 126.9242
-  });
+  const mapInstanceRef = useRef<L.Map | null>(null);
 
   const locName = location ? location.name.replace('[좌표] ', '') : 'KT IDC';
   const locAddress = location ? location.address : '서울 영등포구 여의대로 14 KT여의도타워';
+  const targetLat = location?.lat || 37.5255;
+  const targetLng = location?.lng || 126.9242;
 
   useEffect(() => {
-    let lat = location?.lat || 37.5255;
-    let lng = location?.lng || 126.9242;
+    if (!mapContainerRef.current) return;
 
-    const initMap = (targetLat: number, targetLng: number) => {
-      if (!mapContainerRef.current) return;
-      if (!window.kakao || !window.kakao.maps) {
-        setMapLoaded(false);
-        return;
-      }
-
-      window.kakao.maps.load(() => {
-        if (!mapContainerRef.current) return;
-        const center = new window.kakao.maps.LatLng(targetLat, targetLng);
-        const options = {
-          center: center,
-          level: 4
-        };
-
-        const map = new window.kakao.maps.Map(mapContainerRef.current, options);
-
-        // 1. 마커 표시
-        const marker = new window.kakao.maps.Marker({
-          position: center,
-          map: map
-        });
-
-        // 2. 100m 지오펜스 반경 원 표시
-        const circle = new window.kakao.maps.Circle({
-          center: center,
-          radius: 100, // 100m
-          strokeWeight: 2,
-          strokeColor: '#0052FF',
-          strokeOpacity: 0.8,
-          strokeStyle: 'dashed',
-          fillColor: '#0052FF',
-          fillOpacity: 0.15
-        });
-        circle.setMap(map);
-
-        // 3. 커스텀 인포윈도우 / 오버레이 표시
-        const content = `
-          <div style="
-            background: #FFFFFF;
-            padding: 6px 12px;
-            border-radius: 8px;
-            border: 1px solid #CBD5E1;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            font-family: 'Pretendard', sans-serif;
-            font-size: 11.5px;
-            font-weight: 800;
-            color: #0F172A;
-            text-align: center;
-            transform: translateY(-45px);
-            white-space: nowrap;
-          ">
-            <span>📍 ${locName}</span>
-            <div style="font-size: 9.5px; color: #0052FF; font-weight: 700; margin-top: 2px;">인증 반경 100m</div>
-          </div>
-        `;
-
-        const customOverlay = new window.kakao.maps.CustomOverlay({
-          position: center,
-          content: content,
-          yAnchor: 1
-        });
-        customOverlay.setMap(map);
-
-        setMapLoaded(true);
-      });
-    };
-
-    // 카카오 지오코더로 주소 기반 정밀 위경도 확인 (있을 경우)
-    if (window.kakao && window.kakao.maps && window.kakao.maps.services && locAddress) {
-      const geocoder = new window.kakao.maps.services.Geocoder();
-      geocoder.addressSearch(locAddress, (result: any, status: any) => {
-        if (status === window.kakao.maps.services.Status.OK && result && result.length > 0) {
-          const exactLat = parseFloat(result[0].y);
-          const exactLng = parseFloat(result[0].x);
-          setCurrentCoords({ lat: exactLat, lng: exactLng });
-          initMap(exactLat, exactLng);
-        } else {
-          setCurrentCoords({ lat, lng });
-          initMap(lat, lng);
-        }
-      });
-    } else {
-      setCurrentCoords({ lat, lng });
-      initMap(lat, lng);
+    // 기존 맵 인스턴스가 있다면 정리
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
     }
-  }, [location, locAddress, locName]);
+
+    try {
+      // 1. Leaflet 지도 생성
+      const map = L.map(mapContainerRef.current, {
+        center: [targetLat, targetLng],
+        zoom: 16,
+        zoomControl: false,
+        attributionControl: false
+      });
+
+      mapInstanceRef.current = map;
+
+      // 2. 고해상도 지도 타일 레이어 (OpenStreetMap / CartoDB Voyager 밝은 테마)
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+        subdomains: 'abcd'
+      }).addTo(map);
+
+      // 3. 커스텀 마커 아이콘 생성
+      const customIcon = L.divIcon({
+        className: 'custom-map-marker',
+        html: `
+          <div style="
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transform: translate(-50%, -100%);
+            filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3));
+          ">
+            <div style="
+              background: #0052FF;
+              color: #FFFFFF;
+              padding: 5px 10px;
+              border-radius: 8px;
+              font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', sans-serif;
+              font-size: 11.5px;
+              font-weight: 800;
+              white-space: nowrap;
+              border: 1.5px solid #FFFFFF;
+              box-shadow: 0 2px 8px rgba(0,82,255,0.4);
+              margin-bottom: 4px;
+            ">
+              📍 ${locName}
+            </div>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.5">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+              <circle cx="12" cy="9" r="2.5" fill="#FFFFFF" />
+            </svg>
+          </div>
+        `,
+        iconSize: [0, 0],
+        iconAnchor: [0, 0]
+      });
+
+      // 4. 마커 및 100m 지오펜스 반경 원 추가
+      L.marker([targetLat, targetLng], { icon: customIcon }).addTo(map);
+
+      L.circle([targetLat, targetLng], {
+        radius: 100, // 100m
+        color: '#0052FF',
+        weight: 2,
+        dashArray: '5, 6',
+        fillColor: '#0052FF',
+        fillOpacity: 0.18
+      }).addTo(map);
+
+      // 지도 렌더링 갱신
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 150);
+
+    } catch (err) {
+      console.warn('Map initialization error:', err);
+    }
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, [targetLat, targetLng, locName]);
 
   return (
     <div style={{ background: '#FFFFFF', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -173,7 +165,7 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
       <div style={infoRowStyle}>
         <span style={labelStyle}>GPS 위경도 좌표</span>
         <span style={{ ...valueStyle, fontFamily: 'monospace', color: '#0052FF', fontWeight: 700 }}>
-          {currentCoords.lat.toFixed(6)}, {currentCoords.lng.toFixed(6)}
+          {targetLat.toFixed(6)}, {targetLng.toFixed(6)}
         </span>
       </div>
 
@@ -189,86 +181,34 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
         <span style={{ ...valueStyle, fontWeight: 700, color: '#0F172A' }}>100m (정밀 지오펜스)</span>
       </div>
 
-      {/* 4. 실제 카카오 지도 렌더링 컨테이너 */}
+      {/* 4. 실제 인터랙티브 지도 렌더링 컨테이너 */}
       <div style={{
         position: 'relative',
         width: '100%',
         height: '280px',
-        background: '#E8ECEF',
+        background: '#F1F5F9',
         overflow: 'hidden',
         borderBottom: '1px solid #ECEFF2'
       }}>
-        {/* 실제 카카오 지도 DOM */}
-        <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
+        {/* 실제 인터랙티브 지도 DOM */}
+        <div ref={mapContainerRef} style={{ width: '100%', height: '100%', zIndex: 1 }} />
 
-        {/* 카카오맵 SDK 로딩 전 또는 폴백 인터랙티브 그래픽 */}
-        {!mapLoaded && (
-          <div style={{
-            position: 'absolute',
-            inset: 0,
-            background: '#EEF2F6',
-            backgroundImage: `
-              linear-gradient(#D8DCE3 1px, transparent 1px),
-              linear-gradient(90deg, #D8DCE3 1px, transparent 1px)
-            `,
-            backgroundSize: '24px 24px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            {/* 100m 지오펜스 반경 원 */}
-            <div style={{
-              position: 'absolute',
-              width: '180px',
-              height: '180px',
-              borderRadius: '50%',
-              background: 'rgba(0, 82, 255, 0.12)',
-              border: '2px dashed #0052FF'
-            }} />
-
-            {/* 마커 핀 */}
-            <div style={{
-              position: 'relative',
-              zIndex: 2,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              transform: 'translateY(-12px)'
-            }}>
-              <div style={{
-                background: '#FFFFFF',
-                padding: '6px 12px',
-                borderRadius: '8px',
-                border: '1px solid #CBD5E1',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-                fontSize: '12px',
-                fontWeight: 800,
-                color: '#0F172A',
-                marginBottom: '6px'
-              }}>
-                📍 {locName}
-              </div>
-              <MapPin size={34} color="#EF4444" fill="#EF4444" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }} />
-            </div>
-
-            {/* 축척 및 카카오 맵 로고 표시 */}
-            <div style={{
-              position: 'absolute',
-              bottom: '8px',
-              left: '10px',
-              background: 'rgba(255, 255, 255, 0.9)',
-              padding: '3px 8px',
-              borderRadius: '4px',
-              fontSize: '10px',
-              fontWeight: 700,
-              color: '#475569',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-            }}>
-              ━ 50m | Kakao Map GPS
-            </div>
-          </div>
-        )}
+        {/* 축척 및 안내 로고 표시 */}
+        <div style={{
+          position: 'absolute',
+          bottom: '8px',
+          left: '10px',
+          background: 'rgba(255, 255, 255, 0.92)',
+          padding: '3px 8px',
+          borderRadius: '4px',
+          fontSize: '10px',
+          fontWeight: 700,
+          color: '#475569',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+          zIndex: 10
+        }}>
+          ━ 50m | GPS Geofence Map
+        </div>
       </div>
 
       {/* 5. 메모 섹션 */}
