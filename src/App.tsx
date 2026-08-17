@@ -224,24 +224,34 @@ export function App() {
           />
         ) : (
           <>
-            {/* 상단 3개 권한/역할 스위처 툴바 */}
-            <RoleSwitcherBar
-              currentUser={currentUser}
-              onSwitchUser={handleSwitchUser}
-              themeMode={themeMode}
-            />
-
-            {/* 상단 네비게이션 헤더 */}
-            {!hideHeaderPages.includes(currentPage) && (
-              <Header
-                onOpenDrawer={() => setIsDrawerOpen(true)}
-                onOpenMessages={() => setCurrentPage('request')}
-                onOpenNotifications={() => alert('신규 공지: 2026년 8월 30인 도급 공정 검수 및 SLA 기준이 업데이트되었습니다.')}
-                onOpenMyPage={() => setIsMyPageOpen(true)}
+            {/* 📌 상단 고정 영역: 역할 시뮬레이터 바 + 헤더 (스크롤 시 고정) */}
+            <div style={{
+              position: 'sticky',
+              top: 0,
+              zIndex: 1000,
+              background: '#FFFFFF',
+              width: '100%',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)'
+            }}>
+              {/* 상단 3개 권한/역할 스위처 툴바 */}
+              <RoleSwitcherBar
                 currentUser={currentUser}
+                onSwitchUser={handleSwitchUser}
                 themeMode={themeMode}
               />
-            )}
+
+              {/* 상단 네비게이션 헤더 */}
+              {!hideHeaderPages.includes(currentPage) && (
+                <Header
+                  onOpenDrawer={() => setIsDrawerOpen(true)}
+                  onOpenMessages={() => setCurrentPage('request')}
+                  onOpenNotifications={() => alert('신규 공지: 2026년 8월 30인 도급 공정 검수 및 SLA 기준이 업데이트되었습니다.')}
+                  onOpenMyPage={() => setIsMyPageOpen(true)}
+                  currentUser={currentUser}
+                  themeMode={themeMode}
+                />
+              )}
+            </div>
 
             {/* 본문 탭 및 역할별 뷰 영역 */}
             <main className="main-content" style={!isTabActive ? { padding: hideHeaderPages.includes(currentPage) ? 0 : '14px' } : undefined}>
