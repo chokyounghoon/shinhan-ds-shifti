@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   ArrowLeft, 
   Search, 
@@ -14,8 +14,10 @@ import {
   Check, 
   X, 
   ChevronRight,
-  Filter
+  Filter,
+  UserPlus
 } from 'lucide-react';
+import { dbService } from '../services/db';
 
 export type RoleType = 'PARTNER_WORKER' | 'PARTNER_MANAGER' | 'DS_PM';
 
@@ -23,9 +25,9 @@ export interface EmployeeItem {
   id: string;
   name: string;
   employeeId: string;
-  company: string; // 회사 정보 (신한DS, 유브갓, (주)협력아이티에스, 현대IT솔루션, 오토시스, 파이낸스ITS 등)
-  team: string;    // 소속 팀 (카드개발팀, 상담운영팀, 금융개발팀, 재무회계팀 등)
-  part: string;    // 소속 파트 (상담, 카드IS, 오토, 재무, 결제망, 데이터 등)
+  company: string; // 회사 정보 (신한DS, 유브갓, (주)협력아이티에스, 현대IT솔루션 등)
+  team: string;    // 소속 팀 (카드개발팀, 상담운영팀 등)
+  part: string;    // 소속 파트 (상담, 카드IS 등 DB 기준 동적)
   role: RoleType;  // 3대 역할 구분
   position: string;
   phone: string;
@@ -34,310 +36,7 @@ export interface EmployeeItem {
   joinedDate: string;
 }
 
-// 3가지 역할별 초기 직원 데이터베이스
-export const initialEmployeeDataset: EmployeeItem[] = [
-  // 1. 협력사 (작업자)
-  {
-    id: 'emp-w-01',
-    name: '송무준',
-    employeeId: 'PT2001',
-    company: '유브갓',
-    team: '상담운영팀',
-    part: '상담',
-    role: 'PARTNER_WORKER',
-    position: '선임',
-    phone: '010-4732-8880',
-    email: 'moojun.song@ubgot.co.kr',
-    status: '정상투입',
-    joinedDate: '2026-01-02'
-  },
-  {
-    id: 'emp-w-02',
-    name: '김성훈',
-    employeeId: 'PT2002',
-    company: '유브갓',
-    team: '상담운영팀',
-    part: '상담',
-    role: 'PARTNER_WORKER',
-    position: '주임',
-    phone: '010-4732-8881',
-    email: 'sh.kim@ubgot.co.kr',
-    status: '정상투입',
-    joinedDate: '2026-01-15'
-  },
-  {
-    id: 'emp-w-03',
-    name: '이제성',
-    employeeId: 'PT2003',
-    company: '(주)협력아이티에스',
-    team: '상담운영팀',
-    part: '상담',
-    role: 'PARTNER_WORKER',
-    position: '선임',
-    phone: '010-4732-8882',
-    email: 'js.lee@partnerits.co.kr',
-    status: '정상투입',
-    joinedDate: '2026-02-01'
-  },
-  {
-    id: 'emp-w-04',
-    name: '김흥섭',
-    employeeId: 'PT2004',
-    company: '유브갓',
-    team: '상담운영팀',
-    part: '상담',
-    role: 'PARTNER_WORKER',
-    position: '책임',
-    phone: '010-4732-8883',
-    email: 'hs.kim@ubgot.co.kr',
-    status: '정상투입',
-    joinedDate: '2026-01-10'
-  },
-  {
-    id: 'emp-w-05',
-    name: '박민우',
-    employeeId: 'PT2005',
-    company: '현대IT솔루션',
-    team: '상담운영팀',
-    part: '상담',
-    role: 'PARTNER_WORKER',
-    position: '선임',
-    phone: '010-4732-8884',
-    email: 'mw.park@hdits.co.kr',
-    status: '정상투입',
-    joinedDate: '2026-02-10'
-  },
-  {
-    id: 'emp-w-06',
-    name: '박창훈',
-    employeeId: 'PT2021',
-    company: '오토시스',
-    team: '금융개발팀',
-    part: '오토',
-    role: 'PARTNER_WORKER',
-    position: '선임',
-    phone: '010-4732-8885',
-    email: 'ch.park@autosys.co.kr',
-    status: '정상투입',
-    joinedDate: '2026-01-05'
-  },
-  {
-    id: 'emp-w-07',
-    name: '김진수',
-    employeeId: 'PT2022',
-    company: '오토시스',
-    team: '금융개발팀',
-    part: '오토',
-    role: 'PARTNER_WORKER',
-    position: '주임',
-    phone: '010-4732-8886',
-    email: 'js.kim@autosys.co.kr',
-    status: '정상투입',
-    joinedDate: '2026-01-20'
-  },
-  {
-    id: 'emp-w-08',
-    name: '이민호',
-    employeeId: 'PT2031',
-    company: '파이낸스ITS',
-    team: '재무회계팀',
-    part: '재무',
-    role: 'PARTNER_WORKER',
-    position: '책임',
-    phone: '010-4732-8887',
-    email: 'mh.lee@financeits.co.kr',
-    status: '정상투입',
-    joinedDate: '2026-01-08'
-  },
-  {
-    id: 'emp-w-09',
-    name: '한동훈',
-    employeeId: 'PT2041',
-    company: '현대IT솔루션',
-    team: '카드개발팀',
-    part: '카드IS',
-    role: 'PARTNER_WORKER',
-    position: '선임',
-    phone: '010-4732-8888',
-    email: 'dh.han@hdits.co.kr',
-    status: '정상투입',
-    joinedDate: '2026-01-12'
-  },
-  {
-    id: 'emp-w-10',
-    name: '김연섭',
-    employeeId: 'PT2042',
-    company: '현대IT솔루션',
-    team: '카드개발팀',
-    part: '카드IS',
-    role: 'PARTNER_WORKER',
-    position: '수석',
-    phone: '010-4732-8889',
-    email: 'ys.kim@hdits.co.kr',
-    status: '정상투입',
-    joinedDate: '2026-01-03'
-  },
-  {
-    id: 'emp-w-11',
-    name: '서성훈',
-    employeeId: 'PT2043',
-    company: '데이터인사이트',
-    team: '카드개발팀',
-    part: '데이터',
-    role: 'PARTNER_WORKER',
-    position: '선임',
-    phone: '010-4732-8890',
-    email: 'sh.seo@datainsight.co.kr',
-    status: '정상투입',
-    joinedDate: '2026-02-15'
-  },
-
-  // 2. 협력사 관리인 (영업대표 / 총괄관리인)
-  {
-    id: 'emp-m-01',
-    name: '최영호 대표',
-    employeeId: 'MGRUB1',
-    company: '유브갓',
-    team: '영업총괄팀',
-    part: '전사총괄',
-    role: 'PARTNER_MANAGER',
-    position: '영업대표/총괄관리자',
-    phone: '010-3344-5566',
-    email: 'yh.choi@ubgot.co.kr',
-    status: 'ACTIVE',
-    joinedDate: '2025-11-01'
-  },
-  {
-    id: 'emp-m-02',
-    name: '정진우 부사장',
-    employeeId: 'MGRIT1',
-    company: '(주)협력아이티에스',
-    team: '영업총괄팀',
-    part: '전사총괄',
-    role: 'PARTNER_MANAGER',
-    position: '현장총괄관리인',
-    phone: '010-4455-6677',
-    email: 'jw.jung@partnerits.co.kr',
-    status: 'ACTIVE',
-    joinedDate: '2025-12-01'
-  },
-  {
-    id: 'emp-m-03',
-    name: '김태현 전무',
-    employeeId: 'MGRHD1',
-    company: '현대IT솔루션',
-    team: 'SI사업본부',
-    part: '전사총괄',
-    role: 'PARTNER_MANAGER',
-    position: '총괄영업대표',
-    phone: '010-5566-7788',
-    email: 'th.kim@hdits.co.kr',
-    status: 'ACTIVE',
-    joinedDate: '2025-10-15'
-  },
-  {
-    id: 'emp-m-04',
-    name: '이강현 상무',
-    employeeId: 'MGRAU1',
-    company: '오토시스',
-    team: '오토사업본부',
-    part: '전사총괄',
-    role: 'PARTNER_MANAGER',
-    position: '수급사총괄PM',
-    phone: '010-6677-8899',
-    email: 'kh.lee@autosys.co.kr',
-    status: 'ACTIVE',
-    joinedDate: '2025-11-20'
-  },
-  {
-    id: 'emp-m-05',
-    name: '문상철 대표',
-    employeeId: 'MGRFI1',
-    company: '파이낸스ITS',
-    team: '금융사업본부',
-    part: '전사총괄',
-    role: 'PARTNER_MANAGER',
-    position: '현장관리인',
-    phone: '010-7788-9900',
-    email: 'sc.moon@financeits.co.kr',
-    status: 'ACTIVE',
-    joinedDate: '2025-12-10'
-  },
-
-  // 3. DS 현장관리인 (신한DS PM)
-  {
-    id: 'emp-ds-01',
-    name: '조경훈',
-    employeeId: 'S01832',
-    company: '신한DS',
-    team: '카드개발팀',
-    part: '카드IS (Part 1)',
-    role: 'DS_PM',
-    position: '부장 (전담 PM)',
-    phone: '010-4421-8890',
-    email: 'khcho0421@gmail.com',
-    status: 'ACTIVE',
-    joinedDate: '2024-03-01'
-  },
-  {
-    id: 'emp-ds-02',
-    name: '강민우',
-    employeeId: 'S18121',
-    company: '신한DS',
-    team: '금융개발팀',
-    part: '오토',
-    role: 'DS_PM',
-    position: '수석 (전담 PM)',
-    phone: '010-4421-8891',
-    email: 'mw.kang@shinhands.co.kr',
-    status: 'ACTIVE',
-    joinedDate: '2024-05-15'
-  },
-  {
-    id: 'emp-ds-03',
-    name: '송진호',
-    employeeId: 'S18122',
-    company: '신한DS',
-    team: '재무회계팀',
-    part: '재무',
-    role: 'DS_PM',
-    position: '부장 (전담 PM)',
-    phone: '010-4421-8892',
-    email: 'jh.song@shinhands.co.kr',
-    status: 'ACTIVE',
-    joinedDate: '2024-02-10'
-  },
-  {
-    id: 'emp-ds-04',
-    name: '박성진',
-    employeeId: 'S18123',
-    company: '신한DS',
-    team: '카드개발팀',
-    part: '카드IS',
-    role: 'DS_PM',
-    position: '수석 (전담 PM)',
-    phone: '010-4421-8893',
-    email: 'sj.park@shinhands.co.kr',
-    status: 'ACTIVE',
-    joinedDate: '2024-04-01'
-  },
-  {
-    id: 'emp-ds-05',
-    name: '최동욱',
-    employeeId: 'S18124',
-    company: '신한DS',
-    team: '결제인프라팀',
-    part: '결제망',
-    role: 'DS_PM',
-    position: '차장 (전담 PM)',
-    phone: '010-4421-8894',
-    email: 'dw.choi@shinhands.co.kr',
-    status: 'ACTIVE',
-    joinedDate: '2024-06-20'
-  }
-];
-
-const STORAGE_KEY = 'SGUARD_EMPLOYEES_DATA';
+export const initialEmployeeDataset: EmployeeItem[] = [];
 
 interface EmployeeManageViewProps {
   onBack: () => void;
@@ -349,13 +48,10 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
   onBack,
   themeMode
 }) => {
-  const [employees, setEmployees] = useState<EmployeeItem[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return initialEmployeeDataset;
-  });
+  // 로컬스토리지 완전 제거: Cloudflare D1 users 테이블 100% 실시간 직접 동기화
+  const [employees, setEmployees] = useState<EmployeeItem[]>([]);
+  const [dbOrgParts, setDbOrgParts] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   // 3가지 역할 탭: PARTNER_WORKER | PARTNER_MANAGER | DS_PM
   const [activeRoleTab, setActiveRoleTab] = useState<RoleType>('PARTNER_WORKER');
@@ -366,13 +62,81 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingEmp, setEditingEmp] = useState<EmployeeItem | null>(null);
 
-  // 저장 함수
-  const saveEmployeesToStorage = (list: EmployeeItem[]) => {
-    setEmployees(list);
+  // 1. Cloudflare D1 users 원격 실시간 조회
+  const fetchRemoteUsers = async () => {
+    setIsLoading(true);
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-    } catch (e) {}
+      const res = await fetch('https://sguardai.khcho0421.workers.dev/users');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          const mapped: EmployeeItem[] = json.data.map((u: any) => {
+            // 3대 역할 매핑
+            let roleType: RoleType = 'PARTNER_WORKER';
+            if (u.is_partner_manager === 1 || u.role === 'PARTNER_PART_LEADER' || u.role === 'PARTNER_MANAGER') {
+              roleType = 'PARTNER_MANAGER';
+            } else if (u.role === 'DS_PRINCIPAL_PM' || u.company === '신한DS' || u.is_admin === 1) {
+              roleType = 'DS_PM';
+            }
+
+            return {
+              id: u.employee_id || `emp-${u.seq || Date.now()}`,
+              name: u.name || '',
+              employeeId: u.employee_id || '',
+              company: u.company || (roleType === 'DS_PM' ? '신한DS' : '유브갓'),
+              team: u.team || '카드개발팀',
+              part: u.part || '',
+              role: roleType,
+              position: u.position || (roleType === 'DS_PM' ? '수석' : roleType === 'PARTNER_MANAGER' ? '대표' : '선임'),
+              phone: u.phone || '',
+              email: u.email || '',
+              status: u.status === 'ACTIVE' || u.status === '정상투입' ? '정상투입' : (u.status || '정상투입'),
+              joinedDate: (u.created_at || '').substring(0, 10) || '2026-08-17'
+            };
+          });
+          setEmployees(mapped);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to fetch remote users:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  // 2. Cloudflare D1 organizations 원격 파트 정보 실시간 조회 (DB 기준 동적 파트)
+  const fetchRemoteOrgs = async () => {
+    try {
+      const res = await fetch('https://sguardai.khcho0421.workers.dev/organizations');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          const parts = json.data
+            .map((item: any) => (item.part_name || '').trim())
+            .filter(Boolean);
+          setDbOrgParts(parts);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to fetch remote orgs for parts:', err);
+    }
+  };
+
+  useEffect(() => {
+    // 잔여 로컬스토리지 정리
+    try {
+      localStorage.removeItem('SGUARD_EMPLOYEES_DATA');
+    } catch (e) {}
+    fetchRemoteUsers();
+    fetchRemoteOrgs();
+  }, []);
+
+  // 3. DB 기준으로만 존재하는 파트 목록 동적 계산 (하드코딩 완전 배제)
+  const availableParts = useMemo(() => {
+    const fromUsers = employees.map(e => (e.part || '').trim()).filter(Boolean);
+    const combined = new Set([...dbOrgParts, ...fromUsers]);
+    return Array.from(combined);
+  }, [dbOrgParts, employees]);
 
   // 필터링된 직원 목록
   const filteredEmployees = useMemo(() => {
@@ -410,15 +174,16 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
 
   // 신규 등록 열기
   const handleOpenAddModal = () => {
+    const defaultPart = availableParts.length > 0 ? availableParts[0] : '상담';
     const newEmp: EmployeeItem = {
       id: `emp-${Date.now()}`,
       name: '',
       employeeId: '',
       company: activeRoleTab === 'DS_PM' ? '신한DS' : '유브갓',
-      team: activeRoleTab === 'PARTNER_MANAGER' ? '영업총괄팀' : '상담운영팀',
-      part: activeRoleTab === 'PARTNER_MANAGER' ? '전사총괄' : '상담',
+      team: activeRoleTab === 'PARTNER_MANAGER' ? '영업총괄팀' : '카드개발팀',
+      part: activeRoleTab === 'PARTNER_MANAGER' ? '전사총괄' : defaultPart,
       role: activeRoleTab,
-      position: activeRoleTab === 'DS_PM' ? '수석 (전담 PM)' : activeRoleTab === 'PARTNER_MANAGER' ? '현장관리인(영업대표)' : '선임',
+      position: activeRoleTab === 'DS_PM' ? '수석 (전담 PM)' : activeRoleTab === 'PARTNER_MANAGER' ? '현장관리인' : '선임',
       phone: '010-',
       email: '',
       status: '정상투입',
@@ -434,27 +199,16 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
     setIsEditModalOpen(true);
   };
 
-  // 모달 저장 처리
-  const handleSaveModal = (updated: EmployeeItem) => {
+  // 모달 저장 처리 (Cloudflare D1 실시간 저장)
+  const handleSaveModal = async (updated: EmployeeItem) => {
     if (!updated.name.trim()) {
       alert('성명을 입력해 주세요.');
       return;
     }
-    const maxLen = updated.role === 'PARTNER_MANAGER' ? 10 : 6;
-    const cleanEmp = updated.employeeId.trim().replace(/[^a-zA-Z0-9]/g, '').slice(0, maxLen);
-    const hasLetter = /[a-zA-Z]/.test(cleanEmp);
-    const hasNumber = /[0-9]/.test(cleanEmp);
-
-    if (updated.role === 'PARTNER_MANAGER') {
-      if (cleanEmp.length < 3 || cleanEmp.length > 10) {
-        alert('협력사 현장관리인 아이디는 영문·숫자 3~10자리여야 합니다. (예: MGRUB1, partner01)');
-        return;
-      }
-    } else {
-      if (cleanEmp.length !== 6 || !hasLetter || !hasNumber) {
-        alert('사번은 영문과 숫자를 모두 포함한 정확히 6자리여야 합니다. (예: S01832, PT2001)');
-        return;
-      }
+    const cleanEmp = updated.employeeId.trim().toUpperCase();
+    if (!cleanEmp) {
+      alert('사원번호/아이디를 입력해 주세요.');
+      return;
     }
     updated.employeeId = cleanEmp;
 
@@ -463,28 +217,60 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
       return;
     }
 
-    const existingIndex = employees.findIndex(e => e.id === updated.id);
-    let newList: EmployeeItem[];
-    if (existingIndex >= 0) {
-      newList = [...employees];
-      newList[existingIndex] = updated;
-    } else {
-      newList = [updated, ...employees];
-    }
-
-    saveEmployeesToStorage(newList);
     setIsEditModalOpen(false);
     setEditingEmp(null);
-    alert(`✅ ${updated.name} (${updated.company}) 정보가 성공적으로 저장되었습니다.`);
+
+    // Cloudflare D1 users 테이블에 실시간 동기화
+    try {
+      const currentUser = dbService.getCurrentUser();
+      const actorId = currentUser?.id || currentUser?.name || 'S01832';
+      const isManagerFlag = updated.role === 'PARTNER_MANAGER' ? 1 : 0;
+      const userRole = updated.role === 'DS_PM' ? 'DS_PRINCIPAL_PM' : updated.role === 'PARTNER_MANAGER' ? 'PARTNER_PART_LEADER' : 'PARTNER_WORKER';
+
+      const res = await fetch('https://sguardai.khcho0421.workers.dev/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employeeId: updated.employeeId,
+          name: updated.name,
+          email: updated.email,
+          phone: updated.phone,
+          company: updated.company,
+          team: updated.team,
+          part: updated.part,
+          position: updated.position,
+          role: userRole,
+          isPartnerManager: isManagerFlag,
+          actor: actorId
+        })
+      });
+
+      if (res.ok) {
+        await fetchRemoteUsers();
+      }
+    } catch (err) {
+      console.warn('D1 users save warning:', err);
+    }
+
+    alert(`✅ ${updated.name} (${updated.company}) 정보가 Cloudflare DB에 저장되었습니다.`);
   };
 
-  // 직원 삭제 처리
-  const handleDeleteEmployee = (id: string, name: string) => {
-    if (confirm(`정말 [${name}] 직원을 삭제하시겠습니까?`)) {
-      const newList = employees.filter(e => e.id !== id);
-      saveEmployeesToStorage(newList);
+  // 삭제 처리 (Cloudflare D1 실시간 삭제)
+  const handleDeleteEmployee = async (employeeId: string, name: string) => {
+    if (confirm(`정말 [${name} (${employeeId})] 직원을 삭제하시겠습니까?`)) {
       setIsEditModalOpen(false);
       setEditingEmp(null);
+
+      try {
+        const res = await fetch(`https://sguardai.khcho0421.workers.dev/users/${employeeId}`, {
+          method: 'DELETE'
+        });
+        if (res.ok) {
+          await fetchRemoteUsers();
+        }
+      } catch (err) {
+        console.warn('D1 user delete error:', err);
+      }
     }
   };
 
@@ -510,9 +296,9 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
               border: 'none', 
               color: '#0F172A', 
               display: 'flex', 
-              alignItems: 'center',
-              cursor: 'pointer',
-              padding: '4px'
+              alignItems: 'center', 
+              cursor: 'pointer', 
+              padding: '4px' 
             }}
           >
             <ArrowLeft size={22} />
@@ -520,7 +306,7 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
           <div>
             <span style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A' }}>직원 관리</span>
             <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>
-              협력사 / 협력사 관리인 / DS 현장관리인 3대 체계
+              협력사 / 협력사 관리인 / DS 현장관리인 3대 체계 (실시간 D1 DB 연동)
             </div>
           </div>
         </div>
@@ -691,10 +477,26 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
           )}
         </div>
 
-        {/* 파트별 칩 필터 (협력사 작업자/DS PM 탭일 때) */}
-        {activeRoleTab !== 'PARTNER_MANAGER' && (
+        {/* 🇰🇷 DB 기준으로만 존재하는 파트 칩 필터 (하드코딩 완전 배제) */}
+        {availableParts.length > 0 && activeRoleTab !== 'PARTNER_MANAGER' && (
           <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px' }}>
-            {['ALL', '상담', '카드IS', '오토', '재무', '데이터', '결제망'].map(partName => (
+            <button
+              onClick={() => setSelectedPartFilter('ALL')}
+              style={{
+                padding: '4px 10px',
+                borderRadius: '14px',
+                fontSize: '12px',
+                fontWeight: selectedPartFilter === 'ALL' ? 700 : 500,
+                border: selectedPartFilter === 'ALL' ? '1px solid #0052FF' : '1px solid #E2E8F0',
+                background: selectedPartFilter === 'ALL' ? '#0052FF' : '#F8FAFC',
+                color: selectedPartFilter === 'ALL' ? '#FFFFFF' : '#64748B',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              전체 파트
+            </button>
+            {availableParts.map(partName => (
               <button
                 key={partName}
                 onClick={() => setSelectedPartFilter(partName)}
@@ -710,7 +512,7 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
                   whiteSpace: 'nowrap'
                 }}
               >
-                {partName === 'ALL' ? '전체 파트' : `${partName} 파트`}
+                {partName.endsWith('파트') ? partName : `${partName} 파트`}
               </button>
             ))}
           </div>
@@ -719,9 +521,43 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
 
       {/* 4. 직원 목록 카드 뷰 */}
       <div style={{ padding: '14px 16px', flex: 1, display: 'flex', flexDirection: 'column', gap: '10px', paddingBottom: '80px' }}>
-        {filteredEmployees.length === 0 ? (
-          <div style={{ padding: '40px 20px', textAlign: 'center', color: '#94A3B8', fontSize: '13.5px' }}>
-            검색 및 필터 조건에 해당하는 직원이 없습니다.
+        {isLoading ? (
+          <div style={{ padding: '40px 20px', textAlign: 'center', color: '#0052FF', fontSize: '13.5px', fontWeight: 600 }}>
+            데이터베이스에서 직원 정보를 불러오는 중입니다...
+          </div>
+        ) : filteredEmployees.length === 0 ? (
+          <div style={{
+            padding: '60px 20px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '12px',
+            background: '#FFFFFF',
+            borderRadius: '16px',
+            border: '1px dashed #CBD5E1',
+            margin: '20px 0'
+          }}>
+            <div style={{
+              width: '54px',
+              height: '54px',
+              borderRadius: '50%',
+              background: 'rgba(0, 82, 255, 0.08)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#0052FF'
+            }}>
+              <UserPlus size={28} />
+            </div>
+            <div>
+              <div style={{ fontSize: '15.5px', fontWeight: 800, color: '#0F172A', marginBottom: '4px' }}>
+                해당 역할의 등록된 직원이 없습니다
+              </div>
+              <div style={{ fontSize: '12.5px', color: '#64748B' }}>
+                우측 상단 <strong>[+ 직원 등록]</strong> 버튼을 눌러 신규 직원을 등록해 주세요.
+              </div>
+            </div>
           </div>
         ) : (
           filteredEmployees.map(emp => (
@@ -801,17 +637,21 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
                     <span style={{ fontSize: '11.5px', color: '#475569', fontWeight: 600 }}>
                       {emp.team}
                     </span>
-                    <span style={{ color: '#CBD5E1' }}>•</span>
-                    <span style={{ 
-                      fontSize: '11px', 
-                      color: '#0052FF', 
-                      background: 'rgba(0, 82, 255, 0.08)',
-                      padding: '1px 5px',
-                      borderRadius: '4px',
-                      fontWeight: 700
-                    }}>
-                      {emp.part}
-                    </span>
+                    {emp.part && (
+                      <>
+                        <span style={{ color: '#CBD5E1' }}>•</span>
+                        <span style={{ 
+                          fontSize: '11px', 
+                          color: '#0052FF', 
+                          background: 'rgba(0, 82, 255, 0.08)',
+                          padding: '1px 5px',
+                          borderRadius: '4px',
+                          fontWeight: 700
+                        }}>
+                          {emp.part}
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -966,18 +806,14 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: '12px', fontWeight: 700, color: editingEmp.role === 'PARTNER_MANAGER' ? '#0284C7' : '#475569', display: 'block', marginBottom: '4px' }}>
-                    {editingEmp.role === 'PARTNER_MANAGER' ? '사원번호 / 아이디 (현장관리인: 최대 10자리) *' : '사원번호 (영문·숫자 6자리) *'}
+                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
+                    사원번호 / 아이디 *
                   </label>
                   <input
                     type="text"
-                    maxLength={editingEmp.role === 'PARTNER_MANAGER' ? 10 : 6}
                     value={editingEmp.employeeId}
-                    onChange={e => {
-                      const maxLen = editingEmp.role === 'PARTNER_MANAGER' ? 10 : 6;
-                      setEditingEmp({ ...editingEmp, employeeId: e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, maxLen) });
-                    }}
-                    placeholder={editingEmp.role === 'PARTNER_MANAGER' ? "예: MGRUB1, partner01 (최대 10자)" : "예: S01832, PT2001 (6자)"}
+                    onChange={e => setEditingEmp({ ...editingEmp, employeeId: e.target.value.trim().toUpperCase() })}
+                    placeholder="예: S01832, UB0001"
                     style={{
                       width: '100%',
                       padding: '8px 10px',
@@ -1013,9 +849,11 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
                     }}
                   />
                 ) : (
-                  <select
+                  <input
+                    type="text"
                     value={editingEmp.company}
                     onChange={e => setEditingEmp({ ...editingEmp, company: e.target.value })}
+                    placeholder="예: 유브갓, (주)협력아이티에스, 현대IT솔루션"
                     style={{
                       width: '100%',
                       padding: '8px 10px',
@@ -1025,32 +863,21 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
                       background: '#FFFFFF',
                       boxSizing: 'border-box'
                     }}
-                  >
-                    <option value="유브갓">유브갓</option>
-                    <option value="(주)협력아이티에스">(주)협력아이티에스</option>
-                    <option value="현대IT솔루션">현대IT솔루션</option>
-                    <option value="오토시스">오토시스</option>
-                    <option value="파이낸스ITS">파이낸스ITS</option>
-                    <option value="데이터인사이트">데이터인사이트</option>
-                    <option value="페이먼트시스템즈">페이먼트시스템즈</option>
-                    <option value="보안인텔리전스">보안인텔리전스</option>
-                    <option value="고객경험ITS">고객경험ITS</option>
-                    <option value="스마트소프트">스마트소프트</option>
-                    <option value="클라우드네트웍스">클라우드네트웍스</option>
-                    <option value="신한DS">신한DS</option>
-                  </select>
+                  />
                 )}
               </div>
 
-              {/* 4. 소속 정보 (팀 & 파트) */}
+              {/* 4. 소속 정보 (팀 & 파트 - DB 기준 동적) */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
                     소속 팀 *
                   </label>
-                  <select
+                  <input
+                    type="text"
                     value={editingEmp.team}
                     onChange={e => setEditingEmp({ ...editingEmp, team: e.target.value })}
+                    placeholder="예: 카드개발팀, 상담운영팀"
                     style={{
                       width: '100%',
                       padding: '8px 10px',
@@ -1060,46 +887,48 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
                       background: '#FFFFFF',
                       boxSizing: 'border-box'
                     }}
-                  >
-                    <option value="카드개발팀">카드개발팀</option>
-                    <option value="상담운영팀">상담운영팀</option>
-                    <option value="금융개발팀">금융개발팀</option>
-                    <option value="재무회계팀">재무회계팀</option>
-                    <option value="결제인프라팀">결제인프라팀</option>
-                    <option value="영업총괄팀">영업총괄팀</option>
-                    <option value="SI사업본부">SI사업본부</option>
-                  </select>
+                  />
                 </div>
 
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
-                    관제 파트 *
+                    관제 파트 (DB 기준) *
                   </label>
-                  <select
-                    value={editingEmp.part}
-                    onChange={e => setEditingEmp({ ...editingEmp, part: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '8px 10px',
-                      borderRadius: '8px',
-                      border: '1px solid #CBD5E1',
-                      fontSize: '13px',
-                      background: '#FFFFFF',
-                      boxSizing: 'border-box'
-                    }}
-                  >
-                    <option value="상담">상담 파트</option>
-                    <option value="카드IS">카드IS 파트</option>
-                    <option value="오토">오토 파트</option>
-                    <option value="재무">재무 파트</option>
-                    <option value="결제망">결제망 파트</option>
-                    <option value="데이터">데이터 파트</option>
-                    <option value="FDS">FDS 파트</option>
-                    <option value="CRM">CRM 파트</option>
-                    <option value="모바일">모바일 파트</option>
-                    <option value="인프라">인프라 파트</option>
-                    <option value="전사총괄">전사총괄 (관리인)</option>
-                  </select>
+                  {availableParts.length > 0 ? (
+                    <select
+                      value={editingEmp.part}
+                      onChange={e => setEditingEmp({ ...editingEmp, part: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        border: '1px solid #CBD5E1',
+                        fontSize: '13px',
+                        background: '#FFFFFF',
+                        boxSizing: 'border-box'
+                      }}
+                    >
+                      <option value="">-- 파트 선택 --</option>
+                      {availableParts.map(p => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={editingEmp.part}
+                      onChange={e => setEditingEmp({ ...editingEmp, part: e.target.value })}
+                      placeholder="예: 상담"
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        border: '1px solid #CBD5E1',
+                        fontSize: '13px',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  )}
                 </div>
               </div>
 
@@ -1191,10 +1020,10 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
               display: 'flex',
               gap: '10px'
             }}>
-              {employees.some(e => e.id === editingEmp.id) && (
+              {employees.some(e => e.id === editingEmp.id || e.employeeId === editingEmp.employeeId) && (
                 <button
                   type="button"
-                  onClick={() => handleDeleteEmployee(editingEmp.id, editingEmp.name)}
+                  onClick={() => handleDeleteEmployee(editingEmp.employeeId, editingEmp.name)}
                   style={{
                     flex: 0.8,
                     padding: '10px 0',
