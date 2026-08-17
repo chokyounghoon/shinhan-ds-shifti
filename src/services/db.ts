@@ -1096,119 +1096,140 @@ export class PureDatabaseEngine {
   public acceptContractInspection(id: string, memo?: string): boolean { return true; }
 
   // =========================================================================
-  // 6. 실시간 알림 & 메시지/소통 센터 시스템 (Notifications & Messages)
+  // 6. 실시간 알림 & 메시지/소통 센터 시스템 (Cloudflare D1 Database 연동)
   // =========================================================================
   private notifications: DbAppNotification[] = [];
   private messages: DbAppMessage[] = [];
+  private readonly API_BASE = 'https://sguardai.khcho0421.workers.dev';
 
-  private initDefaultNotificationsAndMessages(): void {
-    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
-    this.notifications = [
-      {
-        id: 'noti-01',
-        type: 'SLA_ALERT',
-        title: '도급 인력 투입 지연 발생',
-        content: '상담 파트 이하은(유브갓) 45분 지각 - 소명서 접수 대기 중',
-        targetRole: 'DS_PRINCIPAL_PM',
-        partName: '상담',
-        isRead: false,
-        createdAt: nowStr,
-        linkUrl: 'principal_portal'
-      },
-      {
-        id: 'noti-02',
-        type: 'GAP_NOTICE',
-        title: '투입 공백 사전 통보 접수',
-        content: '유브갓(상담 파트) 김성훈 8/18 1일 연차 공백 대체인력 투입 통보',
-        targetRole: 'DS_PRINCIPAL_PM',
-        partName: '상담',
-        isRead: false,
-        createdAt: nowStr,
-        linkUrl: 'principal_portal'
-      },
-      {
-        id: 'noti-03',
-        type: 'CONTRACT_SETTLE',
-        title: '일일 도급 공정 검수 완료',
-        content: '카드개발팀 상담 파트 8명 전원 투입 확인 및 공정 정산 승인 완료',
-        targetRole: 'ALL',
-        partName: '상담',
-        isRead: true,
-        createdAt: '2026-08-16 18:30',
-        linkUrl: 'principal_portal'
+  public async fetchNotificationsFromD1(userRole?: string, partName?: string): Promise<DbAppNotification[]> {
+    try {
+      let url = `${this.API_BASE}/notifications`;
+      const queryParams: string[] = [];
+      if (userRole) queryParams.push(`role=${encodeURIComponent(userRole)}`);
+      if (partName) queryParams.push(`part=${encodeURIComponent(partName)}`);
+      if (queryParams.length > 0) url += `?${queryParams.join('&')}`;
+
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data)) {
+          this.notifications = json.data.map((row: any) => ({
+            id: row.id,
+            type: row.type,
+            title: row.title,
+            content: row.content,
+            targetRole: row.target_role,
+            partName: row.part_name,
+            isRead: Boolean(row.is_read),
+            createdAt: row.created_at,
+            linkUrl: row.link_url
+          }));
+          return [...this.notifications];
+        }
       }
-    ];
-
-    this.messages = [
-      {
-        id: 'msg-01',
-        senderName: '유브갓 파트관리자',
-        senderRole: '협력사 현장관리인',
-        partName: '상담',
-        title: '이하은 45분 지각 관련 대중교통 지연 소명서 제출',
-        content: '안녕하세요 PM님, 금일 오전 지하철 2호선 고장으로 인한 45분 지각 소명서 및 지연증명서를 첨부 제출하였습니다. 검토 부탁드립니다.',
-        isRead: false,
-        createdAt: nowStr,
-        replyStatus: 'PENDING'
-      },
-      {
-        id: 'msg-02',
-        senderName: '현대IT솔루션 담당',
-        senderRole: '협력사 현장대리인',
-        partName: '상담',
-        title: '8월 도급 투입인력 보안 교육 이수 확인서 발송',
-        content: '상담 파트 투입인력 5인 대상 정보보호 및 클라우드 보안 컴플라이언스 이수증을 등록 완료하였습니다.',
-        isRead: false,
-        createdAt: '2026-08-16 14:20',
-        replyStatus: 'COMPLETED'
-      }
-    ];
-  }
-
-  public getNotifications(userRole?: string, partName?: string): DbAppNotification[] {
-    if (this.notifications.length === 0) {
-      this.initDefaultNotificationsAndMessages();
+    } catch (err) {
+      console.warn('[D1 Notifications Fetch Error]:', err);
     }
     return [...this.notifications];
   }
 
-  public getUnreadNotificationCount(userRole?: string, partName?: string): number {
-    const list = this.getNotifications(userRole, partName);
-    return list.filter(n => !n.isRead).length;
+  public getNotifications(userRole?: string, partName?: string): DbAppNotification[] {
+    return [...this.notifications];
   }
 
-  public markNotificationAsRead(id: string): void {
+  public getUnreadNotificationCount(userRole?: string, partName?: string): number {
+    return this.notifications.filter(n => !n.isRead).length;
+  }
+
+  public async markNotificationAsRead(id: string): Promise<void> {
     const item = this.notifications.find(n => n.id === id);
     if (item) {
       item.isRead = true;
     }
+    try {
+      await fetch(`${this.API_BASE}/notifications/${id}/read`, { method: 'PUT' });
+    } catch (e) {}
   }
 
-  public markAllNotificationsAsRead(): void {
+  public async markAllNotificationsAsRead(): Promise<void> {
     this.notifications.forEach(n => { n.isRead = true; });
+    try {
+      await fetch(`${this.API_BASE}/notifications/read-all`, { method: 'PUT' });
+    } catch (e) {}
   }
 
-  public getMessages(userRole?: string, partName?: string): DbAppMessage[] {
-    if (this.messages.length === 0) {
-      this.initDefaultNotificationsAndMessages();
+  public async fetchMessagesFromD1(userRole?: string, partName?: string): Promise<DbAppMessage[]> {
+    try {
+      let url = `${this.API_BASE}/messages`;
+      if (partName) url += `?part=${encodeURIComponent(partName)}`;
+
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data)) {
+          this.messages = json.data.map((row: any) => ({
+            id: row.id,
+            senderName: row.sender_name,
+            senderRole: row.sender_role,
+            partName: row.part_name,
+            title: row.title,
+            content: row.content,
+            isRead: Boolean(row.is_read),
+            replyStatus: row.reply_status,
+            replyContent: row.reply_content,
+            repliedAt: row.replied_at,
+            createdAt: row.created_at
+          }));
+          return [...this.messages];
+        }
+      }
+    } catch (err) {
+      console.warn('[D1 Messages Fetch Error]:', err);
     }
     return [...this.messages];
   }
 
-  public getUnreadMessageCount(userRole?: string, partName?: string): number {
-    const list = this.getMessages(userRole, partName);
-    return list.filter(m => !m.isRead).length;
+  public getMessages(userRole?: string, partName?: string): DbAppMessage[] {
+    return [...this.messages];
   }
 
-  public markMessageAsRead(id: string): void {
+  public getUnreadMessageCount(userRole?: string, partName?: string): number {
+    return this.messages.filter(m => !m.isRead).length;
+  }
+
+  public async markMessageAsRead(id: string): Promise<void> {
     const item = this.messages.find(m => m.id === id);
     if (item) {
       item.isRead = true;
     }
+    try {
+      await fetch(`${this.API_BASE}/messages/${id}/read`, { method: 'PUT' });
+    } catch (e) {}
   }
 
-  public markAllMessagesAsRead(): void {
+  public async sendReplyInD1(id: string, replyContent: string): Promise<void> {
+    const item = this.messages.find(m => m.id === id);
+    if (item) {
+      item.isRead = true;
+      item.replyStatus = 'COMPLETED';
+      item.replyContent = replyContent;
+      item.repliedAt = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    }
+    try {
+      await fetch(`${this.API_BASE}/messages/${id}/reply`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ replyContent })
+      });
+    } catch (e) {}
+  }
+
+  public async markAllMessagesAsRead(): Promise<void> {
     this.messages.forEach(m => { m.isRead = true; });
+    try {
+      await fetch(`${this.API_BASE}/messages/read-all`, { method: 'PUT' });
+    } catch (e) {}
   }
 
   public getUserByEmpId(empId: string) { return this.findUserByEmpId(empId); }
@@ -1240,6 +1261,8 @@ export interface DbAppMessage {
   isRead: boolean;
   createdAt: string;
   replyStatus?: 'PENDING' | 'COMPLETED';
+  replyContent?: string;
+  repliedAt?: string;
 }
 
 export const dbService = new PureDatabaseEngine();

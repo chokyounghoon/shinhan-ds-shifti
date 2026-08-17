@@ -118,33 +118,55 @@ export function App() {
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [selectedDaySchedule, setSelectedDaySchedule] = useState<DaySchedule | null>(null);
 
-  // 실시간 알림 & 메시지 센터 상태
+  // 실시간 알림 & 메시지 센터 상태 (Cloudflare D1 연동)
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const [isMessagesModalOpen, setIsMessagesModalOpen] = useState(false);
-  const [notifications, setNotifications] = useState<DbAppNotification[]>(() => dbService.getNotifications());
-  const [messagesList, setMessagesList] = useState<DbAppMessage[]>(() => dbService.getMessages());
+  const [notifications, setNotifications] = useState<DbAppNotification[]>([]);
+  const [messagesList, setMessagesList] = useState<DbAppMessage[]>([]);
 
   const unreadNotificationCount = notifications.filter(n => !n.isRead).length;
   const unreadMessageCount = messagesList.filter(m => !m.isRead).length;
 
-  const handleMarkNotificationRead = (id: string) => {
-    dbService.markNotificationAsRead(id);
-    setNotifications([...dbService.getNotifications()]);
+  // D1 DB 실시간 알림 & 메시지 로드
+  useEffect(() => {
+    const loadD1Data = async () => {
+      const part = currentUser?.partName || '상담';
+      const role = currentUser?.role || 'DS_PRINCIPAL_PM';
+      const notis = await dbService.fetchNotificationsFromD1(role, part);
+      setNotifications(notis);
+      const msgs = await dbService.fetchMessagesFromD1(role, part);
+      setMessagesList(msgs);
+    };
+
+    loadD1Data();
+    // 15초마다 실시간 D1 폴링 동기화
+    const interval = setInterval(loadD1Data, 15000);
+    return () => clearInterval(interval);
+  }, [currentUser?.role, currentUser?.partName]);
+
+  const handleMarkNotificationRead = async (id: string) => {
+    await dbService.markNotificationAsRead(id);
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
   };
 
-  const handleMarkAllNotificationsRead = () => {
-    dbService.markAllNotificationsAsRead();
-    setNotifications([...dbService.getNotifications()]);
+  const handleMarkAllNotificationsRead = async () => {
+    await dbService.markAllNotificationsAsRead();
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
   };
 
-  const handleMarkMessageRead = (id: string) => {
-    dbService.markMessageAsRead(id);
-    setMessagesList([...dbService.getMessages()]);
+  const handleMarkMessageRead = async (id: string) => {
+    await dbService.markMessageAsRead(id);
+    setMessagesList(prev => prev.map(m => m.id === id ? { ...m, isRead: true } : m));
   };
 
-  const handleMarkAllMessagesRead = () => {
-    dbService.markAllMessagesAsRead();
-    setMessagesList([...dbService.getMessages()]);
+  const handleSendReply = async (id: string, replyContent: string) => {
+    await dbService.sendReplyInD1(id, replyContent);
+    setMessagesList(prev => prev.map(m => m.id === id ? { ...m, isRead: true, replyStatus: 'COMPLETED', replyContent } : m));
+  };
+
+  const handleMarkAllMessagesRead = async () => {
+    await dbService.markAllMessagesAsRead();
+    setMessagesList(prev => prev.map(m => ({ ...m, isRead: true })));
   };
 
   // D1 DB 실시간 프로필 사진 & 정보 동기화
@@ -705,13 +727,14 @@ export function App() {
               }}
             />
 
-            {/* 도급 소통 / 메시지 및 소명 센터 모달 */}
+            {/* 도급 소통 / 메시지 및 소명 센터 모달 (Cloudflare D1 연동) */}
             <MessagesListModal
               isOpen={isMessagesModalOpen}
               onClose={() => setIsMessagesModalOpen(false)}
               messages={messagesList}
               onMarkRead={handleMarkMessageRead}
               onMarkAllRead={handleMarkAllMessagesRead}
+              onSendReply={handleSendReply}
               currentUserRole={currentUser?.role}
             />
           </>

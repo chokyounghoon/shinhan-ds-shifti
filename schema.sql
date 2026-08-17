@@ -209,6 +209,34 @@ CREATE TABLE IF NOT EXISTS login_history (
     updated_by TEXT DEFAULT 'SYSTEM'                 -- [수정자] (사번/ID)
 );
 
+-- 15. 실시간 알림 센터 (App Notifications)
+CREATE TABLE IF NOT EXISTS app_notifications (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,                             -- SLA_ALERT, GAP_NOTICE, CONTRACT_SETTLE, GENERAL
+    title TEXT NOT NULL,                            -- 알림 제목
+    content TEXT NOT NULL,                          -- 알림 상세 내용
+    target_role TEXT DEFAULT 'ALL',                 -- 대상 권한 (DS_PRINCIPAL_PM, PARTNER_PART_LEADER, ALL)
+    part_name TEXT DEFAULT '상담',                  -- 도급 파트명
+    is_read INTEGER DEFAULT 0,                      -- 0: 미확인, 1: 읽음
+    link_url TEXT,                                  -- 이동할 페이지 URL/뷰 ID
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP   -- 발송일시 (KST)
+);
+
+-- 16. 도급 소통 및 소명 메시지함 (App Messages)
+CREATE TABLE IF NOT EXISTS app_messages (
+    id TEXT PRIMARY KEY,
+    sender_name TEXT NOT NULL,                      -- 발신자 성명
+    sender_role TEXT NOT NULL,                      -- 발신자 직책/역할 (e.g. 협력사 현장관리인)
+    part_name TEXT DEFAULT '상담',                  -- 도급 파트명
+    title TEXT NOT NULL,                            -- 메시지 제목
+    content TEXT NOT NULL,                          -- 메시지 본문
+    is_read INTEGER DEFAULT 0,                      -- 0: 미확인, 1: 읽음
+    reply_status TEXT DEFAULT 'PENDING',            -- PENDING, COMPLETED
+    reply_content TEXT,                             -- PM 회신 내용
+    replied_at DATETIME,                            -- 회신 일시
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP   -- 등록일시 (KST)
+);
+
 -- 인덱스 생성
 CREATE INDEX IF NOT EXISTS idx_commute_emp_date ON commute_logs(employee_id, work_date);
 CREATE INDEX IF NOT EXISTS idx_schedule_emp_date ON work_schedules(employee_id, schedule_date);

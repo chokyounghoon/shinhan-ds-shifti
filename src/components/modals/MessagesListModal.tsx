@@ -8,6 +8,7 @@ interface MessagesListModalProps {
   messages: DbAppMessage[];
   onMarkRead: (id: string) => void;
   onMarkAllRead: () => void;
+  onSendReply?: (id: string, replyContent: string) => void;
   currentUserRole?: string;
 }
 
@@ -17,6 +18,7 @@ export const MessagesListModal: React.FC<MessagesListModalProps> = ({
   messages,
   onMarkRead,
   onMarkAllRead,
+  onSendReply,
   currentUserRole
 }) => {
   const [selectedMsg, setSelectedMsg] = useState<DbAppMessage | null>(null);
@@ -29,12 +31,16 @@ export const MessagesListModal: React.FC<MessagesListModalProps> = ({
 
   const handleSendReply = () => {
     if (!selectedMsg || !replyText.trim()) return;
+    const text = replyText.trim();
     setReplySentMap(prev => ({
       ...prev,
-      [selectedMsg.id]: replyText.trim()
+      [selectedMsg.id]: text
     }));
+    if (onSendReply) {
+      onSendReply(selectedMsg.id, text);
+    }
     setReplyText('');
-    alert('답변 및 확인 메시지가 협력사 관리자 앞 실시간 전송되었습니다.');
+    alert('답변 및 확인 메시지가 협력사 관리자 앞 D1 DB로 실시간 전송/기록되었습니다.');
   };
 
   return (
