@@ -247,8 +247,11 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
     pw: '',
     confirmPw: '',
     isPartnerManager: false,
-    agreeTerms: true
+    agreeTerms: false
   });
+
+  // 약관 전문 팝업 상태
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   // 비밀번호 초기화 상태
   const [resetEmpId, setResetEmpId] = useState('S181210');
@@ -1489,15 +1492,46 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
               </div>
             </div>
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11.5px', color: '#CFD8DC', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={signupForm.agreeTerms}
-                onChange={e => setSignupForm({ ...signupForm, agreeTerms: e.target.checked })}
-                style={{ accentColor: '#0052FF' }}
-              />
-              <span>이용약관 및 개인정보 처리방침에 동의합니다 *</span>
-            </label>
+            {/* 이용약관 체크 및 약관 전문 보기 */}
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: signupForm.agreeTerms ? '1px solid rgba(0, 200, 83, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '10px',
+              padding: '10px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '8px'
+            }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#CFD8DC', cursor: 'pointer', flex: 1 }}>
+                <input
+                  type="checkbox"
+                  checked={signupForm.agreeTerms}
+                  onChange={e => setSignupForm({ ...signupForm, agreeTerms: e.target.checked })}
+                  style={{ accentColor: '#0052FF', width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                <span onClick={(e) => { e.preventDefault(); setShowTermsModal(true); }}>
+                  <strong style={{ color: '#80D8FF', textDecoration: 'underline' }}>이용약관 및 개인정보 처리방침</strong>에 동의합니다 *
+                </span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowTermsModal(true)}
+                style={{
+                  background: 'rgba(0, 229, 255, 0.12)',
+                  border: '1px solid rgba(0, 229, 255, 0.3)',
+                  borderRadius: '6px',
+                  color: '#00E5FF',
+                  padding: '4px 8px',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                약관 전문 보기 ›
+              </button>
+            </div>
 
             <button
               type="button"
@@ -1646,6 +1680,195 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
           © 2026 Shinhan DS Corp. All Rights Reserved
         </div>
       </div>
+
+      {/* ── [이용약관 및 개인정보 처리방침 팝업 모달] ── */}
+      {showTermsModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(5, 10, 20, 0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px',
+          zIndex: 9999
+        }}>
+          <div style={{
+            background: '#0D1B2A',
+            border: '1px solid rgba(0, 229, 255, 0.3)',
+            borderRadius: '16px',
+            maxWidth: '540px',
+            width: '100%',
+            maxHeight: '85vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.7)',
+            overflow: 'hidden'
+          }}>
+            {/* 모달 헤더 */}
+            <div style={{
+              padding: '18px 20px',
+              borderBottom: '1px solid rgba(255,255,255,0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: 'linear-gradient(135deg, rgba(0,82,255,0.15) 0%, rgba(0,229,255,0.05) 100%)'
+            }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '15.5px', fontWeight: 800, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>📜</span> 이용약관 및 개인정보 처리방침
+                </h3>
+                <span style={{ fontSize: '11px', color: '#80D8FF' }}>신한DS 협력사 도급 공정 관제 시스템 표준 지침</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTermsModal(false)}
+                style={{ background: 'transparent', border: 'none', color: '#90A4AE', fontSize: '20px', cursor: 'pointer', padding: '0 4px' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* 약관 본문 (스크롤 영역) */}
+            <div style={{
+              padding: '20px',
+              overflowY: 'auto',
+              fontSize: '12.5px',
+              lineHeight: 1.6,
+              color: '#ECEFF1',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px'
+            }}>
+              {/* 1. 협력사 도급 이용약관 */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '13.5px', fontWeight: 800, color: '#00E5FF' }}>
+                  협력사 도급 인력 투입 및 공정 검수 시스템 이용약관
+                </h4>
+
+                <div style={{ marginBottom: '12px' }}>
+                  <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>제1조 (목적)</strong>
+                  <span style={{ color: '#B0BEC5' }}>
+                    본 약관은 신한DS 프로젝트 수행을 위해 투입되는 협력사 소속 인력의 도급 계약 이행 상태 및 현장 투입 공수를 확인하고 검수하기 위한 시스템(이하 "시스템")의 이용 조건 및 절차를 규정함을 목적으로 합니다.
+                  </span>
+                </div>
+
+                <div style={{ marginBottom: '12px' }}>
+                  <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>제2조 (시스템의 성격 및 지위)</strong>
+                  <ul style={{ margin: 0, paddingLeft: '18px', color: '#B0BEC5' }}>
+                    <li style={{ marginBottom: '4px' }}>
+                      본 시스템은 근로기준법상 인사, 근태, 임금, 휴가 등을 관리하기 위한 '인사·노무 관리 툴'이 아니며, B2B 도급 계약에 따른 과업 이행 여부 및 투입 공수를 검수하기 위한 비즈니스 정산 툴입니다.
+                    </li>
+                    <li>
+                      본 시스템을 통한 모든 기록과 확인 행위는 원청과 하청 근로자 간의 직접적인 고용 관계나 지휘·감독 관계를 형성하지 않으며, 오직 계약된 용역비 정산을 위한 객관적 증빙 목적으로만 활용됩니다.
+                    </li>
+                  </ul>
+                </div>
+
+                <div>
+                  <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>제3조 (이용자의 의무 및 책임)</strong>
+                  <ul style={{ margin: 0, paddingLeft: '18px', color: '#B0BEC5' }}>
+                    <li style={{ marginBottom: '4px' }}>
+                      사용자는 소속 협력사와 신한DS 간에 체결된 도급 계약서 및 과업지시서의 내용에 따라 성실히 과업을 수행할 책임이 있습니다.
+                    </li>
+                    <li>
+                      사용자는 시스템 이용 시 허위로 투입 정보를 입력하거나 타인의 정보를 도용하여서는 안 되며, 부정한 입력으로 인해 발생하는 정산 오류에 대한 책임은 소속 협력사에 있습니다.
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* 2. 개인정보 처리방침 */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '13.5px', fontWeight: 800, color: '#69F0AE' }}>
+                  개인정보 처리방침
+                </h4>
+
+                <div style={{ marginBottom: '12px' }}>
+                  <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>1. 개인정보 수집 목적:</strong>
+                  <ul style={{ margin: 0, paddingLeft: '18px', color: '#B0BEC5' }}>
+                    <li>프로젝트 지정 현장 보안 출입 확인</li>
+                    <li>도급 계약에 따른 일일 투입 공수(Man-Day) 검증 및 월말 용역비 정산 근거 확보</li>
+                  </ul>
+                </div>
+
+                <div style={{ marginBottom: '12px' }}>
+                  <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>2. 수집 및 이용 항목:</strong>
+                  <ul style={{ margin: 0, paddingLeft: '18px', color: '#B0BEC5' }}>
+                    <li><strong>필수 항목:</strong> 성명, 소속 협력사, 담당 파트, 현장 투입 인증 정보(GPS 위치 데이터 등)</li>
+                  </ul>
+                </div>
+
+                <div style={{ marginBottom: '12px' }}>
+                  <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>3. 개인정보의 보유 및 이용 기간:</strong>
+                  <span style={{ color: '#B0BEC5' }}>
+                    도급 계약 종료 및 정산 완료 후 지체 없이 파기 (단, 관련 법령 및 사내 감사 기준에 따라 보존이 필요한 경우 해당 기간 동안 안전하게 분리 보관)
+                  </span>
+                </div>
+
+                <div>
+                  <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>4. 개인정보의 제3자 제공 및 위탁:</strong>
+                  <span style={{ color: '#B0BEC5' }}>
+                    수집된 정보는 원칙적으로 목적 외의 용도로 활용되지 않으며, 하청 계약에 따른 정당한 도급비 정산 및 보안 검증 목적 외에는 타인이나 타 법인에 제공되지 않습니다.
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 모달 푸터 */}
+            <div style={{
+              padding: '14px 20px',
+              borderTop: '1px solid rgba(255,255,255,0.1)',
+              background: '#0B1522',
+              display: 'flex',
+              gap: '10px'
+            }}>
+              <button
+                type="button"
+                onClick={() => setShowTermsModal(false)}
+                style={{
+                  flex: 1,
+                  height: '42px',
+                  borderRadius: '8px',
+                  background: 'rgba(255,255,255,0.08)',
+                  border: 'none',
+                  color: '#CFD8DC',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                닫기
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSignupForm(prev => ({ ...prev, agreeTerms: true }));
+                  setShowTermsModal(false);
+                }}
+                style={{
+                  flex: 2,
+                  height: '42px',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #0052FF 0%, #00C853 100%)',
+                  border: 'none',
+                  color: '#FFFFFF',
+                  fontSize: '13.5px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(0, 200, 83, 0.25)'
+                }}
+              >
+                ✓ 확인 및 약관 동의
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
