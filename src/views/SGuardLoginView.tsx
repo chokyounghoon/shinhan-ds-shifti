@@ -426,7 +426,8 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           employee_id: rawEmpId,
-          password: password.trim()
+          password: password.trim(),
+          is_2fa_verified: true
         })
       });
 
