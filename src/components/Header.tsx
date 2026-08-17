@@ -137,21 +137,43 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             {/* 파트 : 로그인 사용자 풀네임 */}
-            <span style={{
-              fontSize: '12.5px',
-              letterSpacing: '-0.2px',
-              whiteSpace: 'nowrap',
-              display: 'flex',
-              alignItems: 'center'
-            }}>
-              <span style={{ color: '#BAE6FD', fontWeight: 700 }}>
-                {(currentUser?.partName || '').replace(/파트$/, '')}
-              </span>
-              <span style={{ margin: '0 3px', color: '#E0F2FE', opacity: 0.8 }}>:</span>
-              <span style={{ fontWeight: 800, color: '#FFFFFF' }}>
-                {(currentUser?.name || '').trim()}
-              </span>
-            </span>
+            {(() => {
+              const rawName = (currentUser?.name || '조경훈').trim();
+              const pureName = rawName.replace(/\s*\(.*?\)/g, '').trim();
+              const partText = (currentUser?.partName && currentUser.partName !== '전사 총괄' && currentUser.partName !== '총괄')
+                ? currentUser.partName.replace(/파트$/, '')
+                : (currentUser?.companyName || '신한DS');
+              
+              let roleBadge = '';
+              if (currentUser?.role === 'DS_PRINCIPAL_PM' || currentUser?.companyName === '신한DS') {
+                roleBadge = 'DS PM';
+              } else if (currentUser?.role === 'PARTNER_PART_LEADER' || currentUser?.isPartnerManager) {
+                roleBadge = '협력사 관리인';
+              } else {
+                roleBadge = currentUser?.position || '도급원';
+              }
+
+              return (
+                <span style={{
+                  fontSize: '12.5px',
+                  letterSpacing: '-0.2px',
+                  whiteSpace: 'nowrap',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}>
+                  <span style={{ color: '#BAE6FD', fontWeight: 700 }}>
+                    {partText}
+                  </span>
+                  <span style={{ margin: '0 3px', color: '#E0F2FE', opacity: 0.8 }}>:</span>
+                  <span style={{ fontWeight: 800, color: '#FFFFFF' }}>
+                    {pureName}
+                  </span>
+                  <span style={{ marginLeft: '4px', fontSize: '11px', color: '#E0F2FE', fontWeight: 600, opacity: 0.9 }}>
+                    ({roleBadge})
+                  </span>
+                </span>
+              );
+            })()}
           </button>
         )}
       </div>
