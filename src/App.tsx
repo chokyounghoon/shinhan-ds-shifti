@@ -116,6 +116,47 @@ export function App() {
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [selectedDaySchedule, setSelectedDaySchedule] = useState<DaySchedule | null>(null);
 
+  // D1 DB 실시간 프로필 사진 & 정보 동기화
+  useEffect(() => {
+    const syncProfileFromD1 = async () => {
+      const empId = (currentUser?.id || (currentUser as any)?.employeeId || 'S01832').toUpperCase().trim();
+      const targetId = empId === '01832' ? 'S01832' : empId;
+      try {
+        const res = await fetch(`https://sguardai.khcho0421.workers.dev/users/${targetId}`);
+        if (res.ok) {
+          const json = await res.json();
+          const dbUser = json.data || json;
+          if (dbUser && (dbUser.profile_picture || dbUser.name)) {
+            const pic = dbUser.profile_picture;
+            setCurrentUser(prev => {
+              const updated = {
+                ...prev,
+                name: prev.name || dbUser.name,
+                partName: prev.partName || dbUser.part || '상담',
+                avatarUrl: pic || prev.avatarUrl,
+                profileImage: pic || prev.profileImage,
+                profile_picture: pic || (prev as any).profile_picture
+              } as User;
+              dbService.setCurrentUser(updated);
+              try {
+                const saved = localStorage.getItem(SESSION_STORAGE_KEY);
+                if (saved) {
+                  const parsed = JSON.parse(saved);
+                  localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ ...parsed, ...updated }));
+                }
+              } catch (e) {}
+              return updated;
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Profile sync from D1 error:', err);
+      }
+    };
+
+    syncProfileFromD1();
+  }, []);
+
   const refreshData = () => {
     setCurrentUser(dbService.getCurrentUser());
     setSchedules(dbService.getWeeklySchedules());

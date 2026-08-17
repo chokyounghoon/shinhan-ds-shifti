@@ -502,6 +502,8 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
         const finalEmpId = (apiUser.employee_id || localDbUser?.employeeId || rawEmpId).toUpperCase().trim();
         const canonicalEmpId = finalEmpId === '01832' ? 'S01832' : finalEmpId;
 
+        const userPic = apiUser.profile_picture || (localDbUser as any)?.profile_picture || (localDbUser as any)?.profileImage || (localDbUser as any)?.avatarUrl || '';
+
         const loggedInUser: UserType = {
           id: canonicalEmpId,
           name: userName,
@@ -519,10 +521,13 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
           language: '한국어',
           timezone: 'Asia/Seoul (GMT+9)',
           position: userPosition,
-          isPartnerManager: !isDS && (apiUser.is_manager || (localDbUser as any)?.isPartnerManager)
+          isPartnerManager: !isDS && (apiUser.is_manager || (localDbUser as any)?.isPartnerManager),
+          avatarUrl: userPic,
+          profileImage: userPic
         };
 
         (loggedInUser as any).employeeId = canonicalEmpId;
+        (loggedInUser as any).profile_picture = userPic;
         if (data.token) {
           (loggedInUser as any).token = data.token;
         }

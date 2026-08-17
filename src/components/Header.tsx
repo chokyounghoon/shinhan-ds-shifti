@@ -20,9 +20,8 @@ export const Header: React.FC<HeaderProps> = ({
   currentUser,
   themeMode
 }) => {
-  // 로컬 기준 프로필 아바타 (기본 캐릭터 이미지 지원)
-  const defaultCharacterAvatar = 'https://api.dicebear.com/7.x/bottts/svg?seed=ChoKyoungHoon&backgroundColor=0052ff';
-  const avatarPhoto = currentUser?.avatarUrl || currentUser?.profileImage || (currentUser?.name?.includes('조경훈') ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80' : null);
+  // D1 데이터베이스에 등록된 실제 프로필 사진 우선 적용
+  const avatarPhoto = (currentUser as any)?.profile_picture || currentUser?.avatarUrl || currentUser?.profileImage || (currentUser?.name?.includes('조경훈') ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80' : null);
   const avatarInitial = (currentUser?.name || '').trim().replace(/\s*\([^)]*\)/g, '')[0] || '조';
 
   return (
