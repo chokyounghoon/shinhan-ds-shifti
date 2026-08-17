@@ -552,13 +552,14 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
     setLoading(true);
     const cleanEmpId = rawEmp;
 
-    // 1. 실제 Cloudflare D1 shifti-db users 테이블에 INSERT
+    // 1. 실제 Cloudflare D1 shifti-db users 테이블에 INSERT (대문자로 표준화)
+    const upperEmpId = signupForm.empNo.toUpperCase().trim();
     try {
       const response = await fetch('https://sguardai.khcho0421.workers.dev/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          employee_id: signupForm.empNo.trim(),
+          employee_id: upperEmpId,
           email: signupForm.email.trim(),
           password: signupForm.pw || 'Password123!',
           name: signupForm.name.trim(),
@@ -582,9 +583,9 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
       console.warn('[Cloudflare D1 signup warning]', e);
     }
 
-    // 2. 로컬 DB 동기화
+    // 2. 로컬 DB 동기화 (대문자 저장)
     dbService.insertUser({
-      employeeId: signupForm.empNo.trim(),
+      employeeId: upperEmpId,
       name: signupForm.name.trim(),
       email: signupForm.email.trim(),
       passwordHash: signupForm.pw || '••••••••',
@@ -604,8 +605,8 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
     });
 
     setLoading(false);
-    alert(`🎉 [${signupForm.name}] 계정이 실제 DB에 성공적으로 등록되었습니다.\n사번(${signupForm.empNo}) 또는 이메일(${signupForm.email})로 즉시 로그인하세요.`);
-    setEmpId(signupForm.empNo.trim());
+    alert(`🎉 [${signupForm.name}] 계정이 실제 DB에 성공적으로 등록되었습니다.\n아이디/사번(${upperEmpId}) 또는 이메일(${signupForm.email})로 즉시 로그인하세요.`);
+    setEmpId(upperEmpId);
     setStep('ID');
   };
 

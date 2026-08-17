@@ -355,7 +355,7 @@ export class PureDatabaseEngine {
 
     const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
     const normalizedUser: DbUser = {
-      employeeId: String(rawEmpId).trim(),
+      employeeId: String(rawEmpId).toUpperCase().trim(),
       email: String(rawEmail).trim(),
       name: String(rawName).trim(),
       passwordHash: userDto.passwordHash || userDto.pw || '••••••••',
