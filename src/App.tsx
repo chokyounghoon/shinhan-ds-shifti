@@ -85,7 +85,9 @@ export function App() {
     try {
       const savedSession = localStorage.getItem(SESSION_STORAGE_KEY);
       if (savedSession) {
-        return JSON.parse(savedSession);
+        const parsed = JSON.parse(savedSession);
+        dbService.setCurrentUser(parsed);
+        return parsed;
       }
     } catch (e) {}
     return dbService.getCurrentUser();

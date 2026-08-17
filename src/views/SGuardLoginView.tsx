@@ -20,7 +20,7 @@ import {
   Check
 } from 'lucide-react';
 import { dbService, predefinedUsers } from '../services/db';
-import { User as UserType } from '../types';
+import { User as UserType, UserRole } from '../types';
 
 interface SGuardLoginViewProps {
   onLoginSuccess: (user: UserType) => void;
@@ -440,13 +440,50 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
 
       if (res.ok && (data.token || data.status === 'success' || data.user)) {
         setLoading(false);
-        const user = dbService.switchUserRole(rawEmpId);
-        user.id = rawEmpId;
-        (user as any).employeeId = rawEmpId;
+        const apiUser = data.user || {};
+        const localDbUser = dbService.findUserByEmpId(rawEmpId);
+
+        const userName = apiUser.name || localDbUser?.name || '조경훈';
+        const userEmail = apiUser.email || localDbUser?.email || 'khcho0421@gmail.com';
+        const userPhone = apiUser.phone || localDbUser?.phone || '010-4421-8890';
+        const userCompany = apiUser.company_name || apiUser.company || localDbUser?.company || '신한DS';
+        const userTeam = apiUser.team_name || apiUser.team || localDbUser?.team || '카드개발팀';
+        const userPart = apiUser.part_name || apiUser.part || localDbUser?.part || '카드IS (Part 1)';
+        const userPosition = apiUser.position || localDbUser?.position || '부장';
+        const isDS = userCompany === '신한DS' || userCompany.includes('신한');
+        const userRole: UserRole = isDS 
+          ? 'DS_PRINCIPAL_PM' 
+          : (apiUser.role === 'PARTNER_MANAGER' || apiUser.is_manager || (localDbUser as any)?.isPartnerManager)
+            ? 'PARTNER_PART_LEADER' 
+            : 'PARTNER_WORKER';
+
+        const loggedInUser: UserType = {
+          id: rawEmpId,
+          name: userName,
+          firstName: userName.substring(1),
+          lastName: userName.substring(0, 1),
+          companyName: userCompany,
+          partnerCompany: userCompany,
+          deptName: userTeam,
+          partName: userPart,
+          role: userRole,
+          roleTitle: isDS ? `신한DS ${userTeam} PM` : `${userCompany} ${userPosition}`,
+          location: '파인에비뉴(상담센터)',
+          phone: userPhone,
+          email: userEmail,
+          language: '한국어',
+          timezone: 'Asia/Seoul (GMT+9)',
+          position: userPosition,
+          isPartnerManager: !isDS && (apiUser.is_manager || (localDbUser as any)?.isPartnerManager)
+        };
+
+        (loggedInUser as any).employeeId = rawEmpId;
         if (data.token) {
-          (user as any).token = data.token;
+          (loggedInUser as any).token = data.token;
         }
-        onLoginSuccess(user);
+
+        dbService.setCurrentUser(loggedInUser);
+        onLoginSuccess(loggedInUser);
         return;
       }
 

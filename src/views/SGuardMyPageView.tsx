@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   User, 
   X, 
@@ -64,6 +64,27 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
     if (user.role === 'PARTNER_PART_LEADER' || (user as any).role === 'PARTNER_MANAGER') return '이사';
     return '과장';
   });
+
+  // user prop 변경 시 모달 내부 폼 값 실시간 동기화
+  useEffect(() => {
+    if (user) {
+      setName((user.name || '').replace(/\s*\([^)]*\)/g, '').trim());
+      setPhone(user.phone || '');
+      setEmail(user.email || '');
+      setCompany(user.companyName || user.partnerCompany || '신한DS');
+      setTeam(user.deptName || '카드개발팀');
+      setPart(user.partName || '카드IS');
+      setIsPartnerManager(
+        (user as any).isPartnerManager === true ||
+        user.role === 'PARTNER_PART_LEADER' || 
+        (user as any).role === 'PARTNER_MANAGER' ||
+        (user.roleTitle || '').includes('관리인') ||
+        (user.roleTitle || '').includes('영업대표')
+      );
+      const pos = (user as any).position || (user.role === 'DS_PRINCIPAL_PM' ? '부장' : '과장');
+      setPosition(pos);
+    }
+  }, [user]);
 
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [currentPw, setCurrentPw] = useState('');
