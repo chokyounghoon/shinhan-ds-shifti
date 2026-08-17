@@ -226,10 +226,10 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
   });
   const [selectedUserPreset, setSelectedUserPreset] = useState('usr-ds-pm');
   const [otp, setOtp] = useState('');
-  const [generatedOtp, setGeneratedOtp] = useState('789012');
-  const [password, setPassword] = useState('••••••••');
+  const [generatedOtp, setGeneratedOtp] = useState('');
+  const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
-  const [maskedEmail, setMaskedEmail] = useState('kh***@gmail.com');
+  const [maskedEmail, setMaskedEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [timerKey, setTimerKey] = useState(Date.now());
@@ -342,7 +342,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
 
       if (res.ok && data.success) {
         setIsRealEmailSent(true);
-        setMaskedEmail(data.masked_email || localUser?.email || 'kh***@gmail.com');
+        setMaskedEmail(data.masked_email || localUser?.email?.replace(/(.{2}).*@/, '$1***@') || '');
         setOtp('');
         setTimerKey(Date.now());
         setStep('OTP');
@@ -465,13 +465,13 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
         const apiUser = data.user || {};
         const localDbUser = dbService.findUserByEmpId(rawEmpId);
 
-        const userName = apiUser.name || localDbUser?.name || '조경훈';
-        const userEmail = apiUser.email || localDbUser?.email || 'khcho0421@gmail.com';
-        const userPhone = apiUser.phone || localDbUser?.phone || '010-4421-8890';
+        const userName = apiUser.name || localDbUser?.name || '';
+        const userEmail = apiUser.email || localDbUser?.email || '';
+        const userPhone = apiUser.phone || localDbUser?.phone || '';
         const userCompany = apiUser.company_name || apiUser.company || localDbUser?.company || '신한DS';
-        const userTeam = apiUser.team_name || apiUser.team || localDbUser?.team || '카드개발팀';
-        const userPart = apiUser.part_name || apiUser.part || localDbUser?.part || '카드IS (Part 1)';
-        const userPosition = apiUser.position || localDbUser?.position || '부장';
+        const userTeam = apiUser.team_name || apiUser.team || localDbUser?.team || '';
+        const userPart = apiUser.part_name || apiUser.part || localDbUser?.part || '';
+        const userPosition = apiUser.position || localDbUser?.position || '사원';
         const isDS = userCompany === '신한DS' || userCompany.includes('신한');
         const userRole: UserRole = isDS 
           ? 'DS_PRINCIPAL_PM' 
