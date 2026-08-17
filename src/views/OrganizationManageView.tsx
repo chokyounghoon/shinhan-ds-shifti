@@ -7,7 +7,8 @@ import {
   Plus, 
   ChevronRight, 
   X, 
-  Users
+  Users,
+  FolderPlus
 } from 'lucide-react';
 
 export interface OrgUnit {
@@ -28,93 +29,14 @@ const cleanLeaderName = (name: string): string => {
     .replace(/PM/gi, '')
     .replace(/신한DS/gi, '')
     .replace(/[\(\)\[\]]/g, '')
-    .trim() || '조경훈';
+    .trim();
 };
 
-// 신한DS ➔ 팀 ➔ 파트 도급 공정 수행 단일 표준 조직 데이터
-export const initialOrgUnits: OrgUnit[] = [
-  {
-    id: 'org-01',
-    hierarchyPath: '신한DS > 카드개발팀 > 카드IS파트',
-    companyName: '신한DS',
-    teamName: '카드개발팀',
-    partName: '카드IS파트',
-    leaderName: '박성진',
-    locationName: '파인에비뉴(카드)',
-    memberCount: 120,
-    description: '신한카드 기간계 계정계 및 승인 코어 시스템 도급 인력 투입 조직'
-  },
-  {
-    id: 'org-02',
-    hierarchyPath: '신한DS > 상담운영팀 > 상담파트',
-    companyName: '신한DS',
-    teamName: '상담운영팀',
-    partName: '상담파트',
-    leaderName: '조경훈',
-    locationName: '파인에비뉴(상담센터)',
-    memberCount: 120,
-    description: '신한카드 고객 인바운드/VIP 전문 상담 도급 투입 조직'
-  },
-  {
-    id: 'org-03',
-    hierarchyPath: '신한DS > 금융개발팀 > 오토파트',
-    companyName: '신한DS',
-    teamName: '금융개발팀',
-    partName: '오토파트',
-    leaderName: '강민우',
-    locationName: '여의도 금융센터',
-    memberCount: 120,
-    description: '오토금융 다이렉트 할부 및 리스/렌터카 대금 정산 도급 투입'
-  },
-  {
-    id: 'org-04',
-    hierarchyPath: '신한DS > 재무회계팀 > 재무파트',
-    companyName: '신한DS',
-    teamName: '재무회계팀',
-    partName: '재무파트',
-    leaderName: '송진호',
-    locationName: '신한백암빌딩',
-    memberCount: 120,
-    description: '일일 결제대금 대사 및 회계 전표 인터페이스 도급 투입'
-  },
-  {
-    id: 'org-05',
-    hierarchyPath: '신한DS > 결제인프라팀 > 결제망파트',
-    companyName: '신한DS',
-    teamName: '결제인프라팀',
-    partName: '결제망파트',
-    leaderName: '최동욱',
-    locationName: '상암 IT센터',
-    memberCount: 120,
-    description: '가맹점 VAN/PG 결제망 인터페이스 무중단 운영 도급 투입'
-  },
-  {
-    id: 'org-06',
-    hierarchyPath: '신한DS > 플랫폼개발팀 > 땡겨요파트',
-    companyName: '신한DS',
-    teamName: '플랫폼개발팀',
-    partName: '땡겨요파트',
-    leaderName: '임도현',
-    locationName: 'AIA타워',
-    memberCount: 120,
-    description: '상생 배달앱 땡겨요 가맹점/라이더 실시간 주문 정산 도급 투입'
-  },
-  {
-    id: 'org-07',
-    hierarchyPath: '신한DS > 데이터센터운영팀 > 클라우드인프라파트',
-    companyName: '신한DS',
-    teamName: '데이터센터운영팀',
-    partName: '클라우드인프라파트',
-    leaderName: '고영진',
-    locationName: 'KT IDC',
-    memberCount: 120,
-    description: '프라이빗/하이브리드 금융 클라우드 인프라 관제 도급 투입'
-  }
-];
-
+// 하드코딩 조직 제거 (초기 빈 배열)
+export const initialOrgUnits: OrgUnit[] = [];
 export const defaultOrgUnits = initialOrgUnits;
 
-const STORAGE_KEY_ORGS = 'SGUARD_ORG_UNITS_DATA_V3';
+const STORAGE_KEY_ORGS = 'SGUARD_ORG_UNITS_USER_DATA';
 
 interface OrganizationManageViewProps {
   onBack: () => void;
@@ -133,7 +55,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
       const saved = localStorage.getItem(STORAGE_KEY_ORGS);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed.map((item: any) => ({
             ...item,
             leaderName: cleanLeaderName(item.leaderName)
@@ -141,7 +63,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
         }
       }
     } catch (e) {}
-    return initialOrgUnits;
+    return [];
   });
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -186,13 +108,13 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
     const newOrg: OrgUnit = {
       id: `org-${Date.now()}`,
       companyName: '신한DS',
-      teamName: '카드개발팀',
-      partName: '신규파트',
-      hierarchyPath: '신한DS > 카드개발팀 > 신규파트',
-      leaderName: '조경훈',
+      teamName: '',
+      partName: '',
+      hierarchyPath: '',
+      leaderName: '',
       locationName: '파인에비뉴(카드)',
-      memberCount: 120,
-      description: '도급 과업 수행 및 인력 투입 관제 조직'
+      memberCount: 0,
+      description: ''
     };
     setEditingOrg(newOrg);
     setIsAddModalOpen(true);
@@ -217,7 +139,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
       partName: editingOrg.partName.trim(),
       leaderName: cleanLeader,
       hierarchyPath: computedPath,
-      memberCount: Number(editingOrg.memberCount) || 120
+      memberCount: Number(editingOrg.memberCount) || 0
     };
 
     const existsIdx = orgList.findIndex(o => o.id === finalItem.id);
@@ -232,7 +154,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
     saveOrgs(newList);
     setIsAddModalOpen(false);
     setEditingOrg(null);
-    alert(`✅ [${finalItem.hierarchyPath}] 조직 정보가 안전하게 저장되었습니다.\n• 담당 PM / 현장대리인: ${cleanLeader}`);
+    alert(`✅ [${finalItem.hierarchyPath}] 조직이 성공적으로 저장되었습니다.`);
   };
 
   // 삭제 처리
@@ -336,43 +258,100 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
         </div>
       </div>
 
-      {/* 3. 검색창 */}
-      <div style={{ padding: '12px 16px', background: '#FFFFFF', borderBottom: '1px solid #E2E8F0' }}>
-        <div style={{
-          background: '#F1F5F9',
-          borderRadius: '10px',
-          padding: '0 12px',
-          display: 'flex',
-          alignItems: 'center',
-          height: '40px'
-        }}>
-          <Search size={16} color="#64748B" style={{ marginRight: '8px' }} />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="조직명, 팀, 파트, 담당자 성명, 근무지 검색..."
-            style={{
-              border: 'none',
-              background: 'transparent',
-              outline: 'none',
-              width: '100%',
-              fontSize: '13.5px',
-              color: '#0F172A',
-              fontWeight: 500
-            }}
-          />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer' }}>
-              <X size={14} />
-            </button>
-          )}
+      {/* 3. 검색창 (조직이 있을 때만 유효하게 표시) */}
+      {orgList.length > 0 && (
+        <div style={{ padding: '12px 16px', background: '#FFFFFF', borderBottom: '1px solid #E2E8F0' }}>
+          <div style={{
+            background: '#F1F5F9',
+            borderRadius: '10px',
+            padding: '0 12px',
+            display: 'flex',
+            alignItems: 'center',
+            height: '40px'
+          }}>
+            <Search size={16} color="#64748B" style={{ marginRight: '8px' }} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="조직명, 팀, 파트, 담당자 성명, 근무지 검색..."
+              style={{
+                border: 'none',
+                background: 'transparent',
+                outline: 'none',
+                width: '100%',
+                fontSize: '13.5px',
+                color: '#0F172A',
+                fontWeight: 500
+              }}
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer' }}>
+                <X size={14} />
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* 4. 조직 목록 카드 리스트 */}
+      {/* 4. 조직 목록 카드 리스트 / 빈 상태 */}
       <div style={{ padding: '14px 16px', flex: 1, display: 'flex', flexDirection: 'column', gap: '10px', paddingBottom: '80px' }}>
-        {filteredOrgs.length === 0 ? (
+        {orgList.length === 0 ? (
+          <div style={{
+            padding: '60px 20px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '12px',
+            background: '#FFFFFF',
+            borderRadius: '16px',
+            border: '1px dashed #CBD5E1',
+            margin: '20px 0'
+          }}>
+            <div style={{
+              width: '54px',
+              height: '54px',
+              borderRadius: '50%',
+              background: 'rgba(0, 82, 255, 0.08)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#0052FF'
+            }}>
+              <FolderPlus size={28} />
+            </div>
+            <div>
+              <div style={{ fontSize: '15.5px', fontWeight: 800, color: '#0F172A', marginBottom: '4px' }}>
+                등록된 도급 공정 조직이 없습니다
+              </div>
+              <div style={{ fontSize: '12.5px', color: '#64748B' }}>
+                우측 상단 <strong>[+ 조직 추가]</strong> 버튼을 눌러 신규 팀 및 파트 조직을 등록해 주세요.
+              </div>
+            </div>
+            <button
+              onClick={handleOpenAdd}
+              style={{
+                marginTop: '6px',
+                background: '#0052FF',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '9px 18px',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 8px rgba(0, 82, 255, 0.25)'
+              }}
+            >
+              <Plus size={16} />
+              <span>첫 조직 등록하기</span>
+            </button>
+          </div>
+        ) : filteredOrgs.length === 0 ? (
           <div style={{ padding: '40px 20px', textAlign: 'center', color: '#94A3B8', fontSize: '13.5px' }}>
             검색 조건에 해당하는 조직이 없습니다.
           </div>
@@ -426,10 +405,12 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
 
                 {/* 하단 메타 정보 (담당자 이름, 인원 수, 근무지) */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '11.5px', color: '#64748B', flexWrap: 'wrap' }}>
-                  <span style={{ fontWeight: 700, color: '#1E293B' }}>
-                    👤 {cleanLeaderName(org.leaderName)}
-                  </span>
-                  <span>•</span>
+                  {org.leaderName && (
+                    <span style={{ fontWeight: 700, color: '#1E293B' }}>
+                      👤 {cleanLeaderName(org.leaderName)}
+                    </span>
+                  )}
+                  {org.leaderName && <span>•</span>}
                   <span>
                     👥 인원: <strong>{org.memberCount}명</strong>
                   </span>
@@ -560,7 +541,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
                     type="text"
                     value={editingOrg.teamName}
                     onChange={e => setEditingOrg({ ...editingOrg, teamName: e.target.value })}
-                    placeholder="예: 카드개발팀"
+                    placeholder="예: 카드개발팀, 상담팀"
                     style={{
                       width: '100%',
                       padding: '8px 10px',
@@ -580,7 +561,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
                     type="text"
                     value={editingOrg.partName}
                     onChange={e => setEditingOrg({ ...editingOrg, partName: e.target.value })}
-                    placeholder="예: 카드IS파트"
+                    placeholder="예: 카드IS파트, 상담1파트"
                     style={{
                       width: '100%',
                       padding: '8px 10px',
@@ -597,7 +578,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '10px' }}>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
-                    담당 PM / 현장대리인 (이름만 입력) *
+                    담당 PM / 현장대리인 (이름만 입력)
                   </label>
                   <input
                     type="text"
@@ -628,8 +609,9 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
                   </label>
                   <input
                     type="number"
-                    value={editingOrg.memberCount}
+                    value={editingOrg.memberCount || ''}
                     onChange={e => setEditingOrg({ ...editingOrg, memberCount: Number(e.target.value) })}
+                    placeholder="0"
                     style={{
                       width: '100%',
                       padding: '8px 10px',

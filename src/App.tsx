@@ -99,7 +99,7 @@ export function App() {
   const [isMobileFrame, setIsMobileFrame] = useState(true);
   const [selectedLocation, setSelectedLocation] = useState<WorkLocation>(defaultWorkLocations[0]);
   const [inspectingLocation, setInspectingLocation] = useState<WorkLocation>(defaultWorkLocations[0]);
-  const [selectedOrgUnit, setSelectedOrgUnit] = useState<OrgUnit>(defaultOrgUnits[0]);
+  const [selectedOrgUnit, setSelectedOrgUnit] = useState<OrgUnit | null>(null);
   const [templatesList, setTemplatesList] = useState<ScheduleTemplateItem[]>(defaultScheduleTemplates);
   const [hasScheduleToday, setHasScheduleToday] = useState(false);
 
