@@ -25,6 +25,7 @@ export interface User {
   isJoined?: boolean;
   isPartnerManager?: boolean;
   position?: string;
+  deviceType?: 'Android' | 'iOS' | string;
 }
 
 export type InputRequestType = 

@@ -32,7 +32,10 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
   onUserUpdated,
   themeMode
 }) => {
-  const [deviceType, setDeviceType] = useState<'Android' | 'iOS'>('Android');
+  const [deviceType, setDeviceType] = useState<'Android' | 'iOS'>(() => {
+    const dt = (user as any).deviceType || (user as any).device_type;
+    return (dt === 'iOS' || dt === 'ios') ? 'iOS' : 'Android';
+  });
   const [name, setName] = useState<string>(() => {
     const raw = user.name || '조경훈';
     return raw.replace(/\s*\([^)]*\)/g, '').trim();
@@ -75,6 +78,8 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
   // user prop 변경 시 모달 내부 폼 값 실시간 동기화
   useEffect(() => {
     if (user) {
+      const dt = (user as any).deviceType || (user as any).device_type;
+      setDeviceType((dt === 'iOS' || dt === 'ios') ? 'iOS' : 'Android');
       setName((user.name || '').replace(/\s*\([^)]*\)/g, '').trim());
       setPhone(formatPhone344(user.phone || ''));
       setEmail(user.email || '');
@@ -158,7 +163,8 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
       role: assignedRole,
       roleTitle: roleTitle,
       isPartnerManager: isPartnerManager,
-      position: position
+      position: position,
+      deviceType: deviceType
     } as any);
 
     // 1. 세션 로컬스토리지(SGUARD_AUTH_SESSION) 갱신
@@ -179,7 +185,8 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
           role: assignedRole,
           roleTitle: roleTitle,
           isPartnerManager: isPartnerManager,
-          position: position
+          position: position,
+          deviceType: deviceType
         };
         localStorage.setItem('SGUARD_AUTH_SESSION', JSON.stringify(newSession));
       }
@@ -201,6 +208,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
           position: position,
           role: assignedRole,
           isPartnerManager: isPartnerManager ? 1 : 0,
+          deviceType: deviceType,
           actor: userEmpId
         })
       });
@@ -214,11 +222,12 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
         id: userEmpId,
         employeeId: userEmpId,
         isPartnerManager: isPartnerManager,
-        position: position
+        position: position,
+        deviceType: deviceType
       } as any);
     }
 
-    alert(`🎉 회원 정보가 안전하게 저장되었습니다.\n• 이름: ${name}\n• 현장관리인: ${isPartnerManager ? 'YES (업체별 현장관리인 / 전사 총괄)' : 'NO (일반)'}\n• 소속: ${company} (${isPartnerManager ? '전사 총괄' : `${assignedTeam} / ${assignedPart} 파트`})\n• 직책: ${position}`);
+    alert(`🎉 회원 정보가 안전하게 저장되었습니다.\n• 이름: ${name}\n• 휴대폰 기종: ${deviceType === 'iOS' ? 'iOS (iPhone)' : 'Android'}\n• 현장관리인: ${isPartnerManager ? 'YES (업체별 현장관리인 / 전사 총괄)' : 'NO (일반)'}\n• 소속: ${company} (${isPartnerManager ? '전사 총괄' : `${assignedTeam} / ${assignedPart} 파트`})\n• 직책: ${position}`);
     onClose();
   };
 
