@@ -71,12 +71,14 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
           const mapped: EmployeeItem[] = json.data.map((u: any) => {
-            // 3대 역할 매핑
+            // 3대 역할 매핑 (우선순위: DS → 협력사관리인 → 협력사개인)
+            // 신한DS 소속이면 무조건 DS_PM (is_partner_manager 여부 무관)
             let roleType: RoleType = 'PARTNER_WORKER';
-            if (u.is_partner_manager === 1 || u.role === 'PARTNER_PART_LEADER' || u.role === 'PARTNER_MANAGER') {
-              roleType = 'PARTNER_MANAGER';
-            } else if (u.role === 'DS_PRINCIPAL_PM' || u.company === '신한DS' || u.is_admin === 1) {
+            const isDS = u.company === '신한DS' || u.role === 'DS_PRINCIPAL_PM';
+            if (isDS) {
               roleType = 'DS_PM';
+            } else if (u.is_partner_manager === 1 || u.role === 'PARTNER_PART_LEADER' || u.role === 'PARTNER_MANAGER') {
+              roleType = 'PARTNER_MANAGER';
             }
 
             return {
