@@ -58,51 +58,55 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
     ]
   };
 
+  // 실시간 카카오 API 검색 결과 및 랜드마크 저장
+  const [kakaoPlaces, setKakaoPlaces] = useState<{ id: string; name: string; category: string; address: string; distance: string; lat: number; lng: number; phone?: string }[]>([]);
+
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    // 기존 맵 정리
-    if (leafletMapRef.current) {
-      leafletMapRef.current.remove();
-      leafletMapRef.current = null;
-    }
-    mapContainerRef.current.innerHTML = '';
+    const initKakaoMap = () => {
+      if (!window.kakao || !window.kakao.maps) {
+        console.warn('Kakao SDK not loaded, retrying...');
+        return;
+      }
 
-    try {
-      // 1. Leaflet 고배율 상세 지도 인스턴스 생성 (17.5 레벨로 지오펜스 + 주변 역 전체 조망)
-      const map = L.map(mapContainerRef.current, {
-        center: [targetLat, targetLng],
-        zoom: 17.5,
-        minZoom: 14,
-        maxZoom: 20,
-        zoomControl: false,
-        attributionControl: false,
-        scrollWheelZoom: true,
-        touchZoom: true,
-        doubleClickZoom: true
-      });
+      window.kakao.maps.load(() => {
+        if (!mapContainerRef.current) return;
+        mapContainerRef.current.innerHTML = '';
 
-      leafletMapRef.current = map;
+        const container = mapContainerRef.current;
+        const options = {
+          center: new window.kakao.maps.LatLng(targetLat, targetLng),
+          level: 3 // 확대 레벨 (건물 및 지하철역 최적 가시성)
+        };
 
-      // 2. OpenStreetMap & CartoDB 레티나 고해상도 타일 레이어
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png', {
-        maxZoom: 20,
-        maxNativeZoom: 19,
-        subdomains: 'abcd'
-      }).addTo(map);
+        const map = new window.kakao.maps.Map(container, options);
+        kakaoMapRef.current = map;
+        setIsKakaoActive(true);
 
-      // 3. 약정 도급지 메인 핀 마커
-      const mainPinIcon = L.divIcon({
-        className: 'custom-main-pin',
-        html: `
+        // 1. 도급 약정지 100m 지오펜스 원 생성
+        const circle = new window.kakao.maps.Circle({
+          center: new window.kakao.maps.LatLng(targetLat, targetLng),
+          radius: 100, // 100m
+          strokeWeight: 3,
+          strokeColor: '#0052FF',
+          strokeOpacity: 0.9,
+          strokeStyle: 'dash',
+          fillColor: '#0052FF',
+          fillOpacity: 0.14
+        });
+        circle.setMap(map);
+
+        // 2. 파인에비뉴(카드) 메인 핀 커스텀 오버레이
+        const mainOverlayContent = document.createElement('div');
+        mainOverlayContent.innerHTML = `
           <div style="
             display: flex;
             flex-direction: column;
             align-items: center;
             transform: translate(-50%, -100%);
-            filter: drop-shadow(0 4px 12px rgba(0,82,255,0.45));
+            filter: drop-shadow(0 4px 12px rgba(0,82,255,0.5));
             cursor: pointer;
-            z-index: 100;
           ">
             <div style="
               background: #0052FF;
@@ -128,104 +132,220 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
               <circle cx="12" cy="9" r="2.5" fill="#FFFFFF" />
             </svg>
           </div>
-        `,
-        iconSize: [0, 0],
-        iconAnchor: [0, 0]
-      });
+        `;
 
-      L.marker([targetLat, targetLng], { icon: mainPinIcon, zIndexOffset: 1000 }).addTo(map);
-
-      // 4. 100m 지오펜스 반경 원 표시
-      L.circle([targetLat, targetLng], {
-        radius: 100, // 100m
-        color: '#0052FF',
-        weight: 2.5,
-        dashArray: '6, 6',
-        fillColor: '#0052FF',
-        fillOpacity: 0.16
-      }).addTo(map);
-
-      // 5. 주변 지하철역 및 주요 빌딩 랜드마크 마커 자동 오버레이
-      const currentLandmarks = nearbyLandmarks[locName] || nearbyLandmarks['파인에비뉴(카드)'];
-      currentLandmarks.forEach((lm) => {
-        const isSubway = lm.type === 'SUBWAY';
-        const lmIcon = L.divIcon({
-          className: 'landmark-pin',
-          html: `
-            <div style="
-              display: flex;
-              align-items: center;
-              gap: 4px;
-              background: ${isSubway ? '#059669' : '#1E293B'};
-              color: #FFFFFF;
-              padding: 4px 9px;
-              border-radius: 16px;
-              font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', sans-serif;
-              font-size: 11px;
-              font-weight: 800;
-              white-space: nowrap;
-              border: 1.5px solid #FFFFFF;
-              box-shadow: 0 3px 8px rgba(0,0,0,0.3);
-              transform: translate(-50%, -50%);
-              cursor: pointer;
-              z-index: 50;
-            ">
-              <span style="font-size: 12px;">${isSubway ? '🚇' : '🏢'}</span>
-              <span>${lm.name}</span>
-              <span style="font-size: 9.5px; opacity: 0.9; background: rgba(255,255,255,0.22); padding: 1px 5px; border-radius: 4px; font-weight: 700;">${lm.tag}</span>
-            </div>
-          `,
-          iconSize: [0, 0],
-          iconAnchor: [0, 0]
+        const mainOverlay = new window.kakao.maps.CustomOverlay({
+          position: new window.kakao.maps.LatLng(targetLat, targetLng),
+          content: mainOverlayContent,
+          yAnchor: 1,
+          zIndex: 100
         });
+        mainOverlay.setMap(map);
 
-        const marker = L.marker([lm.lat, lm.lng], { icon: lmIcon }).addTo(map);
-        marker.on('click', () => {
-          map.panTo([lm.lat, lm.lng], { animate: true });
-        });
+        // 3. 카카오 Places API로 실시간 인근 지하철역(SW8) 및 은행/건물 검색 연동
+        if (window.kakao.maps.services && window.kakao.maps.services.Places) {
+          const places = new window.kakao.maps.services.Places();
+          const searchCenter = new window.kakao.maps.LatLng(targetLat, targetLng);
+
+          // 지하철역 검색
+          places.categorySearch('SW8', (data: any[], status: any) => {
+            if (status === window.kakao.maps.services.Status.OK && data.length > 0) {
+              const subwayItems: any[] = [];
+              data.slice(0, 3).forEach((item) => {
+                const subLat = parseFloat(item.y);
+                const subLng = parseFloat(item.x);
+                subwayItems.push({
+                  id: item.id,
+                  name: item.place_name,
+                  category: 'SUBWAY',
+                  address: item.address_name,
+                  distance: `${item.distance}m`,
+                  lat: subLat,
+                  lng: subLng,
+                  phone: item.phone
+                });
+
+                // 지하철역 커스텀 오버레이 핀
+                const subOverlayEl = document.createElement('div');
+                subOverlayEl.innerHTML = `
+                  <div style="
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                    background: #059669;
+                    color: #FFFFFF;
+                    padding: 4px 9px;
+                    border-radius: 16px;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', sans-serif;
+                    font-size: 11px;
+                    font-weight: 800;
+                    white-space: nowrap;
+                    border: 1.5px solid #FFFFFF;
+                    box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+                    cursor: pointer;
+                  ">
+                    <span>🚇</span>
+                    <span>${item.place_name}</span>
+                    <span style="font-size: 9.5px; opacity: 0.9; background: rgba(255,255,255,0.22); padding: 1px 5px; border-radius: 4px;">${item.distance}m</span>
+                  </div>
+                `;
+                subOverlayEl.onclick = () => {
+                  map.panTo(new window.kakao.maps.LatLng(subLat, subLng));
+                };
+
+                new window.kakao.maps.CustomOverlay({
+                  position: new window.kakao.maps.LatLng(subLat, subLng),
+                  content: subOverlayEl,
+                  yAnchor: 0.5,
+                  zIndex: 50
+                }).setMap(map);
+              });
+
+              // 주요 빌딩 검색 (은행/공공기관)
+              places.keywordSearch('파인에비뉴', (buildingData: any[], bStatus: any) => {
+                const buildingItems: any[] = [];
+                if (bStatus === window.kakao.maps.services.Status.OK && buildingData.length > 0) {
+                  buildingData.slice(0, 2).forEach((bItem) => {
+                    const bLat = parseFloat(bItem.y);
+                    const bLng = parseFloat(bItem.x);
+                    buildingItems.push({
+                      id: bItem.id,
+                      name: bItem.place_name,
+                      category: 'BUILDING',
+                      address: bItem.address_name,
+                      distance: `${bItem.distance || '0'}m`,
+                      lat: bLat,
+                      lng: bLng
+                    });
+
+                    const bOverlayEl = document.createElement('div');
+                    bOverlayEl.innerHTML = `
+                      <div style="
+                        display: flex;
+                        align-items: center;
+                        gap: 4px;
+                        background: #1E293B;
+                        color: #FFFFFF;
+                        padding: 4px 9px;
+                        border-radius: 16px;
+                        font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', sans-serif;
+                        font-size: 11px;
+                        font-weight: 800;
+                        white-space: nowrap;
+                        border: 1.5px solid #FFFFFF;
+                        box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+                        cursor: pointer;
+                      ">
+                        <span>🏢</span>
+                        <span>${bItem.place_name}</span>
+                      </div>
+                    `;
+                    bOverlayEl.onclick = () => {
+                      map.panTo(new window.kakao.maps.LatLng(bLat, bLng));
+                    };
+
+                    new window.kakao.maps.CustomOverlay({
+                      position: new window.kakao.maps.LatLng(bLat, bLng),
+                      content: bOverlayEl,
+                      yAnchor: 0.5,
+                      zIndex: 40
+                    }).setMap(map);
+                  });
+                }
+                setKakaoPlaces([...subwayItems, ...buildingItems]);
+              }, { location: searchCenter, radius: 250 });
+            }
+          }, { location: searchCenter, radius: 400 });
+        }
       });
-
-      // 리사이즈 보정
-      setTimeout(() => {
-        map.invalidateSize();
-      }, 150);
-
-    } catch (err) {
-      console.warn('Map initialization error:', err);
-    }
-
-    return () => {
-      if (leafletMapRef.current) {
-        leafletMapRef.current.remove();
-        leafletMapRef.current = null;
-      }
     };
+
+    // Kakao SDK가 로드되어 있는지 체크하고 로드
+    if (window.kakao && window.kakao.maps) {
+      initKakaoMap();
+    } else {
+      const checkScript = setInterval(() => {
+        if (window.kakao && window.kakao.maps) {
+          clearInterval(checkScript);
+          initKakaoMap();
+        }
+      }, 100);
+
+      // 3초 후에도 카카오가 없으면 Leaflet 폴백
+      const timer = setTimeout(() => {
+        clearInterval(checkScript);
+        if (!kakaoMapRef.current && mapContainerRef.current) {
+          console.log('Fallback to Leaflet map');
+          initLeafletFallback();
+        }
+      }, 2500);
+
+      return () => {
+        clearInterval(checkScript);
+        clearTimeout(timer);
+      };
+    }
   }, [targetLat, targetLng, locName]);
+
+  // Leaflet 폴백 엔진
+  const initLeafletFallback = () => {
+    if (!mapContainerRef.current || leafletMapRef.current) return;
+    mapContainerRef.current.innerHTML = '';
+    const map = L.map(mapContainerRef.current, {
+      center: [targetLat, targetLng],
+      zoom: 17.5,
+      zoomControl: false,
+      attributionControl: false
+    });
+    leafletMapRef.current = map;
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png', {
+      maxZoom: 20
+    }).addTo(map);
+
+    L.circle([targetLat, targetLng], {
+      radius: 100,
+      color: '#0052FF',
+      weight: 2.5,
+      dashArray: '6, 6',
+      fillColor: '#0052FF',
+      fillOpacity: 0.14
+    }).addTo(map);
+  };
 
   // 줌인 (+)
   const handleZoomIn = () => {
-    if (leafletMapRef.current) {
+    if (kakaoMapRef.current) {
+      const currentLevel = kakaoMapRef.current.getLevel();
+      kakaoMapRef.current.setLevel(Math.max(1, currentLevel - 1), { animate: true });
+    } else if (leafletMapRef.current) {
       leafletMapRef.current.zoomIn();
     }
   };
 
   // 줌아웃 (-)
   const handleZoomOut = () => {
-    if (leafletMapRef.current) {
+    if (kakaoMapRef.current) {
+      const currentLevel = kakaoMapRef.current.getLevel();
+      kakaoMapRef.current.setLevel(Math.min(14, currentLevel + 1), { animate: true });
+    } else if (leafletMapRef.current) {
       leafletMapRef.current.zoomOut();
     }
   };
 
   // 중심 위치 복귀
   const handleResetCenter = () => {
-    if (leafletMapRef.current) {
+    if (kakaoMapRef.current && window.kakao?.maps) {
+      kakaoMapRef.current.panTo(new window.kakao.maps.LatLng(targetLat, targetLng));
+    } else if (leafletMapRef.current) {
       leafletMapRef.current.setView([targetLat, targetLng], 17.5, { animate: true });
     }
   };
 
   // 랜드마크 포커스 이동
   const handleFocusLandmark = (lat: number, lng: number) => {
-    if (leafletMapRef.current) {
+    if (kakaoMapRef.current && window.kakao?.maps) {
+      kakaoMapRef.current.panTo(new window.kakao.maps.LatLng(lat, lng));
+    } else if (leafletMapRef.current) {
       leafletMapRef.current.setView([lat, lng], 18.5, { animate: true });
     }
   };
@@ -450,7 +570,7 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          {(nearbyLandmarks[locName] || nearbyLandmarks['파인에비뉴(카드)']).map((poi, idx) => (
+          {(kakaoPlaces.length > 0 ? kakaoPlaces : (nearbyLandmarks[locName] || nearbyLandmarks['파인에비뉴(카드)'])).map((poi: any, idx) => (
             <div
               key={idx}
               onClick={() => handleFocusLandmark(poi.lat, poi.lng)}
@@ -467,13 +587,13 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '14px' }}>{poi.type === 'SUBWAY' ? '🚇' : '🏢'}</span>
+                <span style={{ fontSize: '14px' }}>{poi.category === 'SUBWAY' || poi.type === 'SUBWAY' ? '🚇' : '🏢'}</span>
                 <div>
                   <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#1E293B' }}>
                     {poi.name}
                   </div>
                   <div style={{ fontSize: '11px', color: '#64748B' }}>
-                    {poi.tag}
+                    {poi.address || poi.tag || '역세권'}
                   </div>
                 </div>
               </div>
@@ -481,12 +601,12 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
                 <span style={{
                   fontSize: '11px',
                   fontWeight: 700,
-                  color: poi.type === 'SUBWAY' ? '#059669' : '#0052FF',
-                  background: poi.type === 'SUBWAY' ? '#DCFCE7' : '#EFF6FF',
+                  color: poi.category === 'SUBWAY' || poi.type === 'SUBWAY' ? '#059669' : '#0052FF',
+                  background: poi.category === 'SUBWAY' || poi.type === 'SUBWAY' ? '#DCFCE7' : '#EFF6FF',
                   padding: '3px 7px',
                   borderRadius: '6px'
                 }}>
-                  {poi.distance}
+                  {poi.distance || '인근'}
                 </span>
                 <span style={{ color: '#94A3B8', fontSize: '12px' }}>📍</span>
               </div>
