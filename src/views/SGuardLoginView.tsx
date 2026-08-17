@@ -1720,9 +1720,9 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
             }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '15.5px', fontWeight: 800, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>📜</span> 이용약관 및 개인정보 처리방침
+                  <span>📜</span> 협력 인력 투입 확인 시스템 이용약관
                 </h3>
-                <span style={{ fontSize: '11px', color: '#80D8FF' }}>신한DS 협력사 도급 공정 관제 시스템 표준 지침</span>
+                <span style={{ fontSize: '11px', color: '#80D8FF' }}>신한DS 프로젝트 현장 투입 확인 지침</span>
               </div>
               <button
                 type="button"
@@ -1744,76 +1744,64 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
               flexDirection: 'column',
               gap: '16px'
             }}>
-              {/* 1. 협력사 도급 이용약관 */}
+              {/* 1. 협력 인력 투입 확인 시스템 이용약관 */}
               <div style={{ background: 'rgba(255,255,255,0.03)', padding: '14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
                 <h4 style={{ margin: '0 0 10px 0', fontSize: '13.5px', fontWeight: 800, color: '#00E5FF' }}>
-                  협력사 도급 인력 투입 및 공정 검수 시스템 이용약관
+                  협력 인력 투입 확인 시스템 이용약관
                 </h4>
 
                 <div style={{ marginBottom: '12px' }}>
                   <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>제1조 (목적)</strong>
                   <span style={{ color: '#B0BEC5' }}>
-                    본 약관은 신한DS 프로젝트 수행을 위해 투입되는 협력사 소속 인력의 도급 계약 이행 상태 및 현장 투입 공수를 확인하고 검수하기 위한 시스템(이하 "시스템")의 이용 조건 및 절차를 규정함을 목적으로 합니다.
+                    본 약관은 신한DS 프로젝트 수행을 위해 지정된 현장에 투입되는 협력사 소속 인력의 원활한 업무 수행 및 현장 투입 확인을 위한 시스템(이하 "시스템")의 이용 조건 및 절차를 규정함을 목적으로 합니다.
                   </span>
                 </div>
 
                 <div style={{ marginBottom: '12px' }}>
-                  <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>제2조 (시스템의 성격 및 지위)</strong>
+                  <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>제2조 (시스템의 이용)</strong>
                   <ul style={{ margin: 0, paddingLeft: '18px', color: '#B0BEC5' }}>
                     <li style={{ marginBottom: '4px' }}>
-                      본 시스템은 근로기준법상 인사, 근태, 임금, 휴가 등을 관리하기 위한 '인사·노무 관리 툴'이 아니며, B2B 도급 계약에 따른 과업 이행 여부 및 투입 공수를 검수하기 위한 비즈니스 정산 툴입니다.
+                      본 시스템은 프로젝트 수행 현장에서의 안전한 출입 관리 및 원활한 공정 운영을 위해 인력 투입 여부를 확인하는 목적으로만 사용됩니다.
                     </li>
                     <li>
-                      본 시스템을 통한 모든 기록과 확인 행위는 원청과 하청 근로자 간의 직접적인 고용 관계나 지휘·감독 관계를 형성하지 않으며, 오직 계약된 용역비 정산을 위한 객관적 증빙 목적으로만 활용됩니다.
+                      사용자는 지정된 현장 위치에서 본인의 투입 사실을 정확하게 등록하여야 하며, 부정한 방법으로 투입 정보를 조작하여서는 안 됩니다.
                     </li>
                   </ul>
                 </div>
 
                 <div>
-                  <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>제3조 (이용자의 의무 및 책임)</strong>
-                  <ul style={{ margin: 0, paddingLeft: '18px', color: '#B0BEC5' }}>
-                    <li style={{ marginBottom: '4px' }}>
-                      사용자는 소속 협력사와 신한DS 간에 체결된 도급 계약서 및 과업지시서의 내용에 따라 성실히 과업을 수행할 책임이 있습니다.
-                    </li>
-                    <li>
-                      사용자는 시스템 이용 시 허위로 투입 정보를 입력하거나 타인의 정보를 도용하여서는 안 되며, 부정한 입력으로 인해 발생하는 정산 오류에 대한 책임은 소속 협력사에 있습니다.
-                    </li>
-                  </ul>
+                  <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>제3조 (이용자의 의무)</strong>
+                  <span style={{ color: '#B0BEC5' }}>
+                    사용자는 시스템 이용 시 관련 보안 규정을 준수하여야 하며, 시스템 운영에 지장을 주는 행위를 해서는 안 됩니다.
+                  </span>
                 </div>
               </div>
 
-              {/* 2. 개인정보 처리방침 */}
+              {/* 2. 개인정보 처리방침 (근로자용 간소화 버전) */}
               <div style={{ background: 'rgba(255,255,255,0.03)', padding: '14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
                 <h4 style={{ margin: '0 0 10px 0', fontSize: '13.5px', fontWeight: 800, color: '#69F0AE' }}>
-                  개인정보 처리방침
+                  개인정보 처리방침 (근로자용 간소화 버전)
                 </h4>
 
                 <div style={{ marginBottom: '12px' }}>
-                  <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>1. 개인정보 수집 목적:</strong>
+                  <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>개인정보 수집 목적:</strong>
                   <ul style={{ margin: 0, paddingLeft: '18px', color: '#B0BEC5' }}>
-                    <li>프로젝트 지정 현장 보안 출입 확인</li>
-                    <li>도급 계약에 따른 일일 투입 공수(Man-Day) 검증 및 월말 용역비 정산 근거 확보</li>
+                    <li>프로젝트 수행 현장 보안 출입 및 투입 확인</li>
+                    <li>과업 수행에 따른 현장 인력 가동 상태 확인</li>
                   </ul>
                 </div>
 
                 <div style={{ marginBottom: '12px' }}>
-                  <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>2. 수집 및 이용 항목:</strong>
+                  <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>수집 및 이용 항목:</strong>
                   <ul style={{ margin: 0, paddingLeft: '18px', color: '#B0BEC5' }}>
-                    <li><strong>필수 항목:</strong> 성명, 소속 협력사, 담당 파트, 현장 투입 인증 정보(GPS 위치 데이터 등)</li>
+                    <li><strong>필수 항목:</strong> 성명, 소속 협력사, 담당 파트, 현장 투입 인증 정보(GPS 위치 데이터)</li>
                   </ul>
-                </div>
-
-                <div style={{ marginBottom: '12px' }}>
-                  <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>3. 개인정보의 보유 및 이용 기간:</strong>
-                  <span style={{ color: '#B0BEC5' }}>
-                    도급 계약 종료 및 정산 완료 후 지체 없이 파기 (단, 관련 법령 및 사내 감사 기준에 따라 보존이 필요한 경우 해당 기간 동안 안전하게 분리 보관)
-                  </span>
                 </div>
 
                 <div>
-                  <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>4. 개인정보의 제3자 제공 및 위탁:</strong>
+                  <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>개인정보의 보유 및 이용 기간:</strong>
                   <span style={{ color: '#B0BEC5' }}>
-                    수집된 정보는 원칙적으로 목적 외의 용도로 활용되지 않으며, 하청 계약에 따른 정당한 도급비 정산 및 보안 검증 목적 외에는 타인이나 타 법인에 제공되지 않습니다.
+                    프로젝트 종료 시 또는 수집 목적 달성 시 즉시 파기
                   </span>
                 </div>
               </div>
