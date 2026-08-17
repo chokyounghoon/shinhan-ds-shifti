@@ -549,6 +549,19 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
       }
     }
 
+    if (!signupForm.pw) {
+      alert('비밀번호를 입력해주세요.');
+      return;
+    }
+    if (signupForm.pw.length < 8) {
+      alert('비밀번호는 안전을 위해 최소 8자리 이상 입력해야 합니다.');
+      return;
+    }
+    if (signupForm.pw !== signupForm.confirmPw) {
+      alert('비밀번호와 비밀번호 확인이 일치하지 않습니다.');
+      return;
+    }
+
     setLoading(true);
     const cleanEmpId = rawEmp;
 
@@ -1417,6 +1430,34 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                 placeholder="예: hong.gildong@gmail.com"
                 style={inputStyle}
               />
+            </div>
+
+            {/* 비밀번호 & 비밀번호 확인 */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <div>
+                <label style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                  로그인 비밀번호 (8자리 이상) *
+                </label>
+                <input
+                  type="password"
+                  value={signupForm.pw}
+                  onChange={e => setSignupForm({ ...signupForm, pw: e.target.value })}
+                  placeholder="8자리 이상 입력"
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                  비밀번호 확인 *
+                </label>
+                <input
+                  type="password"
+                  value={signupForm.confirmPw}
+                  onChange={e => setSignupForm({ ...signupForm, confirmPw: e.target.value })}
+                  placeholder="비밀번호 재입력"
+                  style={inputStyle}
+                />
+              </div>
             </div>
 
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11.5px', color: '#CFD8DC', cursor: 'pointer' }}>
