@@ -125,17 +125,18 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
       return;
     }
 
-    const assignedRole: UserRole = isPartnerManager 
-      ? 'PARTNER_PART_LEADER' 
-      : company === '신한DS' 
-        ? 'DS_PRINCIPAL_PM' 
+    const isDS = company === '신한DS' || company.includes('신한');
+    const assignedRole: UserRole = isDS 
+      ? 'DS_PRINCIPAL_PM' 
+      : isPartnerManager 
+        ? 'PARTNER_PART_LEADER' 
         : 'PARTNER_WORKER';
-    const assignedTeam = isPartnerManager ? '영업총괄팀' : team;
-    const assignedPart = isPartnerManager ? '전사총괄' : part;
-    const roleTitle = isPartnerManager 
-      ? `${company} 현장관리인 (영업대표)` 
-      : company === '신한DS' 
-        ? `신한DS ${assignedTeam} PM` 
+    const assignedTeam = (isPartnerManager && !isDS) ? '영업총괄팀' : team;
+    const assignedPart = (isPartnerManager && !isDS) ? '전사총괄' : part;
+    const roleTitle = isDS 
+      ? `신한DS ${assignedTeam} PM` 
+      : isPartnerManager 
+        ? `${company} 현장관리인 (영업대표)` 
         : `${position}`;
 
     const rawEmpId = ((user as any).employeeId || user.id || 'S01832').toUpperCase().trim();
@@ -544,12 +545,14 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
               </div>
               <div>
                 <div style={{ fontSize: '13.5px', fontWeight: 800, color: isPartnerManager ? '#00E5FF' : '#FFFFFF' }}>
-                  업체별 현장관리인 (영업대표/총괄)
+                  {company === '신한DS' ? '신한DS 현장대리인 (PM/총괄)' : '협력사 현장관리인 (영업대표/총괄)'}
                 </div>
                 <div style={{ fontSize: '11px', color: '#90A4AE', marginTop: '1px' }}>
-                  {isPartnerManager 
-                    ? '✓ 체크됨: 자사 전체 인력 총괄 권한 (팀·파트 선택 잠금)' 
-                    : '체크 시 자사 전체 인력 관제 권한 부여 (팀·파트 선택 불가)'}
+                  {company === '신한DS' 
+                    ? `✓ 신한DS 관리인: 선택하신 [${team} / ${part}]의 도급 공정을 총괄 관제합니다` 
+                    : isPartnerManager 
+                      ? '✓ 체크됨: 자사 전체 인력 총괄 권한 (팀·파트 선택 잠금)' 
+                      : '체크 시 자사 전체 인력 관제 권한 부여 (팀·파트 선택 불가)'}
                 </div>
               </div>
             </div>
