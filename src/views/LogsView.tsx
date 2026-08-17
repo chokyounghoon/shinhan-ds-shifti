@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Search, Filter, Calendar, ChevronDown, Send } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Filter, Calendar, ChevronDown, Send, CheckCircle2, MapPin, Clock } from 'lucide-react';
 import { User, DayGroupedCommuteLogs, CommuteLogItem } from '../types';
+import { dbService } from '../services/db';
 
 export interface CommuteLogEntry {
   id: string;
@@ -13,145 +14,9 @@ export interface CommuteLogEntry {
   totalGroupHours: string;
   clockInTime: string;
   clockOutTime: string;
+  locationName?: string;
   isVerified?: boolean;
 }
-
-// 스크린샷과 100% 일치하는 팀원 전체 출퇴근 기록 데이터
-export const fullTeamCommuteLogEntries: CommuteLogEntry[] = [
-  // 2026년 8월 1일, 토 (2시간 9분)
-  {
-    id: 'log-01',
-    userId: 'usr-002',
-    userName: '송무준',
-    deptName: '카드개발팀',
-    position: '팀원',
-    workDate: '2026-08-01',
-    dateGroupLabel: '2026년 8월 1일, 토',
-    totalGroupHours: '2시간 9분',
-    clockInTime: '23:51',
-    clockOutTime: '02:00',
-    isVerified: true
-  },
-  // 2026년 8월 3일, 월 (317시간 7분)
-  {
-    id: 'log-02',
-    userId: 'usr-013',
-    userName: '김성훈',
-    deptName: '카드개발팀',
-    position: '팀원',
-    workDate: '2026-08-03',
-    dateGroupLabel: '2026년 8월 3일, 월',
-    totalGroupHours: '317시간 7분',
-    clockInTime: '06:35',
-    clockOutTime: '18:31',
-    isVerified: true
-  },
-  {
-    id: 'log-03',
-    userId: 'usr-014',
-    userName: '이제성',
-    deptName: '카드개발팀',
-    position: '팀원',
-    workDate: '2026-08-03',
-    dateGroupLabel: '2026년 8월 3일, 월',
-    totalGroupHours: '317시간 7분',
-    clockInTime: '07:14',
-    clockOutTime: '17:07',
-    isVerified: true
-  },
-  {
-    id: 'log-04',
-    userId: 'usr-008',
-    userName: '김흥섭',
-    deptName: '카드개발팀',
-    position: '팀원',
-    workDate: '2026-08-03',
-    dateGroupLabel: '2026년 8월 3일, 월',
-    totalGroupHours: '317시간 7분',
-    clockInTime: '07:52',
-    clockOutTime: '18:00',
-    isVerified: true
-  },
-  {
-    id: 'log-05',
-    userId: 'usr-009',
-    userName: '이동은',
-    deptName: '카드개발팀',
-    position: '팀원',
-    workDate: '2026-08-03',
-    dateGroupLabel: '2026년 8월 3일, 월',
-    totalGroupHours: '317시간 7분',
-    clockInTime: '07:53',
-    clockOutTime: '18:13',
-    isVerified: true
-  },
-  {
-    id: 'log-06',
-    userId: 'usr-015',
-    userName: '명보민',
-    deptName: '카드개발팀',
-    position: '팀원',
-    workDate: '2026-08-03',
-    dateGroupLabel: '2026년 8월 3일, 월',
-    totalGroupHours: '317시간 7분',
-    clockInTime: '08:00',
-    clockOutTime: '17:18',
-    isVerified: true
-  },
-  {
-    id: 'log-07',
-    userId: 'usr-016',
-    userName: '박선용',
-    deptName: '카드개발팀',
-    position: '팀원',
-    workDate: '2026-08-03',
-    dateGroupLabel: '2026년 8월 3일, 월',
-    totalGroupHours: '317시간 7분',
-    clockInTime: '08:15',
-    clockOutTime: '18:01',
-    isVerified: true
-  },
-  {
-    id: 'log-08',
-    userId: 'usr-003',
-    userName: '김연섭',
-    deptName: '카드개발팀',
-    position: '팀원',
-    workDate: '2026-08-03',
-    dateGroupLabel: '2026년 8월 3일, 월',
-    totalGroupHours: '317시간 7분',
-    clockInTime: '08:18',
-    clockOutTime: '18:00',
-    isVerified: true
-  },
-  {
-    id: 'log-09',
-    userId: 'usr-005',
-    userName: '김종현',
-    deptName: '카드개발팀',
-    position: '팀원',
-    workDate: '2026-08-03',
-    dateGroupLabel: '2026년 8월 3일, 월',
-    totalGroupHours: '317시간 7분',
-    clockInTime: '08:20',
-    clockOutTime: '18:05',
-    isVerified: true
-  },
-  // 조경훈 본인 출퇴근 기록
-  {
-    id: 'log-10',
-    userId: 'usr-001',
-    userName: '조경훈',
-    deptName: '카드개발팀',
-    position: '팀원',
-    workDate: '2026-08-03',
-    dateGroupLabel: '2026년 8월 3일, 월',
-    totalGroupHours: '317시간 7분',
-    clockInTime: '09:51',
-    clockOutTime: '19:00',
-    isVerified: true
-  }
-];
 
 interface LogsViewProps {
   user: User;
@@ -164,25 +29,82 @@ export const LogsView: React.FC<LogsViewProps> = ({
   themeMode,
   onOpenNewPunchRequest
 }) => {
-  const isSiteManager = user.role === 'PARTNER_SITE_MANAGER';
-  // 일반 직원은 자기 기록만 보기 강제 (노란봉투법 / 파견법 개인정보 및 노무독립성 철학)
+  const isSiteManager = user.role === 'PARTNER_SITE_MANAGER' || user.role === 'DS_PRINCIPAL_PM';
   const [viewScope, setViewScope] = useState<'my' | 'all'>(isSiteManager ? 'all' : 'my');
   const [searchQuery, setSearchQuery] = useState('');
   const [dateRange, setDateRange] = useState('08.01 - 08.31');
+  const [d1Logs, setD1Logs] = useState<CommuteLogEntry[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // Cloudflare D1 DB에서 실시간 출퇴근/투입 기록 조회
+  const fetchD1CommuteLogs = async () => {
+    setIsLoading(true);
+    try {
+      const empId = user.employeeId || (user as any).id || 'S01832';
+      const url = isSiteManager && viewScope === 'all'
+        ? 'https://sguardai.khcho0421.workers.dev/commute/today'
+        : `https://sguardai.khcho0421.workers.dev/commute/logs?employee_id=${encodeURIComponent(empId)}`;
+
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        const rows = json.data || [];
+        const mapped: CommuteLogEntry[] = rows.map((r: any) => ({
+          id: r.id || `log-${r.employee_id}-${r.work_date}`,
+          userId: r.employee_id,
+          userName: r.worker_name || user.name || '조경훈',
+          deptName: r.part || r.team || user.partName || '상담',
+          position: r.position || user.position || '수석',
+          workDate: r.work_date,
+          dateGroupLabel: `${r.work_date} (도급 투입 확정)`,
+          totalGroupHours: '8시간 0분 (1 M/D)',
+          clockInTime: r.clock_in_time || '08:50',
+          clockOutTime: r.clock_out_time || '18:00',
+          locationName: r.location_name || '파인에비뉴(카드)',
+          isVerified: true
+        }));
+
+        // 만약 오늘 출근 기록이 D1에 있고 기존 목록과 병합
+        setD1Logs(mapped);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch D1 commute logs:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchD1CommuteLogs();
+  }, [viewScope, user.employeeId]);
+
+  // 기본 D1 기록 및 필터링
+  const displayLogs: CommuteLogEntry[] = d1Logs.length > 0 ? d1Logs : [
+    {
+      id: 'log-today',
+      userId: user.employeeId || 'S01832',
+      userName: user.name || '조경훈',
+      deptName: user.partName || '상담팀',
+      position: user.position || '수석',
+      workDate: '2026-08-17',
+      dateGroupLabel: '2026년 8월 17일, 월 (당일 투입)',
+      totalGroupHours: '8시간 0분 (1 M/D)',
+      clockInTime: '08:50',
+      clockOutTime: '18:00',
+      locationName: '파인에비뉴(카드)',
+      isVerified: true
+    }
+  ];
 
   // 권한 및 토글에 따른 출퇴근 기록 필터링
-  const visibleEntries = fullTeamCommuteLogEntries.filter(entry => {
+  const visibleEntries = displayLogs.filter(entry => {
     const matchesSearch = entry.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           entry.deptName.toLowerCase().includes(searchQuery.toLowerCase());
-    
     if (!matchesSearch) return false;
 
-    // 일반 협력직원은 무조건 본인 것만 표출 (철학 준수)
     if (!isSiteManager || viewScope === 'my') {
-      return entry.userId === user.id || entry.userName === '조경훈';
+      return entry.userId === (user.employeeId || user.id) || entry.userName === (user.name || '조경훈');
     }
-
-    // 현장대리인은 전체 팀원 확인 가능
     return true;
   });
 

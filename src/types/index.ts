@@ -8,6 +8,7 @@ export type UserRole =
 
 export interface User {
   id: string;
+  employeeId?: string;
   name: string;
   firstName?: string;
   lastName?: string;
