@@ -779,10 +779,10 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
               </div>
             </div>
 
-            {/* 사번 입력 필드 */}
+            {/* 사번/ID 입력 필드 */}
             <div>
               <label style={{ fontSize: '12px', fontWeight: 600, color: '#90A4AE', display: 'block', marginBottom: '6px' }}>
-                사원번호 (S로 시작하는 6자리 사번 / 이메일)
+                아이디 / 사원번호 (영문·숫자 최대 6자리)
               </label>
               <div style={{
                 background: '#101B2B',
@@ -796,15 +796,16 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                 <SmartphoneNfc size={18} color="#90A4AE" style={{ marginRight: '10px' }} />
                 <input
                   type="text"
+                  maxLength={6}
                   value={empId}
                   onChange={e => {
-                    const val = e.target.value;
+                    const val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6);
                     setEmpId(val);
                     try {
                       localStorage.setItem('LAST_LOGIN_EMP_ID', val);
                     } catch (err) {}
                   }}
-                  placeholder="예: S181210 또는 S12345"
+                  placeholder="예: S01832 (영문/숫자 최대 6자리)"
                   style={{
                     flex: 1,
                     background: 'transparent',
@@ -1345,24 +1346,20 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
               </div>
             </div>
 
-            {/* 사번 (S로 시작하는 6자리 포맷) & 이름 */}
+            {/* 사번/ID (영문, 숫자 최대 6자리) & 이름 */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               <div>
-                <label style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600, display: 'block', marginBottom: '4px' }}>사번 (S로 시작하는 6자리) *</label>
+                <label style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                  아이디 / 사번 (영문·숫자 최대 6자리) *
+                </label>
                 <input
                   type="text"
-                  maxLength={7}
+                  maxLength={6}
                   value={signupForm.empNo}
-                  placeholder="예: S18121 또는 S181210"
+                  placeholder="예: S01832"
                   onChange={e => {
-                    let val = e.target.value.toUpperCase();
-                    if (val && !val.startsWith('S')) {
-                      val = 'S' + val.replace(/[^0-9]/g, '');
-                    } else if (val.startsWith('S')) {
-                      val = 'S' + val.substring(1).replace(/[^0-9]/g, '');
-                    }
-                    val = val.slice(0, 7);
-                    setSignupForm({ ...signupForm, empNo: val });
+                    const clean = e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6);
+                    setSignupForm({ ...signupForm, empNo: clean });
                   }}
                   style={inputStyle}
                 />
@@ -1441,9 +1438,10 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
 
             <input
               type="text"
+              maxLength={6}
               value={resetEmpId}
-              onChange={e => setResetEmpId(e.target.value)}
-              placeholder="사원번호 (예: S18121020)"
+              onChange={e => setResetEmpId(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6))}
+              placeholder="사원번호 / 아이디 (예: S01832)"
               style={inputStyle}
             />
 
