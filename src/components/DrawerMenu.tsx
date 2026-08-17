@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
-  X, Megaphone, Users, Network, MapPin, Briefcase, 
-  Layers, ArrowLeftRight, MessageSquare, HelpCircle, MessagesSquare,
+  X, Megaphone, Users, Network, MapPin, 
+  MessageSquare, HelpCircle, MessagesSquare,
   Lock, LogOut
 } from 'lucide-react';
 import { User } from '../types';
@@ -170,12 +170,6 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
             </button>
           )}
 
-          {/* 회사 방침 */}
-          <button style={menuItemStyle} onClick={() => handleMenuClick('회사 방침')}>
-            <Megaphone size={19} color="#4E5968" strokeWidth={1.8} />
-            <span>회사 방침</span>
-          </button>
-
           {/* 직원 */}
           <button style={menuItemStyle} onClick={() => handleMenuClick('직원')}>
             <Users size={19} color="#4E5968" strokeWidth={1.8} />
@@ -192,24 +186,6 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
           <button style={menuItemStyle} onClick={() => handleMenuClick('도급 투입 장소')}>
             <MapPin size={19} color="#4E5968" strokeWidth={1.8} />
             <span>출퇴근 장소</span>
-          </button>
-
-          {/* 직무 */}
-          <button style={menuItemStyle} onClick={() => handleMenuClick('직무')}>
-            <Briefcase size={19} color="#4E5968" strokeWidth={1.8} />
-            <span>직무</span>
-          </button>
-
-          {/* 근무일정 템플릿 (스크린샷 일치) */}
-          <button style={menuItemStyle} onClick={() => handleMenuClick('근무일정 템플릿')}>
-            <Layers size={19} color="#4E5968" strokeWidth={1.8} />
-            <span>근무일정 템플릿</span>
-          </button>
-
-          {/* 회사 바꾸기 */}
-          <button style={menuItemStyle} onClick={() => handleMenuClick('회사 바꾸기')}>
-            <ArrowLeftRight size={19} color="#4E5968" strokeWidth={1.8} />
-            <span>회사 바꾸기</span>
           </button>
         </div>
 
