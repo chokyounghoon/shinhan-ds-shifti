@@ -487,10 +487,11 @@ export function App() {
               )}
 
               {/* 15. 조직 관리 화면 */}
+              {/* 15. 조직 관리 화면 */}
               {currentPage === 'organizations' && (
                 <OrganizationManageView
                   onBack={() => setCurrentPage('home')}
-                  onOpenOrgDetail={org => {
+                  onSelectOrg={org => {
                     setSelectedOrgUnit(org);
                     setCurrentPage('org_detail');
                   }}
