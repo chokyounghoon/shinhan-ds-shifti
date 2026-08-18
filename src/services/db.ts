@@ -1078,6 +1078,118 @@ export class PureDatabaseEngine {
     };
   }
   public clockIn(loc: string): boolean { return true; }
+  
+  // =========================================================================
+  // ⚡ Cloudflare D1 Database 실시간 출근 및 투입 기록 API
+  // =========================================================================
+  public async recordCommutePunchInD1(data: {
+    employeeId: string;
+    workDate: string;
+    clockInTime: string;
+    locationName: string;
+    distanceMeters?: number;
+    status?: string;
+  }): Promise<any> {
+    try {
+      const res = await fetch(`${this.API_BASE}/commute/punch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employee_id: data.employeeId,
+          user_id: data.employeeId,
+          work_date: data.workDate,
+          clock_in_time: data.clockInTime,
+          location_name: data.locationName,
+          distance_meters: data.distanceMeters || 25,
+          status: data.status || 'NORMAL'
+        })
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn('[D1 Commute Punch Error]:', e);
+    }
+    return null;
+  }
+
+  public async fetchCommuteLogsFromD1(empId?: string, workDate?: string): Promise<any[]> {
+    try {
+      let url = `${this.API_BASE}/commute/logs`;
+      const queryParams: string[] = [];
+      if (empId) queryParams.push(`employee_id=${encodeURIComponent(empId)}`);
+      if (workDate) queryParams.push(`work_date=${encodeURIComponent(workDate)}`);
+      if (queryParams.length > 0) url += `?${queryParams.join('&')}`;
+
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || [];
+      }
+    } catch (e) {
+      console.warn('[D1 Commute Logs Fetch Error]:', e);
+    }
+    return [];
+  }
+
+  public async submitAttendanceRequestInD1(req: {
+    id?: string;
+    employeeId: string;
+    requestType: string;
+    vacationType?: string;
+    targetDate: string;
+    startDate?: string;
+    endDate?: string;
+    hours?: number;
+    reason: string;
+    partnerCompany?: string;
+    approverName?: string;
+    status?: string;
+  }): Promise<any> {
+    try {
+      const res = await fetch(`${this.API_BASE}/attendance/request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: req.id || `req-${Date.now()}`,
+          employee_id: req.employeeId,
+          user_id: req.employeeId,
+          request_type: req.requestType,
+          vacation_type: req.vacationType || (req.requestType === 'VACATION' ? '연차' : req.requestType),
+          target_date: req.targetDate,
+          start_date: req.startDate || req.targetDate.split('~')[0].trim(),
+          end_date: req.endDate || req.targetDate.split('~')[1]?.trim() || req.targetDate,
+          hours: req.hours || 8,
+          reason: req.reason,
+          status: req.status || 'APPROVED',
+          partner_company: req.partnerCompany || '유브갓',
+          approver_name: req.approverName || `${req.partnerCompany || '유브갓'} 현장관리인`
+        })
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn('[D1 Attendance Request Error]:', e);
+    }
+    return null;
+  }
+
+  public async fetchAttendanceRequestsFromD1(empId?: string): Promise<any[]> {
+    try {
+      let url = `${this.API_BASE}/attendance/requests`;
+      if (empId) url += `?employee_id=${encodeURIComponent(empId)}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || [];
+      }
+    } catch (e) {
+      console.warn('[D1 Attendance Requests Fetch Error]:', e);
+    }
+    return [];
+  }
+
   public addCommuteLog(type: string, loc: string): void {}
   public addRequest(req: any): void {}
   public approvePartnerRequest(reqId: string, memo?: string): boolean { return true; }
