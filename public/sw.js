@@ -35,8 +35,13 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// 3. 네트워크 요청 (Fetch)
+// 3. Fetch 가로채기 (네트워크 우선 + D1/Worker 우회)
 self.addEventListener('fetch', (event) => {
+  // chrome-extension://, moz-extension:// 등 비 HTTP(S) 스킴 무시 (Cache API 오류 원천 방지)
+  if (!event.request.url.startsWith('http://') && !event.request.url.startsWith('https://')) {
+    return;
+  }
+
   const url = new URL(event.request.url);
 
   // API나 외부 Worker 요청은 네트워크 직접 통신 (캐시 우회)
@@ -48,6 +53,8 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/users') ||
     url.pathname.startsWith('/companies') ||
     url.pathname.startsWith('/organizations') ||
+    url.pathname.startsWith('/commute') ||
+    url.pathname.startsWith('/attendance') ||
     event.request.method !== 'GET'
   ) {
     return;
