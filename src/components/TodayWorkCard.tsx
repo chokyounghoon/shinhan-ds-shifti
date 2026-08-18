@@ -70,10 +70,18 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
     timestamp: new Date().toISOString()
   });
 
-  const today = new Date();
-  const month = today.getMonth() + 1;
-  const date = today.getDate();
-  const dayName = ['일', '월', '화', '수', '목', '금', '토'][today.getDay()];
+  // 🇰🇷 KST 기준 오늘 날짜 (YYYY-MM-DD) 헬퍼
+  const getKstDateInfo = () => {
+    const now = new Date();
+    const kst = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+    const ymd = kst.toISOString().substring(0, 10);
+    const m = kst.getUTCMonth() + 1;
+    const d = kst.getUTCDate();
+    const dow = ['일', '월', '화', '수', '목', '금', '토'][kst.getUTCDay()];
+    return { ymd, month: m, date: d, dayName: dow };
+  };
+
+  const { ymd: todayYmd, month, date, dayName } = getKstDateInfo();
 
   // 100m 이내 & 안티스푸핑 무결성 통과 여부 판정 (테스트 바이패스 시 항상 활성화)
   const isWithin100m = isTestBypass ? true : gpsDistance <= 100;
@@ -99,20 +107,22 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
     }
   };
 
-  // D1 DB(commute_logs)에서 오늘 이미 출근했는지 실시간 조회하여 화면 상태 복원
+  // D1 DB(commute_logs)에서 오늘(todayYmd) 이미 출근했는지 실시간 조회하여 화면 상태 복원
+  // ★ 매일 자정이 지나 날짜가 바뀌면 D1에 당일 기록이 없으므로 자동으로 isInputCompleted = false (투입 확정 버튼 활성화)
   useEffect(() => {
     const checkTodayPunchStatus = async () => {
       const currentUser = dbService.getCurrentUser();
       const empId = currentUser?.employeeId || (currentUser as any)?.id || 'S01832';
-      const todayYmd = new Date().toISOString().substring(0, 10);
+      const currentTodayYmd = getKstDateInfo().ymd;
 
       try {
-        const res = await fetch(`https://sguardai.khcho0421.workers.dev/commute/logs?employee_id=${encodeURIComponent(empId)}&work_date=${todayYmd}`);
+        const res = await fetch(`https://sguardai.khcho0421.workers.dev/commute/logs?employee_id=${encodeURIComponent(empId)}&work_date=${currentTodayYmd}`);
         if (res.ok) {
           const json = await res.json();
           if (json.data && Array.isArray(json.data) && json.data.length > 0) {
             const todayLog = json.data[0];
             if (todayLog && todayLog.clock_in_time) {
+              // 오늘 이미 출근 완료한 경우 -> 완료 상태 표시
               setIsInputCompleted(true);
               setInputTime(todayLog.clock_in_time);
               if (todayLog.distance_meters) {
@@ -122,18 +132,27 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
             }
           }
         }
+        // 오늘 출근 기록이 없으면 (새로운 날이 시작됨) -> 투입 확정 버튼 활성화
+        setIsInputCompleted(false);
+        setInputTime(null);
       } catch (err) {
         console.warn('Failed to check D1 punch status:', err);
+        setIsInputCompleted(false);
+        setInputTime(null);
       }
     };
 
     checkTodayPunchStatus();
+
+    // 30초마다 당일 출근 상태 실시간 동기화 (자정 넘어가는 시점 자동 감지)
+    const interval = setInterval(checkTodayPunchStatus, 30000);
+    return () => clearInterval(interval);
   }, [activeLocation]);
 
   // 1. 활성화된 버튼 터치 시 -> 카카오 지도 100m GPS 검증 모달 열기 및 최종 투입 확정
   const handleButtonClick = () => {
     if (isInputCompleted) {
-      alert(`✅ 금일(8월 17일) 도급 인력 투입이 이미 정상 인증 완료되었습니다.\n• 출근 인증 시각: ${inputTime || '08:50'}\n• 지정 근무지: ${targetName}\n• 도급 실적: 당일 1 M/D (8.0h) 정산 확정됨\n\n(도급 계약 특성상 퇴근은 별도 기록하지 않습니다.)`);
+      alert(`✅ 금일(${month}월 ${date}일) 도급 인력 투입이 이미 정상 인증 완료되었습니다.\n• 출근 인증 시각: ${inputTime || '08:50'}\n• 지정 근무지: ${targetName}\n• 도급 실적: 당일 1 M/D (8.0h) 정산 확정됨\n\n(도급 계약 특성상 퇴근은 별도 기록하지 않으며, 내일이 되면 새로운 투입 확정 버튼이 활성화됩니다.)`);
       return;
     }
 
@@ -143,8 +162,9 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
   // 2. 최종 1회 투입 완료 (Cloudflare D1 DB commute_logs 실시간 저장)
   const handleConfirmGpsPunch = async (dist: number) => {
     const now = new Date();
-    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    const todayYmd = now.toISOString().substring(0, 10);
+    const kst = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+    const timeStr = `${String(kst.getUTCHours()).padStart(2, '0')}:${String(kst.getUTCMinutes()).padStart(2, '0')}`;
+    const punchYmd = getKstDateInfo().ymd;
     const currentUser = dbService.getCurrentUser();
     const empId = currentUser?.employeeId || (currentUser as any)?.id || 'S01832';
 
@@ -162,7 +182,7 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
         body: JSON.stringify({
           employee_id: empId,
           user_id: empId,
-          work_date: todayYmd,
+          work_date: punchYmd,
           clock_in_time: timeStr,
           location_name: targetName,
           distance_meters: dist,
@@ -173,7 +193,7 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
       console.warn('Failed to sync commute punch to D1:', err);
     }
 
-    alert(`🎉 [${targetName}] 금일 도급 인력 투입이 D1 DB에 정상 확정/저장되었습니다.\n• 대상 사번: ${empId}\n• 투입 인증 시각: ${timeStr}\n• GPS 인증 거리: ${formatDistanceText(dist)}\n• 저장 DB 테이블: shifti-db > commute_logs\n• 인정 실적: 당일 약정 1 M/D (8.0 Man-Hour)\n\n※ 퇴근 시간은 별도 기록하지 않으며 오늘의 도급 투입 의무가 완결되었습니다.`);
+    alert(`🎉 [${targetName}] ${month}월 ${date}일 금일 도급 인력 투입이 D1 DB에 정상 확정/저장되었습니다.\n• 대상 사번: ${empId}\n• 투입 인증 시각: ${timeStr}\n• GPS 인증 거리: ${formatDistanceText(dist)}\n• 저장 DB 테이블: shifti-db > commute_logs\n• 인정 실적: 당일 약정 1 M/D (8.0 Man-Hour)\n\n※ 퇴근 시간은 별도 기록하지 않으며, 내일이 되면 새로운 당일 투입 확정 프로세스가 시작됩니다.`);
   };
 
   return (
