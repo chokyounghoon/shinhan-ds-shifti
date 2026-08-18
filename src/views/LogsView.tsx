@@ -42,8 +42,8 @@ export const LogsView: React.FC<LogsViewProps> = ({
     try {
       const empId = user.employeeId || (user as any).id || 'S01832';
       const url = isSiteManager && viewScope === 'all'
-        ? 'https://sguardai.khcho0421.workers.dev/commute/today'
-        : `https://sguardai.khcho0421.workers.dev/commute/logs?employee_id=${encodeURIComponent(empId)}`;
+        ? '/api/commute/today'
+        : `/api/commute/logs?employee_id=${encodeURIComponent(empId)}`;
 
       const res = await fetch(url);
       if (res.ok) {

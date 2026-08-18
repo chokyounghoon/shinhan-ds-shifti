@@ -239,7 +239,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
   useEffect(() => {
     const fetchCompanies = async () => {
       try {
-        const res = await fetch('https://sguardai.khcho0421.workers.dev/companies');
+        const res = await fetch('/api/companies');
         if (res.ok) {
           const json = await res.json();
           if (json.success && Array.isArray(json.data) && json.data.length > 0) {
@@ -311,7 +311,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
 
     try {
       // 1. 실제 s-guard_AI 백엔드 (Cloudflare Workers) 호출하여 실제 Gmail 발송
-      let res = await fetch('https://sguardai.khcho0421.workers.dev/auth/init', {
+      let res = await fetch('/api/auth/init', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -326,7 +326,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
       // 만약 Cloudflare D1에 사용자 정보가 아직 없다면, 로컬 정보로 즉시 동기화 등록 후 재호출!
       if (!res.ok && data.code === 'NOT_FOUND' && localUser) {
         try {
-          await fetch('https://sguardai.khcho0421.workers.dev/auth/signup', {
+          await fetch('/api/auth/signup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -345,7 +345,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
           });
 
           // 재시도
-          res = await fetch('https://sguardai.khcho0421.workers.dev/auth/init', {
+          res = await fetch('/api/auth/init', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -399,7 +399,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
 
     // 1. 실제 Cloudflare Worker KV 실시간 이메일 OTP 검증
     try {
-      const res = await fetch('https://sguardai.khcho0421.workers.dev/auth/verify-otp', {
+      const res = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -462,7 +462,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
 
     // 1. 실시간 Cloudflare D1 /auth/login 비밀번호 검증 API 호출
     try {
-      const res = await fetch('https://sguardai.khcho0421.workers.dev/auth/login', {
+      const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -614,7 +614,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
     // 1. 실제 Cloudflare D1 shifti-db users 테이블에 INSERT (대문자로 표준화)
     const upperEmpId = signupForm.empNo.toUpperCase().trim();
     try {
-      const response = await fetch('https://sguardai.khcho0421.workers.dev/auth/signup', {
+      const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1073,7 +1073,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                     if (targetEmpId === '01832') targetEmpId = 'S01832';
 
                     try {
-                      const res = await fetch('https://sguardai.khcho0421.workers.dev/auth/init', {
+                      const res = await fetch('/api/auth/init', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -1666,7 +1666,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                   }
                   setLoading(true);
                   try {
-                    const res = await fetch('https://sguardai.khcho0421.workers.dev/auth/reset/request', {
+                    const res = await fetch('/api/auth/reset/request', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ employee_id: resetEmpId.trim() })
@@ -1780,7 +1780,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
 
                   setLoading(true);
                   try {
-                    const res = await fetch('https://sguardai.khcho0421.workers.dev/auth/reset/verify', {
+                    const res = await fetch('/api/auth/reset/verify', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({

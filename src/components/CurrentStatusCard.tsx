@@ -39,7 +39,7 @@ export const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
     const currentUser = dbService.getCurrentUser();
     const empId = currentUser?.employeeId || (currentUser as any)?.id || 'S01832';
     try {
-      const res = await fetch(`https://sguardai.khcho0421.workers.dev/commute/logs?employee_id=${encodeURIComponent(empId)}`);
+      const res = await fetch(`/api/commute/logs?employee_id=${encodeURIComponent(empId)}`);
       if (res.ok) {
         const json = await res.json();
         const logs = json.data || [];

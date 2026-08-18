@@ -175,7 +175,7 @@ export function App() {
       const empId = (currentUser?.id || (currentUser as any)?.employeeId || 'S01832').toUpperCase().trim();
       const targetId = empId === '01832' ? 'S01832' : empId;
       try {
-        const res = await fetch(`https://sguardai.khcho0421.workers.dev/users/${targetId}`);
+        const res = await fetch(`/api/users/${targetId}`);
         if (res.ok) {
           const json = await res.json();
           const dbUser = json.data || json;

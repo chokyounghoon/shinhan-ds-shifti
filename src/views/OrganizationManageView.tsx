@@ -109,7 +109,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
   const fetchRemoteOrgs = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('https://sguardai.khcho0421.workers.dev/organizations');
+      const res = await fetch('/api/organizations');
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -137,7 +137,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
   // Cloudflare D1 shifti-db 원격 실시간 조회 (협력사 목록)
   const fetchRemoteCompanies = async () => {
     try {
-      const res = await fetch('https://sguardai.khcho0421.workers.dev/companies');
+      const res = await fetch('/api/companies');
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -241,7 +241,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
     try {
       const currentUser = dbService.getCurrentUser();
       const actorId = currentUser?.id || currentUser?.name || 'S01832';
-      const res = await fetch('https://sguardai.khcho0421.workers.dev/companies', {
+      const res = await fetch('/api/companies', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -274,7 +274,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
       setEditingCompany(null);
 
       try {
-        const res = await fetch(`https://sguardai.khcho0421.workers.dev/companies/${id}`, {
+        const res = await fetch(`/api/companies/${id}`, {
           method: 'DELETE'
         });
         if (res.ok) {
@@ -339,7 +339,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
     try {
       const currentUser = dbService.getCurrentUser();
       const actorId = currentUser?.id || currentUser?.name || 'S01832';
-      const res = await fetch('https://sguardai.khcho0421.workers.dev/organizations', {
+      const res = await fetch('/api/organizations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -365,7 +365,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
 
       // Cloudflare D1 shifti-db organizations 테이블 삭제 동기화
       try {
-        const res = await fetch(`https://sguardai.khcho0421.workers.dev/organizations/${id}`, {
+        const res = await fetch(`/api/organizations/${id}`, {
           method: 'DELETE'
         });
         if (res.ok) {

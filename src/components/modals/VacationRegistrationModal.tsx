@@ -65,7 +65,7 @@ export const VacationRegistrationModal: React.FC<VacationRegistrationModalProps>
       // D1 DB attendance_requests 테이블로 실시간 POST
       const reqId = `req-gap-${Date.now()}`;
       const empId = currentUser.employeeId || currentUser.id || 'S01832';
-      fetch('https://sguardai.khcho0421.workers.dev/attendance/request', {
+      fetch('/api/attendance/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -110,7 +110,7 @@ export const VacationRegistrationModal: React.FC<VacationRegistrationModalProps>
       });
 
       // D1 DB attendance_requests 테이블로 실시간 POST
-      fetch('https://sguardai.khcho0421.workers.dev/attendance/request', {
+      fetch('/api/attendance/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

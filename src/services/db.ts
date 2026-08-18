@@ -1202,7 +1202,7 @@ export class PureDatabaseEngine {
   // =========================================================================
   private notifications: DbAppNotification[] = [];
   private messages: DbAppMessage[] = [];
-  private readonly API_BASE = 'https://sguardai.khcho0421.workers.dev';
+  private readonly API_BASE = '/api';
 
   public async fetchNotificationsFromD1(userRole?: string, partName?: string): Promise<DbAppNotification[]> {
     try {

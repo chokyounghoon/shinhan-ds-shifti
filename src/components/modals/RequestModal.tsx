@@ -48,7 +48,7 @@ export const RequestModal: React.FC<RequestModalProps> = ({
 
     try {
       // 1. Cloudflare D1 DB attendance_requests 테이블에 실시간 영구 INSERT
-      await fetch('https://sguardai.khcho0421.workers.dev/attendance/request', {
+      await fetch('/api/attendance/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

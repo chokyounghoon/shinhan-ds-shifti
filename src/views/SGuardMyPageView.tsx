@@ -96,18 +96,74 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
     return `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 11)}`;
   };
 
-  // 사진 업로드 핸들러
+  // 사진 업로드 핸들러 (Canvas 리사이즈 최적화 + D1 DB 즉시 동기화)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      alert('사진 파일 크기는 5MB 이하만 업로드 가능합니다.');
+    if (file.size > 10 * 1024 * 1024) {
+      alert('사진 파일 크기는 10MB 이하만 업로드 가능합니다.');
       return;
     }
+
     const reader = new FileReader();
     reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      setAvatarUrl(base64);
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 320;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const optimizedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+          setAvatarUrl(optimizedBase64);
+
+          // ⚡ 사진 선택 즉시 D1 DB에 자동 영구 저장
+          let rawEmpId = ((user as any).employeeId || user.id || 'S01832').toUpperCase().trim();
+          if (rawEmpId === 'USR-001') rawEmpId = 'UB0001';
+          else if (rawEmpId === 'USR-002') rawEmpId = 'MGRUB1';
+          else if (rawEmpId === 'S18121020' || rawEmpId === '01832') rawEmpId = 'S01832';
+
+          fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              employeeId: rawEmpId,
+              avatarUrl: optimizedBase64,
+              profile_picture: optimizedBase64
+            })
+          }).catch(err => console.warn('[Auto profile photo sync error]', err));
+
+          // 세션 스토리지도 즉시 갱신
+          try {
+            const savedSession = localStorage.getItem('SGUARD_AUTH_SESSION');
+            if (savedSession) {
+              const sessionObj = JSON.parse(savedSession);
+              localStorage.setItem('SGUARD_AUTH_SESSION', JSON.stringify({
+                ...sessionObj,
+                avatarUrl: optimizedBase64,
+                profileImage: optimizedBase64,
+                profile_picture: optimizedBase64
+              }));
+            }
+          } catch (err) {}
+        }
+      };
+      img.src = event.target?.result as string;
     };
     reader.readAsDataURL(file);
   };
@@ -123,21 +179,21 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
         else if (rawEmpId === 'S18121020' || rawEmpId === '01832') rawEmpId = 'S01832';
 
         // 1. D1 실제 조직(organizations) 테이블 조회
-        const orgRes = await fetch('https://sguardai.khcho0421.workers.dev/organizations');
+        const orgRes = await fetch('/api/organizations');
         const orgJson = await orgRes.json();
         if (orgJson.success && Array.isArray(orgJson.data) && orgJson.data.length > 0) {
           if (isMounted) setDbOrganizations(orgJson.data);
         }
 
         // 2. D1 실제 협력사(companies) 마스터 테이블 조회
-        const compRes = await fetch('https://sguardai.khcho0421.workers.dev/companies');
+        const compRes = await fetch('/api/companies');
         const compJson = await compRes.json();
         if (compJson.success && Array.isArray(compJson.data) && compJson.data.length > 0) {
           const compNames = compJson.data.map((c: any) => c.company_name).filter(Boolean);
           if (isMounted) setDbCompanies(compNames);
         } else {
           // 폴백: D1 실제 사용자 목록에서 고유 회사 목록 조회
-          const userRes = await fetch('https://sguardai.khcho0421.workers.dev/users');
+          const userRes = await fetch('/api/users');
           const userJson = await userRes.json();
           if (userJson.success && Array.isArray(userJson.data)) {
             const compSet = new Set<string>(['신한DS']);
@@ -149,7 +205,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
         }
 
         // 3. 현재 로그인 사용자 최신 D1 정보 로드
-        const meRes = await fetch(`https://sguardai.khcho0421.workers.dev/users/${rawEmpId}`);
+        const meRes = await fetch(`/api/users/${rawEmpId}`);
         const meJson = await meRes.json();
         const d = meJson.data || (meJson.employee_id ? meJson : null);
         if (d && isMounted) {
@@ -296,7 +352,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
 
     // 2. 실제 Cloudflare D1 shifti-db users 테이블 실시간 동기화 (기존 키 기준 1:1 UPDATE)
     try {
-      await fetch('https://sguardai.khcho0421.workers.dev/users', {
+      await fetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -369,7 +425,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
     const userEmpId = rawEmpId;
 
     try {
-      const res = await fetch('https://sguardai.khcho0421.workers.dev/auth/change-password', {
+      const res = await fetch('/api/auth/change-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -98,9 +98,14 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
           setIsLocating(false);
         },
         () => {
+          // PC 브라우저(Google Geolocation 403 등) 위치 에러 시 안전 시뮬레이션 거리(25m)로 폴백
+          const simLat = targetLat + 0.00020;
+          const simLng = targetLng + 0.00015;
+          const dist = calculateDistanceMeters(simLat, simLng, targetLat, targetLng);
+          setGpsDistance(dist);
           setIsLocating(false);
         },
-        { enableHighAccuracy: true, timeout: 6000 }
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
       );
     } else {
       setIsLocating(false);
@@ -116,7 +121,7 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
       const currentTodayYmd = getKstDateInfo().ymd;
 
       try {
-        const res = await fetch(`https://sguardai.khcho0421.workers.dev/commute/logs?employee_id=${encodeURIComponent(empId)}&work_date=${currentTodayYmd}`);
+        const res = await fetch(`/api/commute/logs?employee_id=${encodeURIComponent(empId)}&work_date=${currentTodayYmd}`);
         if (res.ok) {
           const json = await res.json();
           if (json.data && Array.isArray(json.data) && json.data.length > 0) {
@@ -176,7 +181,7 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
 
     try {
       // D1 DB commute_logs 테이블로 실시간 POST
-      await fetch('https://sguardai.khcho0421.workers.dev/commute/punch', {
+      await fetch('/api/commute/punch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

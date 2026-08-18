@@ -69,7 +69,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
     const fetchD1MasterData = async () => {
       try {
         // 1. 조직 목록
-        const orgRes = await fetch('https://sguardai.khcho0421.workers.dev/organizations');
+        const orgRes = await fetch('/api/organizations');
         if (orgRes.ok) {
           const json = await orgRes.json();
           if (json.data && Array.isArray(json.data) && json.data.length > 0) {
@@ -93,7 +93,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
         }
 
         // 2. D1 DB 직원 목록 (본인 관리 파트 연동)
-        const usersRes = await fetch('https://sguardai.khcho0421.workers.dev/users');
+        const usersRes = await fetch('/api/users');
         if (usersRes.ok) {
           const uJson = await usersRes.json();
           if (uJson.data && Array.isArray(uJson.data)) {

@@ -28,22 +28,6 @@
 
     <!-- Leaflet Map CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-
-    <!-- Kakao Maps SDK CDN (비동기 안전 로드) -->
-    <script>
-      (function() {
-        try {
-          var script = document.createElement('script');
-          script.type = 'text/javascript';
-          script.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=6fdbed77a229d105034026990013707b&autoload=false&libraries=services,clusterer';
-          script.async = true;
-          script.onerror = function() {
-            console.warn('[KakaoMap] SDK load skipped (Domain not registered in Kakao Console). Falling back to Leaflet & Radar GPS map.');
-          };
-          document.head.appendChild(script);
-        } catch (e) {}
-      })();
-    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -67,7 +67,7 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
   const fetchRemoteUsers = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('https://sguardai.khcho0421.workers.dev/users');
+      const res = await fetch('/api/users');
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -110,7 +110,7 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
   // 2. Cloudflare D1 organizations 원격 파트 정보 실시간 조회 (DB 기준 동적 파트)
   const fetchRemoteOrgs = async () => {
     try {
-      const res = await fetch('https://sguardai.khcho0421.workers.dev/organizations');
+      const res = await fetch('/api/organizations');
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -128,7 +128,7 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
   // 3. Cloudflare D1 companies 원격 협력사 목록 실시간 조회
   const fetchRemoteCompanies = async () => {
     try {
-      const res = await fetch('https://sguardai.khcho0421.workers.dev/companies');
+      const res = await fetch('/api/companies');
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -226,7 +226,7 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
       const isManagerFlag = updated.role === 'PARTNER_MANAGER' ? 1 : 0;
       const userRole = updated.role === 'DS_PM' ? 'DS_PRINCIPAL_PM' : updated.role === 'PARTNER_MANAGER' ? 'PARTNER_PART_LEADER' : 'PARTNER_WORKER';
 
-      const res = await fetch('https://sguardai.khcho0421.workers.dev/users', {
+      const res = await fetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -261,7 +261,7 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
       setEditingEmp(null);
 
       try {
-        const res = await fetch(`https://sguardai.khcho0421.workers.dev/users/${employeeId}`, {
+        const res = await fetch(`/api/users/${employeeId}`, {
           method: 'DELETE'
         });
         if (res.ok) {

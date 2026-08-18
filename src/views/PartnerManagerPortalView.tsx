@@ -39,8 +39,8 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
     setIsLoading(true);
     try {
       const [userRes, orgRes] = await Promise.all([
-        fetch('https://sguardai.khcho0421.workers.dev/users'),
-        fetch('https://sguardai.khcho0421.workers.dev/organizations')
+        fetch('/api/users'),
+        fetch('/api/organizations')
       ]);
 
       if (userRes.ok) {
