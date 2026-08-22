@@ -34,13 +34,18 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
   const [allOrgs, setAllOrgs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // 1. Cloudflare D1 users 및 organizations 실시간 조회
+  const [allClarifications, setAllClarifications] = useState<DbSlaClarification[]>([]);
+  const [allGapNotices, setAllGapNotices] = useState<DbPreGapNotice[]>([]);
+
+  // 1. Cloudflare D1 users 및 organizations, SLA 소명, 사전통보 실시간 조회
   const fetchRemoteData = async () => {
     setIsLoading(true);
     try {
-      const [userRes, orgRes] = await Promise.all([
+      const [userRes, orgRes, clars, gaps] = await Promise.all([
         fetch('/api/users'),
-        fetch('/api/organizations')
+        fetch('/api/organizations'),
+        dbService.fetchSlaClarificationsFromD1('ALL'),
+        dbService.fetchGapNoticesFromD1('ALL')
       ]);
 
       if (userRes.ok) {
@@ -56,6 +61,9 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
           setAllOrgs(orgJson.data);
         }
       }
+
+      setAllClarifications(clars);
+      setAllGapNotices(gaps);
     } catch (err) {
       console.warn('Failed to load portal data from D1:', err);
     } finally {
@@ -113,9 +121,6 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
   const [answerText, setAnswerText] = useState('');
   const [isVacationModalOpen, setIsVacationModalOpen] = useState(false);
 
-  const allClarifications = dbService.getSlaClarifications();
-  const allGapNotices = dbService.getPreGapNotices();
-
   const pendingClarifications = allClarifications.filter(c => 
     c.partnerCompany === selectedPartner && c.status === 'REQUESTED'
   );
@@ -127,12 +132,14 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
     setIsAnswerModalOpen(true);
   };
 
-  const handleSubmitAnswer = () => {
+  const handleSubmitAnswer = async () => {
     if (!selectedClarification || !answerText.trim()) return;
-    dbService.answerClarification(selectedClarification.id, answerText);
+    await dbService.answerClarification(selectedClarification.id, answerText);
     alert(`📨 [${selectedPartner}] 원청(신한DS PM) 앞으로 공식 소명서가 성공적으로 제출되었습니다.\n\n🛡️ [도급 검수 합법 절차 완료]\n원청 PM의 승인 대기 큐로 전송되었습니다.`);
     setIsAnswerModalOpen(false);
+    await fetchRemoteData();
   };
+
 
   return (
     <div style={{ background: '#F8FAFC', minHeight: '100vh', display: 'flex', flexDirection: 'column', paddingBottom: '90px' }}>

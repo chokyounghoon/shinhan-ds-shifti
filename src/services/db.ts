@@ -143,148 +143,81 @@ export interface DbPreGapNotice {
 // =========================================================================
 // 2. 10인 PM 체제 Pure Database Engine
 // =========================================================================
-
-const DB_KEY_USERS = 'SGUARD_10PM_USERS';
-const DB_KEY_OTP = 'SGUARD_10PM_OTP';
-const DB_KEY_MANPOWER = 'SGUARD_10PM_MANPOWER';
-const DB_KEY_AUDIT = 'SGUARD_10PM_AUDIT';
-const DB_KEY_SLA = 'SGUARD_10PM_SLA';
-const DB_KEY_GAP_NOTICES = 'SGUARD_10PM_GAP_NOTICES';
+// 2. 10인 PM 체제 Pure Database Engine (Cloudflare D1 Database 실시간 연동)
+// =========================================================================
 
 export class PureDatabaseEngine {
   private users: DbUser[] = [];
-  private otpVerifications: DbOtpVerification[] = [];
   private manpowerInputs: DbManpowerInput[] = [];
   private auditTrails: DbAuditTrail[] = [];
   private slaClarifications: DbSlaClarification[] = [];
   private preGapNotices: DbPreGapNotice[] = [];
+  private inspections: ServiceDeliveryInspection[] = [];
 
   private currentUser: User | null = null;
   private activePmPart: string = '상담';
   private themeMode: 'ddangyo' | 'shinhan' = 'shinhan';
+  private readonly API_BASE = '/api';
 
   constructor() {
-    this.loadFromStorage();
-  }
-
-  private loadFromStorage(): void {
-    try {
-      this.users = JSON.parse(localStorage.getItem(DB_KEY_USERS) || '[]');
-      this.otpVerifications = JSON.parse(localStorage.getItem(DB_KEY_OTP) || '[]');
-      this.manpowerInputs = JSON.parse(localStorage.getItem(DB_KEY_MANPOWER) || '[]');
-      this.auditTrails = JSON.parse(localStorage.getItem(DB_KEY_AUDIT) || '[]');
-      this.slaClarifications = JSON.parse(localStorage.getItem(DB_KEY_SLA) || '[]');
-
-      if (this.users.length === 0 || !this.users.some(u => u.employeeId === 'S01832' || u.employeeId === '01832')) {
-        const defaultUsers: DbUser[] = [
-          {
-            employeeId: 'S01832',
-            email: 'khcho0421@gmail.com',
-            name: '조경훈',
-            passwordHash: '••••••••',
-            role: 'DS_PRINCIPAL_PM',
-            authProvider: 'local',
-            company: '신한DS',
-            phone: '010-4421-8890',
-            team: '카드개발팀',
-            part: '카드IS (Part 1)',
-            position: '부장',
-            status: 'ACTIVE',
-            failedAttempts: 0,
-            createdAt: '2026-08-16 09:00:00',
-            isActive: true,
-            isAdmin: 1,
-            deviceType: 'Android',
-            regId: 'SYSTEM',
-            regDt: '2026-08-16 09:00:00'
-          },
-          {
-            employeeId: 'S181210',
-            email: 'khcho0421@gmail.com',
-            name: '조경훈',
-            passwordHash: '••••••••',
-            role: 'DS_PRINCIPAL_PM',
-            authProvider: 'local',
-            company: '신한DS',
-            phone: '010-4421-8890',
-            team: '상담팀',
-            part: '상담',
-            position: '수석',
-            status: 'ACTIVE',
-            failedAttempts: 0,
-            createdAt: '2026-08-16 09:00:00',
-            isActive: true,
-            isAdmin: 1,
-            deviceType: 'Android',
-            regId: 'SYSTEM',
-            regDt: '2026-08-16 09:00:00'
-          }
-        ];
-        // 기존 사용자 목록에 병합
-        const existingMap = new Map(this.users.map(u => [u.employeeId, u]));
-        defaultUsers.forEach(u => existingMap.set(u.employeeId, u));
-        this.users = Array.from(existingMap.values());
-        localStorage.setItem(DB_KEY_USERS, JSON.stringify(this.users));
-      }
-
-      // 과거 로컬 캐시에 송무준, 정재호 등 가짜 mock 데이터가 남아있으면 즉시 D1 실제 데이터로 갱신
-      const hasMockWorkers = this.manpowerInputs.some(r => r.workerName === '송무준' || r.workerName === '정재호' || r.workerName === '이제성');
-      if (this.manpowerInputs.length === 0 || hasMockWorkers) {
-        this.initDefaultPartnerRoster();
-      }
-
-      const hasMockNotices = this.preGapNotices.some(n => n.workerName === '송무준' || n.workerName === '정재호');
-      if (this.preGapNotices.length === 0 || hasMockNotices) {
-        this.initDefaultPreGapNotices();
-      }
-    } catch (e) {
-      console.warn('Database load fallback', e);
-      this.initDefaultPartnerRoster();
-      this.initDefaultPreGapNotices();
-    }
+    this.initDefaultPartnerRoster();
   }
 
   private initDefaultPartnerRoster(): void {
     const todayStr = new Date().toISOString().substring(0, 10);
-    // D1 DB(users 테이블)에 실제로 존재하는 협력사 직원들로만 구성
-    const defaultRoster: DbManpowerInput[] = [
-      // 4. 카드IS 파트 (PM: 박성진, 수급사: 현대IT솔루션)
-      { recordId: 'rec-i-01', employeeId: 'PT-2026-041', workerName: '한동훈', partName: '카드IS', partnerCompany: '현대IT솔루션', workDate: todayStr, contractedHours: 8.0, actualInputHours: 8.0, clockInTime: '08:50', clockOutTime: '18:00', taskSummary: '카드 기간계 계정계 승인 코어 모듈 유지보수', varianceMinutes: 0, isSlaBreach: false, verificationStatus: 'AUTO_SETTLED', regId: 'SYSTEM', regDt: `${todayStr} 08:50:00` }
+    this.manpowerInputs = [
+      { 
+        recordId: 'rec-i-01', 
+        employeeId: 'UB0001', 
+        workerName: '송무준', 
+        partName: '상담', 
+        partnerCompany: '유브갓', 
+        workDate: todayStr, 
+        contractedHours: 8.0, 
+        actualInputHours: 8.0, 
+        clockInTime: '08:50', 
+        clockOutTime: '18:00', 
+        taskSummary: '상담 시스템 기간계 계정계 승인 코어 모듈 유지보수', 
+        varianceMinutes: 0, 
+        isSlaBreach: false, 
+        verificationStatus: 'AUTO_SETTLED', 
+        regId: 'SYSTEM', 
+        regDt: `${todayStr} 08:50:00` 
+      }
     ];
 
-    this.manpowerInputs = defaultRoster;
+    this.auditTrails = [
+      {
+        id: 1,
+        recordId: 'rec-i-01',
+        actorId: 'SYSTEM',
+        actorName: '도급 인력 투입 관제 엔진',
+        actorRole: '시스템 자동화',
+        action: '도급비 산정을 위한 투입 실적 확정 (시스템 자동 검수)',
+        systemLabel: '도급 계약 이행 확인',
+        details: `${todayStr} 송무준 (유브갓) 정상 투입 실적(8.0h) 계약 기준 자동 정산 확정`,
+        createdAt: `${todayStr} 09:00:00`
+      }
+    ];
 
-    // 감사 로그 자동 생성
-    this.auditTrails = defaultRoster.map(r => ({
-      id: Date.now() + Math.floor(Math.random() * 10000),
-      recordId: r.recordId,
-      actorId: 'SYSTEM',
-      actorName: '도급 인력 투입 관제 엔진',
-      actorRole: '시스템 자동화',
-      action: r.isSlaBreach ? '도급 투입 실적 등록 (예외 발생 - PM 검수 대기)' : '도급비 산정을 위한 투입 실적 확정 (시스템 자동 검수)',
-      systemLabel: '도급 계약 이행 확인',
-      details: r.isSlaBreach ? `${r.workDate} ${r.workerName} (${r.partnerCompany}) ${r.varianceMinutes}분 편차 발생에 따른 예외 큐 등록` : `${r.workDate} ${r.workerName} (${r.partnerCompany}) 정상 투입 실적(8.0h) 계약 기준 자동 정산 확정`,
-      createdAt: `${todayStr} 09:00:00`
-    }));
-
-    this.sync();
-  }
-
-  private sync(): void {
-    try {
-      localStorage.setItem(DB_KEY_USERS, JSON.stringify(this.users));
-      localStorage.setItem(DB_KEY_OTP, JSON.stringify(this.otpVerifications));
-      localStorage.setItem(DB_KEY_MANPOWER, JSON.stringify(this.manpowerInputs));
-      localStorage.setItem(DB_KEY_AUDIT, JSON.stringify(this.auditTrails));
-      localStorage.setItem(DB_KEY_SLA, JSON.stringify(this.slaClarifications));
-    } catch (e) {
-      console.error('Database sync error', e);
-    }
+    this.preGapNotices = [
+      {
+        id: 'gap-01',
+        partnerCompany: '유브갓',
+        workerName: '송무준',
+        partName: '상담',
+        gapPeriod: `${todayStr} 09:00 ~ 13:00`,
+        gapHours: 4.0,
+        gapType: '오전반차 (협력사 자체 승인)',
+        reason: '소속사(유브갓) 복무규정에 따른 하계 정기 연차 승인 건',
+        status: 'DISPATCHED',
+        createdAt: `${todayStr} 09:30:00`
+      }
+    ];
   }
 
   public clearAll(): void {
     this.users = [];
-    this.otpVerifications = [];
     this.manpowerInputs = [];
     this.auditTrails = [];
     this.slaClarifications = [];
@@ -293,7 +226,7 @@ export class PureDatabaseEngine {
   }
 
   // =========================================================================
-  // 3. User & Auth Database Operations
+  // 3. User & Auth Database Operations (D1 DB 동기화)
   // =========================================================================
 
   public findUserByEmpId(empId?: string): DbUser | undefined {
@@ -320,257 +253,232 @@ export class PureDatabaseEngine {
     return this.users.find(u => (u.email || '').toLowerCase().trim() === cleanEmail);
   }
 
-  public insertUser(userDto: any): {
+  public async fetchUsersFromD1(): Promise<DbUser[]> {
+    try {
+      const res = await fetch(`${this.API_BASE}/users`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data)) {
+          this.users = json.data.map((u: any) => ({
+            employeeId: u.employee_id || u.employeeId,
+            email: u.email,
+            name: u.name,
+            passwordHash: u.password_hash || u.passwordHash || '••••••••',
+            role: u.role || 'PARTNER_WORKER',
+            authProvider: u.auth_provider || 'local',
+            company: u.company || '신한DS',
+            phone: u.phone || '',
+            team: u.team || '',
+            part: u.part || '상담',
+            position: u.position || '사원',
+            status: u.status || 'ACTIVE',
+            failedAttempts: u.failed_attempts || 0,
+            lastLoginAt: u.last_login_at,
+            createdAt: u.created_at,
+            isActive: Boolean(u.is_active),
+            isAdmin: u.is_admin ? 1 : 0,
+            deviceType: u.device_type || 'Android',
+            regId: u.created_by || 'SYSTEM',
+            regDt: u.created_at
+          }));
+          return [...this.users];
+        }
+      }
+    } catch (e) {
+      console.warn('[D1 Users Fetch Error]:', e);
+    }
+    return [...this.users];
+  }
+
+  public async insertUser(userDto: any): Promise<{
     success: boolean;
     message: string;
     user?: DbUser;
-  } {
-    const rawEmpId = userDto.employeeId || userDto.empNo || userDto.empId;
-    const rawEmail = userDto.email || userDto.emailAddr;
-    const rawName = userDto.name || userDto.userNm;
-
-    if (!rawEmpId || !rawName || !rawEmail) {
-      return { success: false, message: '사번, 성명, 이메일은 필수 입력 항목입니다.' };
+  }> {
+    try {
+      const res = await fetch(`${this.API_BASE}/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userDto)
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        await this.fetchUsersFromD1();
+        return { success: true, message: json.message || '등록되었습니다.' };
+      }
+      return { success: false, message: json.detail || json.message || '등록 실패' };
+    } catch (e: any) {
+      return { success: false, message: e.message };
     }
-
-    const existingEmp = this.findUserByEmpId(rawEmpId);
-    if (existingEmp) {
-      return { success: false, message: `이미 등록된 사번(${rawEmpId})입니다.` };
-    }
-
-    const existingEmail = this.findUserByEmail(rawEmail);
-    if (existingEmail) {
-      return { success: false, message: `이미 등록된 이메일(${rawEmail})입니다.` };
-    }
-
-    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    const normalizedUser: DbUser = {
-      employeeId: String(rawEmpId).toUpperCase().trim(),
-      email: String(rawEmail).trim(),
-      name: String(rawName).trim(),
-      passwordHash: userDto.passwordHash || userDto.pw || '••••••••',
-      role: userDto.role || (userDto.company === '신한DS' ? 'DS_PRINCIPAL_PM' : 'PARTNER_WORKER'),
-      authProvider: 'local',
-      company: userDto.company || userDto.companyNm || '신한DS',
-      phone: userDto.phone || userDto.phoneNo || '',
-      team: userDto.team || userDto.teamNm || '상담팀',
-      part: userDto.part || userDto.partNm || '상담',
-      position: userDto.position || userDto.positionCd || '사원',
-      status: 'ACTIVE',
-      failedAttempts: 0,
-      createdAt: nowStr,
-      isActive: true,
-      isAdmin: userDto.company === '신한DS' ? 1 : 0,
-      deviceType: userDto.deviceType || 'Android',
-      regId: String(rawEmpId).trim(),
-      regDt: nowStr
-    };
-
-    this.users.push(normalizedUser);
-    this.sync();
-    return { success: true, message: '사용자 계정이 DB에 성공적으로 등록되었습니다.', user: normalizedUser };
   }
 
-  public updatePassword(empId: string, newPasswordHash: string): boolean {
-    const user = this.findUserByEmpId(empId);
-    if (!user) return false;
-
-    user.passwordHash = newPasswordHash;
-    this.sync();
-    return true;
-  }
-
-  public verifyPasswordInDb(empId: string, plainPw: string): boolean {
-    const user = this.findUserByEmpId(empId);
-    if (!user) return false;
-
-    // 등록된 비밀번호가 있고 플레이스홀더가 아닌 경우 일치 여부 확인
-    if (user.passwordHash && user.passwordHash !== '••••••••') {
-      return user.passwordHash === plainPw;
+  public async updatePassword(empId: string, newPasswordHash: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.API_BASE}/auth/change-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employeeId: empId, newPassword: newPasswordHash })
+      });
+      return res.ok;
+    } catch (e) {
+      return false;
     }
-    // 기본 계정의 경우 최소 8자리 이상 유효한 비밀번호 패턴 확인
-    return plainPw.length >= 8;
   }
 
-  public updateUserPassword(empId: string, newPw: string): boolean {
-    const user = this.findUserByEmpId(empId);
-    if (!user) return false;
-    user.passwordHash = newPw;
-    this.sync();
-    return true;
+  public async verifyPasswordInDb(empId: string, plainPw: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employeeId: empId, password: plainPw })
+      });
+      const json = await res.json();
+      return Boolean(json.success);
+    } catch (e) {
+      return false;
+    }
   }
 
-  public createOtp(empId: string): {
+  public async updateUserPassword(empId: string, newPw: string): Promise<boolean> {
+    return await this.updatePassword(empId, newPw);
+  }
+
+  public async createOtp(empId: string): Promise<{
     success: boolean;
     otpCode: string;
     maskedEmail: string;
     expiresAt: number;
     error?: string;
-  } {
-    const user = this.findUserByEmpId(empId);
-    if (!user) {
-      return {
-        success: false,
-        otpCode: '',
-        maskedEmail: '',
-        expiresAt: 0,
-        error: `DB에 등록되지 않은 사번(${empId})입니다. 먼저 회원가입을 진행해 주세요.`
-      };
+  }> {
+    try {
+      const res = await fetch(`${this.API_BASE}/auth/init`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employeeId: empId })
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        return {
+          success: true,
+          otpCode: json.devOtp || '',
+          maskedEmail: json.maskedEmail || '',
+          expiresAt: Date.now() + 180000
+        };
+      }
+      return { success: false, otpCode: '', maskedEmail: '', expiresAt: 0, error: json.detail || json.message };
+    } catch (e: any) {
+      return { success: false, otpCode: '', maskedEmail: '', expiresAt: 0, error: e.message };
     }
-
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = Date.now() + 180000;
-    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
-
-    const otpEntity: DbOtpVerification = {
-      id: Date.now(),
-      employeeId: user.employeeId,
-      email: user.email,
-      otpCode: code,
-      expiresAt,
-      isVerified: false,
-      attempts: 0,
-      ipAddress: '127.0.0.1',
-      regId: user.employeeId,
-      regDt: nowStr
-    };
-
-    this.otpVerifications.push(otpEntity);
-    this.sync();
-
-    const parts = user.email.split('@');
-    const maskedUser = parts[0].length > 2 
-      ? `${parts[0].substring(0, 2)}***` 
-      : `${parts[0]}*`;
-    const maskedEmail = `${maskedUser}@${parts[1] || 'gmail.com'}`;
-
-    return {
-      success: true,
-      otpCode: code,
-      maskedEmail,
-      expiresAt
-    };
   }
 
-  public verifyOtp(empId: string, inputOtp: string): {
+  public async verifyOtp(empId: string, inputOtp: string): Promise<{
     success: boolean;
     user?: User;
     error?: string;
-  } {
-    const user = this.findUserByEmpId(empId);
-    if (!user) return { success: false, error: '존재하지 않는 사용자입니다.' };
-
-    const records = this.otpVerifications
-      .filter(o => o.employeeId.toUpperCase() === empId.toUpperCase().trim())
-      .sort((a, b) => b.id - a.id);
-
-    const latest = records[0];
-    if (!latest) return { success: false, error: '발송된 OTP 기록이 없습니다.' };
-
-    latest.attempts += 1;
-    if (Date.now() > latest.expiresAt) {
-      this.sync();
-      return { success: false, error: 'OTP 인증 유효시간(3분)이 만료되었습니다.' };
+  }> {
+    try {
+      const res = await fetch(`${this.API_BASE}/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employeeId: empId, otp: inputOtp })
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        if (json.user) {
+          this.currentUser = json.user;
+          this.activePmPart = json.user.partName || '상담';
+        }
+        return { success: true, user: json.user };
+      }
+      return { success: false, error: json.detail || json.message || 'OTP 인증 실패' };
+    } catch (e: any) {
+      return { success: false, error: e.message };
     }
-
-    if (latest.otpCode !== inputOtp.trim()) {
-      this.sync();
-      return { success: false, error: '입력하신 OTP 인증번호가 일치하지 않습니다.' };
-    }
-
-    latest.isVerified = true;
-    latest.verifiedAt = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    this.sync();
-
-    const mappedUser: User = {
-      id: user.employeeId,
-      name: `${user.name} (${user.role === 'DS_PRINCIPAL_PM' ? 'DS PM' : user.role === 'PARTNER_PART_LEADER' ? '관리자' : '상담원'})`,
-      firstName: user.name.substring(1),
-      lastName: user.name.substring(0, 1),
-      companyName: user.company,
-      partnerCompany: user.company,
-      deptName: user.team,
-      partName: user.part,
-      role: user.role,
-      roleTitle: user.role === 'DS_PRINCIPAL_PM' ? `신한DS ${user.part}파트 전담 현장관리인` : '협력사 파트관리자',
-      location: '파인에비뉴(상담센터)',
-      phone: user.phone,
-      email: user.email,
-      language: '한국어',
-      timezone: 'Asia/Seoul (GMT+9)'
-    };
-
-    this.currentUser = mappedUser;
-    this.activePmPart = user.part;
-    return { success: true, user: mappedUser };
   }
 
   // =========================================================================
-  // 4. 10인 PM 파트별 데이터 격리 & Exception Management CRUD
+  // 4. Cloudflare D1 도급 인력 투입 실적 (Manpower Inputs) API 연동
   // =========================================================================
 
-  /**
-   * 신규 도급 인력 투입 실적 등록
-   * - 정상 투입(8h, 지각X) ➔ 시스템 자동 정산 확정 (AUTO_SETTLED, PM 일일 승인 불필요)
-   * - 공백/지각/누락 ➔ 예외 큐 (VARIANCE_GAP) 등록되어 PM의 사유 확인 대기
-   */
-  public insertManpowerRecord(recordDto: Omit<DbManpowerInput, 'regDt' | 'regId'>): {
+  public async fetchManpowerFromD1(partName?: string, workDate?: string, company?: string): Promise<ManpowerInputRecord[]> {
+    try {
+      const targetPart = partName || this.activePmPart;
+      let url = `${this.API_BASE}/manpower?part=${encodeURIComponent(targetPart)}`;
+      if (workDate) url += `&work_date=${encodeURIComponent(workDate)}`;
+      if (company && company !== 'ALL') url += `&company=${encodeURIComponent(company)}`;
+
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data)) {
+          this.manpowerInputs = json.data.map((r: any) => ({
+            recordId: r.record_id || r.recordId,
+            employeeId: r.employee_id || r.employeeId,
+            workerName: r.worker_name || r.workerName,
+            partName: r.part_name || r.partName,
+            partnerCompany: r.partner_company || r.partnerCompany,
+            workDate: r.work_date || r.workDate,
+            contractedHours: Number(r.contracted_hours ?? r.contractedHours ?? 8.0),
+            actualInputHours: Number(r.actual_input_hours ?? r.actualInputHours ?? 8.0),
+            clockInTime: r.clock_in_time || r.clockInTime || '08:50',
+            clockOutTime: r.clock_out_time || r.clockOutTime || '18:00',
+            taskSummary: r.task_summary || r.taskSummary || '',
+            varianceMinutes: Number(r.variance_minutes ?? r.varianceMinutes ?? 0),
+            isSlaBreach: Boolean(r.is_sla_breach ?? r.isSlaBreach),
+            exceptionType: r.exception_type || r.exceptionType,
+            gapReason: r.gap_reason || r.gapReason,
+            partnerClarification: r.partner_clarification || r.partnerClarification,
+            verificationStatus: (r.verification_status || r.verificationStatus || 'AUTO_SETTLED') as VerificationStatus,
+            regId: r.reg_id || r.regId || 'SYSTEM',
+            regDt: r.reg_dt || r.regDt || ''
+          }));
+
+          return this.manpowerInputs.map(r => this.mapToManpowerRecord(r));
+        }
+      }
+    } catch (e) {
+      console.warn('[D1 Manpower Fetch Error]:', e);
+    }
+    return this.manpowerInputs.map(r => this.mapToManpowerRecord(r));
+  }
+
+  public async insertManpowerRecord(recordDto: Omit<DbManpowerInput, 'regDt' | 'regId'>): Promise<{
     success: boolean;
     record?: ManpowerInputRecord;
-  } {
-    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    const isAutoSettled = !recordDto.isSlaBreach && recordDto.actualInputHours >= recordDto.contractedHours;
-    const initialStatus: VerificationStatus = isAutoSettled ? 'AUTO_SETTLED' : 'VARIANCE_GAP';
-
-    const newRecord: DbManpowerInput = {
-      ...recordDto,
-      verificationStatus: initialStatus,
-      regId: this.currentUser?.id || 'SYSTEM',
-      regDt: nowStr
-    };
-
-    this.manpowerInputs.push(newRecord);
-
-    // 감사 로그: [도급 계약 이행 확인] 시스템 라벨 자동 부착
-    this.auditTrails.push({
-      id: Date.now(),
-      recordId: newRecord.recordId,
-      actorId: 'SYSTEM',
-      actorName: '시스템 자동 검수 엔진',
-      actorRole: '도급 검수 자동화',
-      action: isAutoSettled 
-        ? '도급비 산정을 위한 투입 실적 확정 (시스템 자동 검수)' 
-        : '도급 투입 실적 등록 (예외 발생 - PM 검수 대기)',
-      systemLabel: '도급 계약 이행 확인',
-      details: isAutoSettled 
-        ? `${newRecord.workDate} 정상 투입 실적(${newRecord.actualInputHours}h) 계약 기준 자동 정산 확정` 
-        : `${newRecord.workDate} 편차 ${newRecord.varianceMinutes}분 발생에 따른 예외 큐 등록`,
-      createdAt: nowStr
-    });
-
-    this.sync();
-    return { success: true, record: this.mapToManpowerRecord(newRecord) };
+  }> {
+    try {
+      const res = await fetch(`${this.API_BASE}/manpower`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...recordDto,
+          regId: this.currentUser?.id || 'SYSTEM'
+        })
+      });
+      if (res.ok) {
+        await this.fetchManpowerFromD1(recordDto.partName, recordDto.workDate);
+        const added = this.manpowerInputs.find(r => r.recordId === recordDto.recordId);
+        return { success: true, record: added ? this.mapToManpowerRecord(added) : undefined };
+      }
+    } catch (e) {
+      console.warn('[D1 Insert Manpower Error]:', e);
+    }
+    return { success: false };
   }
 
   public getManpowerInputs(): DbManpowerInput[] {
     return [...this.manpowerInputs];
   }
 
-  /**
-   * 1. 파트별 데이터 격리: 로그인한 PM 파트의 인원만 노출
-   */
   public getManpowerRecordsByPart(partName?: string): ManpowerInputRecord[] {
     const targetPart = partName || this.activePmPart;
     const dbRows = this.manpowerInputs.filter(r => r.partName === targetPart);
     return dbRows.map(r => this.mapToManpowerRecord(r));
   }
 
-  /**
-   * 3. Exception Management: 파트 내 '지각/누락/휴가/공백' 예외 인원만 필터링
-   */
   public getExceptionRecordsByPart(partName?: string): ManpowerInputRecord[] {
     const targetPart = partName || this.activePmPart;
-    const dbRows = this.manpowerInputs.filter(r => r.partName === targetPart && r.isSlaBreach && r.verificationStatus === 'VARIANCE_GAP');
+    const dbRows = this.manpowerInputs.filter(r => r.partName === targetPart && (r.isSlaBreach || r.verificationStatus === 'VARIANCE_GAP' || r.verificationStatus === 'PENDING_EXCEPTION_REVIEW'));
     return dbRows.map(r => this.mapToManpowerRecord(r));
   }
 
@@ -580,12 +488,12 @@ export class PureDatabaseEngine {
     const records = this.getManpowerRecordsByPart(targetPart);
 
     const targetHeadcount = records.length > 0 ? records.length : partMaster.contractedHeadcount;
-    const activeHeadcount = records.filter(r => r.verificationStatus === 'AUTO_SETTLED' || r.verificationStatus === 'SETTLED' || r.verificationStatus === 'DELAY_REASON_ACCEPTED').length;
-    const exceptionCount = records.filter(r => r.isSlaBreach && r.verificationStatus === 'VARIANCE_GAP').length;
-    const excludedCount = records.filter(r => r.verificationStatus === 'EXCLUDED_FROM_BILLING').length;
+    const activeHeadcount = records.filter(r => r.verificationStatus === 'AUTO_SETTLED' || r.verificationStatus === 'SETTLED' || r.verificationStatus === 'SETTLED_BY_PRINCIPAL' || r.verificationStatus === 'DELAY_REASON_ACCEPTED').length;
+    const exceptionCount = records.filter(r => r.isSlaBreach && (r.verificationStatus === 'VARIANCE_GAP' || r.verificationStatus === 'PENDING_EXCEPTION_REVIEW')).length;
+    const excludedCount = records.filter(r => r.verificationStatus === 'EXCLUDED_FROM_BILLING' || r.verificationStatus === 'EXCLUDED_FROM_SLA').length;
 
     const targetManHours = targetHeadcount * 8.0;
-    const actualManHours = records.reduce((acc, cur) => acc + (cur.verificationStatus === 'EXCLUDED_FROM_BILLING' ? 0 : cur.actualInputHours), 0);
+    const actualManHours = records.reduce((acc, cur) => acc + (cur.verificationStatus === 'EXCLUDED_FROM_BILLING' || cur.verificationStatus === 'EXCLUDED_FROM_SLA' ? 0 : cur.actualInputHours), 0);
     const fulfillmentRate = targetManHours > 0 ? (actualManHours / targetManHours) * 100 : 0;
 
     return {
@@ -604,70 +512,43 @@ export class PureDatabaseEngine {
     };
   }
 
-  /**
-   * 예외 검수 액션 1: [계약상 투입 제외] (도급비 정산 감액 확정)
-   */
-  public resolveExceptionExclude(recordId: string, dsPmMemo: string = '계약 불이행에 따른 공수 정산 제외'): boolean {
-    const record = this.manpowerInputs.find(r => r.recordId === recordId);
-    if (!record) return false;
-
-    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    record.verificationStatus = 'EXCLUDED_FROM_BILLING';
-    record.modDt = nowStr;
-
-    this.auditTrails.push({
-      id: Date.now(),
-      recordId,
-      actorId: this.currentUser?.id || 'DS_PM',
-      actorName: this.currentUser?.name || '신한DS 현장관리인',
-      actorRole: '신한DS 현장관리인 (PM)',
-      action: '도급비 산정을 위한 투입 실적 확정 - [계약상 투입 제외]',
-      systemLabel: '도급 계약 이행 확인',
-      details: `도급 계약 SLA 미달(${record.varianceMinutes}분 공백)에 따라 당일 투입 공수 정산에서 제외 확정 (메모: ${dsPmMemo})`,
-      createdAt: nowStr
-    });
-
-    this.sync();
-    return true;
+  public async resolveExceptionExclude(recordId: string, dsPmMemo: string = '계약 불이행에 따른 공수 정산 제외'): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.API_BASE}/manpower/${recordId}/exception`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'EXCLUDE', memo: dsPmMemo })
+      });
+      if (res.ok) {
+        await this.fetchManpowerFromD1(this.activePmPart);
+        return true;
+      }
+    } catch (e) {}
+    return false;
   }
 
-  /**
-   * 예외 검수 액션 2: [공정 지연 사유 확정] (소명 인정 / 정산 유지)
-   */
-  public resolveExceptionAccept(recordId: string, dsPmMemo: string = '소명 사유 검토 완료에 따른 공정 지연 인정'): boolean {
-    const record = this.manpowerInputs.find(r => r.recordId === recordId);
-    if (!record) return false;
-
-    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    record.verificationStatus = 'DELAY_REASON_ACCEPTED';
-    record.modDt = nowStr;
-
-    this.auditTrails.push({
-      id: Date.now(),
-      recordId,
-      actorId: this.currentUser?.id || 'DS_PM',
-      actorName: this.currentUser?.name || '신한DS 현장관리인',
-      actorRole: '신한DS 현장관리인 (PM)',
-      action: '도급비 산정을 위한 투입 실적 확정 - [공정 지연 사유 확정]',
-      systemLabel: '도급 계약 이행 확인',
-      details: `협력업체 1차 소명 사유 검토 결과 계약상 공정 지연 사유로 공식 인정 및 투입 실적 반영 (메모: ${dsPmMemo})`,
-      createdAt: nowStr
-    });
-
-    this.sync();
-    return true;
+  public async resolveExceptionAccept(recordId: string, dsPmMemo: string = '소명 사유 검토 완료에 따른 공정 지연 인정'): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.API_BASE}/manpower/${recordId}/exception`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'ACCEPT', memo: dsPmMemo })
+      });
+      if (res.ok) {
+        await this.fetchManpowerFromD1(this.activePmPart);
+        return true;
+      }
+    } catch (e) {}
+    return false;
   }
 
-  /**
-   * 4. 법적 방어 리포트 자동 생성기 (노동청 조사 대응용)
-   */
   public generateLegalDefenseReport(partName?: string, periodRange: string = '2026-08-10 ~ 2026-08-16'): LegalDefenseReport {
     const targetPart = partName || this.activePmPart;
     const summary = this.getPartSummary(targetPart);
     const records = this.getManpowerRecordsByPart(targetPart);
 
     const autoSettledCount = records.filter(r => r.verificationStatus === 'AUTO_SETTLED').length;
-    const exceptionResolvedCount = records.filter(r => r.verificationStatus === 'EXCLUDED_FROM_BILLING' || r.verificationStatus === 'DELAY_REASON_ACCEPTED' || r.verificationStatus === 'SETTLED').length;
+    const exceptionResolvedCount = records.filter(r => r.verificationStatus === 'EXCLUDED_FROM_BILLING' || r.verificationStatus === 'EXCLUDED_FROM_SLA' || r.verificationStatus === 'DELAY_REASON_ACCEPTED' || r.verificationStatus === 'SETTLED' || r.verificationStatus === 'SETTLED_BY_PRINCIPAL').length;
 
     return {
       reportId: `REP-DEFENSE-${targetPart}-${Date.now().toString().substring(6)}`,
@@ -688,193 +569,231 @@ export class PureDatabaseEngine {
     };
   }
 
-  public settlePrincipalVerification(recordIds: string[], dsPmName: string = '신한DS 현장관리인'): boolean {
-    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    this.manpowerInputs = this.manpowerInputs.map(r => {
-      if (recordIds.includes(r.recordId)) {
-        r.verificationStatus = 'SETTLED';
-        r.modDt = nowStr;
-
-        this.auditTrails.push({
-          id: Date.now() + Math.floor(Math.random() * 1000),
-          recordId: r.recordId,
-          actorId: this.currentUser?.id || 'DS_PM',
-          actorName: dsPmName,
-          actorRole: '신한DS 현장관리인 (PM)',
-          action: '도급비 산정을 위한 투입 실적 확정',
-          systemLabel: '도급 계약 이행 확인',
-          details: '도급 계약 기준 투입 공수 및 SLA 검수 완료 (정산 확정 자료 반영)',
-          createdAt: nowStr
-        });
+  public async settlePrincipalVerification(recordIds: string[], dsPmName: string = '신한DS 현장관리인'): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.API_BASE}/manpower/verify`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordIds, pmName: dsPmName })
+      });
+      if (res.ok) {
+        await this.fetchManpowerFromD1(this.activePmPart);
+        return true;
       }
-      return r;
-    });
-
-    this.sync();
-    return true;
+    } catch (e) {}
+    return false;
   }
 
-  public sendClarificationRequest(recordId: string, message: string): boolean {
-    const record = this.manpowerInputs.find(r => r.recordId === recordId);
-    if (!record) return false;
+  // =========================================================================
+  // 5. Cloudflare D1 감사 로그 & SLA 소명 & 사전 결손 통보 연동
+  // =========================================================================
 
-    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    this.slaClarifications.push({
-      id: Date.now(),
-      recordId,
-      partName: record.partName,
-      partnerCompany: record.partnerCompany,
-      requesterId: this.currentUser?.id || 'DS_PM',
-      officialTitle: `[SLA 소명 요구] ${record.workDate} ${record.workerName} 공백 건`,
-      messageContent: message,
-      status: 'REQUESTED',
-      createdAt: nowStr
-    });
+  public async fetchAuditTrailsFromD1(recordId?: string): Promise<DbAuditTrail[]> {
+    try {
+      let url = `${this.API_BASE}/audit-trails`;
+      if (recordId) url += `?record_id=${encodeURIComponent(recordId)}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data)) {
+          this.auditTrails = json.data.map((a: any) => ({
+            id: a.id,
+            recordId: a.record_id || a.recordId,
+            actorId: a.actor_id || a.actorId,
+            actorName: a.actor_name || a.actorName,
+            actorRole: a.actor_role || a.actorRole,
+            action: a.action,
+            systemLabel: a.system_label || a.systemLabel || '도급 계약 이행 확인',
+            details: a.details,
+            createdAt: a.created_at || a.createdAt
+          }));
+          return [...this.auditTrails];
+        }
+      }
+    } catch (e) {}
+    return [...this.auditTrails];
+  }
 
-    this.auditTrails.push({
-      id: Date.now(),
-      recordId,
-      actorId: this.currentUser?.id || 'DS_PM',
-      actorName: this.currentUser?.name || '신한DS 현장관리인',
-      actorRole: '신한DS 현장관리인',
-      action: '도급 계약 이행 확인 - 개선 요청(소명 요구) 발송',
-      systemLabel: '도급 계약 이행 확인',
-      details: `수신: ${record.partnerCompany} 관리자 앞 - "${message}"`,
-      createdAt: nowStr
-    });
-
-    this.sync();
-    return true;
+  public async fetchSlaClarificationsFromD1(partName?: string): Promise<DbSlaClarification[]> {
+    try {
+      const targetPart = partName || this.activePmPart;
+      const res = await fetch(`${this.API_BASE}/sla-clarifications?part=${encodeURIComponent(targetPart)}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data)) {
+          this.slaClarifications = json.data.map((c: any) => ({
+            id: c.id,
+            recordId: c.record_id || c.recordId,
+            partName: c.part_name || c.partName,
+            partnerCompany: c.partner_company || c.partnerCompany,
+            requesterId: c.requester_id || c.requesterId,
+            officialTitle: c.official_title || c.officialTitle,
+            messageContent: c.message_content || c.messageContent,
+            status: c.status,
+            answerContent: c.answer_content || c.answerContent,
+            answeredAt: c.answered_at || c.answeredAt,
+            createdAt: c.created_at || c.createdAt
+          }));
+          return [...this.slaClarifications];
+        }
+      }
+    } catch (e) {}
+    return [...this.slaClarifications];
   }
 
   public getSlaClarifications(): DbSlaClarification[] {
     return [...this.slaClarifications];
   }
 
-  public answerClarification(id: number, answer: string): boolean {
-    const item = this.slaClarifications.find(c => c.id === id);
-    if (!item) return false;
-    item.status = 'ANSWERED';
-    item.answerContent = answer;
-    item.answeredAt = new Date().toISOString().replace('T', ' ').substring(0, 19);
-
-    const rec = this.manpowerInputs.find(r => r.recordId === item.recordId);
-    if (rec) {
-      rec.partnerClarification = answer;
-      rec.gapReason = `[협력사 소명 접수] ${answer}`;
-    }
-
-    this.auditTrails.push({
-      id: Date.now(),
-      recordId: item.recordId,
-      actorId: this.currentUser?.id || 'PARTNER_MGR',
-      actorName: this.currentUser?.name || '협력사 관리인',
-      actorRole: '협력사 현장관리인 (영업대표)',
-      action: '도급 계약 이행 확인 - 지연 사유 소명서 제출',
-      systemLabel: '도급 계약 이행 확인',
-      details: answer,
-      createdAt: item.answeredAt
-    });
-
-    this.sync();
-    return true;
+  public async sendClarificationRequest(recordId: string, message: string): Promise<boolean> {
+    try {
+      const record = this.manpowerInputs.find(r => r.recordId === recordId);
+      const res = await fetch(`${this.API_BASE}/sla-clarifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recordId,
+          partName: record?.partName || this.activePmPart,
+          partnerCompany: record?.partnerCompany || '유브갓',
+          requesterId: this.currentUser?.id || 'PM',
+          officialTitle: `[SLA 소명 요구] ${record?.workDate || ''} ${record?.workerName || ''} 공백 건`,
+          messageContent: message
+        })
+      });
+      if (res.ok) {
+        await this.fetchSlaClarificationsFromD1(this.activePmPart);
+        return true;
+      }
+    } catch (e) {}
+    return false;
   }
 
-  /**
-   * =========================================================================
-   * 4. 투입 공백 사전 통보 (휴가 결재 대체 -> 원청 공백 통보 & 공정 확인 체계)
-   * =========================================================================
-   */
+  public async answerClarification(id: number, answer: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.API_BASE}/sla-clarifications/${id}/answer`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answerContent: answer })
+      });
+      if (res.ok) {
+        await this.fetchSlaClarificationsFromD1(this.activePmPart);
+        await this.fetchManpowerFromD1(this.activePmPart);
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  public async fetchGapNoticesFromD1(partName?: string): Promise<DbPreGapNotice[]> {
+    try {
+      const targetPart = partName || this.activePmPart;
+      const res = await fetch(`${this.API_BASE}/gap-notices?part=${encodeURIComponent(targetPart)}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data)) {
+          this.preGapNotices = json.data.map((n: any) => ({
+            id: n.id,
+            partnerCompany: n.partner_company || n.partnerCompany,
+            workerName: n.worker_name || n.workerName,
+            partName: n.part_name || n.partName,
+            gapPeriod: n.gap_period || n.gapPeriod,
+            gapHours: Number(n.gap_hours ?? n.gapHours ?? 8.0),
+            gapType: n.gap_type || n.gapType,
+            reason: n.reason,
+            status: n.status,
+            acknowledgedBy: n.acknowledged_by || n.acknowledgedBy,
+            acknowledgedAt: n.acknowledged_at || n.acknowledgedAt,
+            createdAt: n.created_at || n.createdAt
+          }));
+          return [...this.preGapNotices];
+        }
+      }
+    } catch (e) {}
+    return [...this.preGapNotices];
+  }
+
   public getPreGapNotices(partName?: string): DbPreGapNotice[] {
-    if (this.preGapNotices.length === 0) {
-      this.initDefaultPreGapNotices();
-    }
-    if (!partName) return this.preGapNotices;
+    if (!partName) return [...this.preGapNotices];
     return this.preGapNotices.filter(n => n.partName === partName);
   }
 
-  private initDefaultPreGapNotices(): void {
-    const todayStr = new Date().toISOString().substring(0, 10);
-    this.preGapNotices = [
-      {
-        id: 'gap-01',
-        partnerCompany: '유브갓',
-        workerName: '김성훈',
-        partName: '상담',
-        gapPeriod: '2026-08-17 ~ 2026-08-18',
-        gapHours: 16.0,
-        gapType: '연차 (소속사 자체 승인)',
-        reason: '소속사(유브갓) 복무규정에 따른 하계 정기 연차 승인 건으로 도급 현장 2.0 M/D 투입 공백 발생 사전 통보',
-        status: 'DISPATCHED',
-        createdAt: `${todayStr} 09:30:00`
-      },
-      {
-        id: 'gap-02',
-        partnerCompany: '(주)협력아이티에스',
-        workerName: '박민지',
-        partName: '상담',
-        gapPeriod: '2026-08-19',
-        gapHours: 8.0,
-        gapType: '체력단련휴가 (소속사 자체 승인)',
-        reason: '협력사 복무지침에 따른 체력단련휴가 승인 건으로 1.0 M/D 투입 공백 사전 통보',
-        status: 'ACKNOWLEDGED',
-        acknowledgedBy: '신한DS 조경훈 PM',
-        acknowledgedAt: `${todayStr} 11:20:00`,
-        createdAt: `${todayStr} 08:40:00`
+  public async dispatchPreGapNotice(notice: Omit<DbPreGapNotice, 'id' | 'status' | 'createdAt'>): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.API_BASE}/gap-notices`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(notice)
+      });
+      if (res.ok) {
+        await this.fetchGapNoticesFromD1(notice.partName);
+        return true;
       }
-    ];
-    this.sync();
+    } catch (e) {}
+    return false;
   }
 
-  public dispatchPreGapNotice(notice: Omit<DbPreGapNotice, 'id' | 'status' | 'createdAt'>): DbPreGapNotice {
-    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    const newNotice: DbPreGapNotice = {
-      ...notice,
-      id: `gap-${Date.now()}`,
-      status: 'DISPATCHED',
-      createdAt: nowStr
-    };
-    this.preGapNotices.unshift(newNotice);
-
-    this.auditTrails.push({
-      id: Date.now(),
-      recordId: newNotice.id,
-      actorId: 'PARTNER_MGR',
-      actorName: `${newNotice.partnerCompany} 현장관리인 (영업대표)`,
-      actorRole: '수급사 현장관리자',
-      action: '원청 도급 투입 공백 사전 통보서 발송',
-      systemLabel: '도급 계약 이행 확인',
-      details: `[투입 공백 사전 통보] ${newNotice.workerName} (${newNotice.partnerCompany}) ${newNotice.gapPeriod} ${newNotice.gapType} 사유로 투입 공백(${newNotice.gapHours / 8} M/D) 사전 통보 발송`,
-      createdAt: nowStr
-    });
-
-    this.sync();
-    return newNotice;
+  public async acknowledgePreGapNotice(noticeId: string, dsPmName: string = '신한DS 현장관리인'): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.API_BASE}/gap-notices/${noticeId}/acknowledge`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acknowledgedBy: dsPmName })
+      });
+      if (res.ok) {
+        await this.fetchGapNoticesFromD1(this.activePmPart);
+        return true;
+      }
+    } catch (e) {}
+    return false;
   }
 
-  public acknowledgePreGapNotice(noticeId: string, dsPmName: string = '신한DS 현장관리인'): boolean {
-    const notice = this.preGapNotices.find(n => n.id === noticeId);
-    if (!notice) return false;
+  // =========================================================================
+  // 6. 도급 공수 검수 (Service Delivery Inspections) D1 연동
+  // =========================================================================
+  public async fetchInspectionsFromD1(): Promise<ServiceDeliveryInspection[]> {
+    try {
+      const res = await fetch(`${this.API_BASE}/inspections`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data)) {
+          this.inspections = json.data.map((i: any) => ({
+            id: i.id,
+            projectCode: i.project_code || i.projectCode,
+            partnerCompany: i.partner_company || i.partnerCompany,
+            inspectorId: i.inspector_id || i.inspectorId,
+            inspectorName: i.inspector_name || i.inspectorName,
+            inspectionMonth: i.inspection_month || i.inspectionMonth,
+            contractedManDays: Number(i.contracted_man_days ?? i.contractedManDays ?? 0),
+            actualDeliveredManDays: Number(i.actual_delivered_man_days ?? i.actualDeliveredManDays ?? 0),
+            inspectionStatus: i.inspection_status || i.inspectionStatus,
+            inspectionNotes: i.inspection_notes || i.inspectionNotes,
+            inspectedAt: i.inspected_at || i.inspectedAt,
+            createdAt: i.created_at || i.createdAt
+          }));
+          return [...this.inspections];
+        }
+      }
+    } catch (e) {}
+    return [...this.inspections];
+  }
 
-    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    notice.status = 'ACKNOWLEDGED';
-    notice.acknowledgedBy = dsPmName;
-    notice.acknowledgedAt = nowStr;
+  public getInspections(): ServiceDeliveryInspection[] {
+    return [...this.inspections];
+  }
 
-    this.auditTrails.push({
-      id: Date.now(),
-      recordId: notice.id,
-      actorId: this.currentUser?.id || 'DS_PM',
-      actorName: dsPmName,
-      actorRole: '신한DS 현장관리인 (PM)',
-      action: '공정 투입 공백 확인 (인프라 검수 완료)',
-      systemLabel: '도급 계약 이행 확인',
-      details: `[공정 검수 완료] ${notice.partnerCompany} ${notice.workerName} 직원의 ${notice.gapPeriod} 투입 공백 통보를 확인하였으며, 기성 검수 기록에 정상 반영함`,
-      createdAt: nowStr
-    });
-
-    this.sync();
-    return true;
+  public async acceptContractInspection(id: string, memo?: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.API_BASE}/inspections/${id}/accept`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memo: memo || '신한DS 도급 검수 완료: SLA 공수 정산 및 도급 대금 지급 승인' })
+      });
+      if (res.ok) {
+        await this.fetchInspectionsFromD1();
+        return true;
+      }
+    } catch (e) {}
+    return false;
   }
 
   private mapToManpowerRecord(dbRow: DbManpowerInput): ManpowerInputRecord {
@@ -913,19 +832,19 @@ export class PureDatabaseEngine {
   }
 
   // =========================================================================
-  // 5. State & Accessors
+  // 7. State & Accessors
   // =========================================================================
 
   public getCurrentUser(): User {
     if (this.currentUser) return this.currentUser;
     return {
-      id: 'S18121020',
+      id: 'S01832',
       name: '조경훈 (DS PM)',
       firstName: '경훈',
       lastName: '조',
       companyName: '신한DS',
       partnerCompany: '신한DS',
-      deptName: '상담팀',
+      deptName: '카드개발팀',
       partName: '상담',
       role: 'DS_PRINCIPAL_PM',
       roleTitle: '신한DS 상담파트 전담 현장관리인',
@@ -980,34 +899,6 @@ export class PureDatabaseEngine {
       this.activePmPart = updatedFields.partName;
     }
 
-    // DB users 테이블에도 동기화 업데이트
-    const rawTargetId = (this.currentUser.id || (this.currentUser as any).employeeId || 'S01832').toUpperCase().trim();
-    const targetEmpId = rawTargetId === '01832' ? 'S01832' : rawTargetId;
-    const cleanTarget = targetEmpId.replace(/^S/, '');
-
-    // 중복 01832 제거
-    this.users = this.users.filter(u => (u.employeeId || '').toUpperCase().trim() !== '01832' || targetEmpId === '01832');
-
-    const dbUserIdx = this.users.findIndex(u => {
-      const uEmp = (u.employeeId || '').toUpperCase().trim();
-      const uClean = uEmp.replace(/^S/, '');
-      return uEmp === targetEmpId || (cleanTarget && uClean === cleanTarget);
-    });
-    if (dbUserIdx >= 0) {
-      this.users[dbUserIdx] = {
-        ...this.users[dbUserIdx],
-        employeeId: targetEmpId,
-        name: updatedFields.name || this.users[dbUserIdx].name,
-        phone: updatedFields.phone || this.users[dbUserIdx].phone,
-        email: updatedFields.email || this.users[dbUserIdx].email,
-        company: updatedFields.companyName || updatedFields.partnerCompany || this.users[dbUserIdx].company,
-        team: updatedFields.deptName || this.users[dbUserIdx].team,
-        part: updatedFields.partName || this.users[dbUserIdx].part,
-        position: (updatedFields as any).position || this.users[dbUserIdx].position
-      };
-    }
-    this.sync();
-
     return this.currentUser;
   }
 
@@ -1016,7 +907,6 @@ export class PureDatabaseEngine {
   public getThemeMode(): 'ddangyo' | 'shinhan' { return this.themeMode; }
   public setThemeMode(mode: 'ddangyo' | 'shinhan'): void { this.themeMode = mode; }
 
-  // Home View Helper APIs (초기 메인 홈 화면용)
   public getWeeklySchedules(): DaySchedule[] {
     return [
       { dayOfWeek: '월', dateStr: '8/10', fullDate: '2026-08-10', statusType: 'VACATION', statusLabel: '체력단련휴가', timeRange: '전일', isToday: false, isVacation: true, title: '체력단련휴.' },
@@ -1036,7 +926,7 @@ export class PureDatabaseEngine {
         userId: 'usr-001',
         userName: '조경훈',
         userDept: '카드개발팀',
-        partnerApproverName: '김협력 PM (협력사 현장대리인)',
+        partnerApproverName: '최영호 (유브갓 현장대리인)',
         requestType: 'VACATION',
         targetDate: '2026-08-12 ~ 2026-08-14',
         timeRange: '전일',
@@ -1044,23 +934,7 @@ export class PureDatabaseEngine {
         reason: '하계 정기 연차 휴가 (소속사 복무규정 준수)',
         status: 'APPROVED',
         createdAt: '2026-08-01 09:30',
-        approvalMemo: '소속사 현장대리인 김협력 승인 완료'
-      },
-      {
-        id: 'req-02',
-        userId: 'usr-001',
-        userName: '조경훈',
-        userDept: '카드개발팀',
-        partnerApproverName: '김협력 PM (협력사 현장대리인)',
-        requestType: 'OVERTIME',
-        targetDate: '2026-08-17',
-        timeRange: '18:00 ~ 20:30',
-        startTime: '18:00',
-        endTime: '20:30',
-        hours: 2.5,
-        reason: '땡겨요 결제 모듈 긴급 배포 준비',
-        status: 'PENDING',
-        createdAt: '2026-08-16 09:10'
+        approvalMemo: '소속사 현장대리인 승인 완료'
       }
     ];
   }
@@ -1080,7 +954,7 @@ export class PureDatabaseEngine {
   public clockIn(loc: string): boolean { return true; }
   
   // =========================================================================
-  // ⚡ Cloudflare D1 Database 실시간 출근 및 투입 기록 API
+  // 8. Cloudflare D1 실시간 출근 및 투입 기록 API
   // =========================================================================
   public async recordCommutePunchInD1(data: {
     employeeId: string;
@@ -1194,15 +1068,12 @@ export class PureDatabaseEngine {
   public addRequest(req: any): void {}
   public approvePartnerRequest(reqId: string, memo?: string): boolean { return true; }
   public rejectPartnerRequest(reqId: string, memo?: string): boolean { return true; }
-  public getInspections(): ServiceDeliveryInspection[] { return []; }
-  public acceptContractInspection(id: string, memo?: string): boolean { return true; }
 
   // =========================================================================
-  // 6. 실시간 알림 & 메시지/소통 센터 시스템 (Cloudflare D1 Database 연동)
+  // 9. 실시간 알림 & 메시지 센터 (Cloudflare D1 Database 연동)
   // =========================================================================
   private notifications: DbAppNotification[] = [];
   private messages: DbAppMessage[] = [];
-  private readonly API_BASE = '/api';
 
   public async fetchNotificationsFromD1(userRole?: string, partName?: string): Promise<DbAppNotification[]> {
     try {
@@ -1369,3 +1240,4 @@ export interface DbAppMessage {
 
 export const dbService = new PureDatabaseEngine();
 export const predefinedUsers: User[] = [];
+

@@ -35,10 +35,17 @@ export const AttendanceReportView: React.FC<AttendanceReportViewProps> = ({
   const isPartnerManager = currentUser.role === 'PARTNER_PART_LEADER' || currentUser.role === 'PARTNER_SITE_MANAGER';
 
   // DB에서 데이터 로드
-  const allInputs = dbService.getManpowerInputs();
+  const [allInputs, setAllInputs] = useState<DbManpowerInput[]>(dbService.getManpowerInputs());
+
+  React.useEffect(() => {
+    dbService.fetchManpowerFromD1(currentUser.partName).then(records => {
+      setAllInputs(dbService.getManpowerInputs());
+    });
+  }, [currentUser.partName]);
 
   // 협력사별 인력 풀
   const partnerCompanies = ['유브갓', '(주)협력아이티에스', '현대IT솔루션', '오토시스', '파이낸스ITS'];
+
 
   // 1. 개인 근로자용 일일 투입 내역 (8월 기준)
   const personalDailyLogs = [

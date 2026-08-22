@@ -127,19 +127,23 @@ export function App() {
   const unreadNotificationCount = notifications.filter(n => !n.isRead).length;
   const unreadMessageCount = messagesList.filter(m => !m.isRead).length;
 
-  // D1 DB 실시간 알림 & 메시지 로드
+  // D1 DB 실시간 데이터 로드 & 폴링 동기화
   useEffect(() => {
     const loadD1Data = async () => {
       const part = currentUser?.partName || '상담';
       const role = currentUser?.role || 'DS_PRINCIPAL_PM';
-      const notis = await dbService.fetchNotificationsFromD1(role, part);
+      const [notis, msgs] = await Promise.all([
+        dbService.fetchNotificationsFromD1(role, part),
+        dbService.fetchMessagesFromD1(role, part),
+        dbService.fetchUsersFromD1(),
+        dbService.fetchManpowerFromD1(part)
+      ]);
       setNotifications(notis);
-      const msgs = await dbService.fetchMessagesFromD1(role, part);
       setMessagesList(msgs);
     };
 
     loadD1Data();
-    // 15초마다 실시간 D1 폴링 동기화
+    // 15초마다 실시간 D1 폴링 동기화 (PC와 모바일 간 데이터 실시간 동기 유지)
     const interval = setInterval(loadD1Data, 15000);
     return () => clearInterval(interval);
   }, [currentUser?.role, currentUser?.partName]);

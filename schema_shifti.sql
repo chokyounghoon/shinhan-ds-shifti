@@ -169,12 +169,84 @@ CREATE TABLE IF NOT EXISTS service_delivery_inspections (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 11. 도급 인력 일별 투입 실적 (Manpower Inputs)
+CREATE TABLE IF NOT EXISTS manpower_inputs (
+    record_id TEXT PRIMARY KEY,
+    employee_id TEXT NOT NULL,
+    worker_name TEXT NOT NULL,
+    part_name TEXT NOT NULL,
+    partner_company TEXT NOT NULL,
+    work_date TEXT NOT NULL,
+    contracted_hours REAL DEFAULT 8.0,
+    actual_input_hours REAL DEFAULT 8.0,
+    clock_in_time TEXT,
+    clock_out_time TEXT,
+    task_summary TEXT,
+    variance_minutes INTEGER DEFAULT 0,
+    is_sla_breach INTEGER DEFAULT 0,
+    exception_type TEXT,
+    gap_reason TEXT,
+    partner_clarification TEXT,
+    verification_status TEXT CHECK(verification_status IN ('AUTO_SETTLED', 'PENDING_EXCEPTION_REVIEW', 'SETTLED_BY_PRINCIPAL', 'EXCLUDED_FROM_SLA')) DEFAULT 'AUTO_SETTLED',
+    reg_id TEXT DEFAULT 'SYSTEM',
+    reg_dt DATETIME DEFAULT CURRENT_TIMESTAMP,
+    mod_id TEXT,
+    mod_dt DATETIME,
+    UNIQUE(employee_id, work_date)
+);
+
+-- 12. 전산 감사 및 계약 검수 추적 로그 (Audit Trails)
+CREATE TABLE IF NOT EXISTS audit_trails (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    record_id TEXT NOT NULL,
+    actor_id TEXT NOT NULL,
+    actor_name TEXT NOT NULL,
+    actor_role TEXT NOT NULL,
+    action TEXT NOT NULL,
+    system_label TEXT DEFAULT '도급 계약 이행 확인',
+    details TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 13. SLA 위반 소명 요청 및 공식 회신 (SLA Clarifications)
+CREATE TABLE IF NOT EXISTS sla_clarifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    record_id TEXT NOT NULL,
+    part_name TEXT NOT NULL,
+    partner_company TEXT NOT NULL,
+    requester_id TEXT NOT NULL,
+    official_title TEXT NOT NULL,
+    message_content TEXT NOT NULL,
+    status TEXT CHECK(status IN ('REQUESTED', 'ANSWERED', 'ACCEPTED')) DEFAULT 'REQUESTED',
+    answer_content TEXT,
+    answered_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 14. 사전 인력 결손 통보 (Pre Gap Notices)
+CREATE TABLE IF NOT EXISTS pre_gap_notices (
+    id TEXT PRIMARY KEY,
+    partner_company TEXT NOT NULL,
+    worker_name TEXT NOT NULL,
+    part_name TEXT NOT NULL,
+    gap_period TEXT NOT NULL,
+    gap_hours REAL DEFAULT 8.0,
+    gap_type TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    status TEXT CHECK(status IN ('DISPATCHED', 'ACKNOWLEDGED')) DEFAULT 'DISPATCHED',
+    acknowledged_by TEXT,
+    acknowledged_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- 인덱스
 CREATE INDEX IF NOT EXISTS idx_users_emp ON users(employee_id);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_commute_emp_date ON commute_logs(employee_id, work_date);
 CREATE INDEX IF NOT EXISTS idx_schedule_emp_date ON work_schedules(employee_id, schedule_date);
 CREATE INDEX IF NOT EXISTS idx_requests_emp ON attendance_requests(employee_id, status);
+CREATE INDEX IF NOT EXISTS idx_manpower_part_date ON manpower_inputs(part_name, work_date);
+CREATE INDEX IF NOT EXISTS idx_manpower_emp_date ON manpower_inputs(employee_id, work_date);
 
 -- 기본 사용자 시드 데이터 (조경훈, 송무준, 최영호, 정진우)
 INSERT OR IGNORE INTO users 
@@ -190,3 +262,4 @@ INSERT OR REPLACE INTO organizations
 (id, company_name, team_name, part_name, hierarchy_path, leader_name, location_name, member_count, description)
 VALUES
 ('org-counsel-01', '신한DS', '카드개발', '상담', '신한DS > 카드개발 > 상담', '조경훈', '파인에비뉴(카드)', 4, '상담 시스템 유지 관리');
+

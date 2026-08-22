@@ -139,10 +139,10 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
     gapReason: ''
   });
 
-  const loadData = () => {
-    let partRecords = dbService.getManpowerRecordsByPart(activePart);
+  const loadData = async () => {
+    let partRecords = await dbService.fetchManpowerFromD1(activePart, selectedDate, filterCompany);
     const exceptions = dbService.getExceptionRecordsByPart(activePart);
-    const notices = dbService.getPreGapNotices(activePart);
+    const notices = await dbService.fetchGapNoticesFromD1(activePart);
 
     // 🔍 일자별 필터
     if (selectedDate) {
@@ -200,9 +200,9 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
     setSelectedRecordIds(pendingIds);
   };
 
-  const handleAcknowledgeGapNotice = (noticeId: string, workerName: string, company: string) => {
-    dbService.acknowledgePreGapNotice(noticeId, `${currentUser.name || '조경훈'} PM`);
-    loadData();
+  const handleAcknowledgeGapNotice = async (noticeId: string, workerName: string, company: string) => {
+    await dbService.acknowledgePreGapNotice(noticeId, `${currentUser.name || '조경훈'} PM`);
+    await loadData();
     alert(`✅ [공정 투입 공백 확인 완료]\n• 대상: [${company}] ${workerName} 직원\n• 조치: 원청의 '휴가 승인'이 아닌 '도급 공정 투입 공백 확인(인프라 검수 완료)'으로 정상 기록 처리되었습니다.`);
   };
 
@@ -232,14 +232,14 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
   };
 
   // 신규 투입 인력 DB INSERT
-  const handleAddWorkerSubmit = (e: React.FormEvent) => {
+  const handleAddWorkerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newWorkerForm.workerName.trim() || !newWorkerForm.employeeId.trim()) {
       alert('성명과 사번을 입력해 주세요.');
       return;
     }
 
-    const res = dbService.insertManpowerRecord({
+    const res = await dbService.insertManpowerRecord({
       recordId: `rec-${Date.now()}`,
       employeeId: newWorkerForm.employeeId.trim(),
       workerName: newWorkerForm.workerName.trim(),
@@ -274,18 +274,18 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
         varianceMinutes: 0,
         gapReason: ''
       });
-      loadData();
+      await loadData();
     }
   };
 
   // 하단 [일일 투입 공수 검수] 확정 실행
-  const handleConfirmSettlement = () => {
+  const handleConfirmSettlement = async () => {
     if (selectedRecordIds.length === 0) return;
-    const ok = dbService.settlePrincipalVerification(selectedRecordIds, currentUser.name);
+    const ok = await dbService.settlePrincipalVerification(selectedRecordIds, currentUser.name);
     if (ok) {
       alert(`🎉 선택한 [${selectedRecordIds.length}명]의 일일 도급 투입 실적이 정산 확정 처리되었습니다. (감사로그 DB 기록 완료)`);
       setIsConfirmModalOpen(false);
-      loadData();
+      await loadData();
     }
   };
 
@@ -297,20 +297,20 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
   };
 
   // 예외 조치 1: [계약상 투입 제외] (도급비 감액 확정)
-  const handleExecuteExclude = () => {
+  const handleExecuteExclude = async () => {
     if (!selectedExceptionRecord) return;
-    dbService.resolveExceptionExclude(selectedExceptionRecord.id, exceptionMemo || '도급 계약 SLA 기준 미달에 따른 공수 차감');
+    await dbService.resolveExceptionExclude(selectedExceptionRecord.id, exceptionMemo || '도급 계약 SLA 기준 미달에 따른 공수 차감');
     setIsExceptionModalOpen(false);
-    loadData();
+    await loadData();
     alert(`⚖️ [${selectedExceptionRecord.workerName}] 건이 [계약상 투입 제외] 처리되어 도급비 정산 감액 자료에 반영되었습니다. (감사로그 자동 기록 완료)`);
   };
 
   // 예외 조치 2: [공정 지연 사유 확정] (소명 인정 / 정산 유지)
-  const handleExecuteAcceptDelay = () => {
+  const handleExecuteAcceptDelay = async () => {
     if (!selectedExceptionRecord) return;
-    dbService.resolveExceptionAccept(selectedExceptionRecord.id, exceptionMemo || '협력업체 1차 소명 사유 검토 완료');
+    await dbService.resolveExceptionAccept(selectedExceptionRecord.id, exceptionMemo || '협력업체 1차 소명 사유 검토 완료');
     setIsExceptionModalOpen(false);
-    loadData();
+    await loadData();
     alert(`✅ [${selectedExceptionRecord.workerName}] 건이 [공정 지연 사유 확정] 처리되어 정상 투입 실적으로 인정되었습니다. (감사로그 자동 기록 완료)`);
   };
 
@@ -323,12 +323,12 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
     setIsClarificationModalOpen(true);
   };
 
-  const handleSendClarification = () => {
+  const handleSendClarification = async () => {
     if (!selectedGapRecord || !clarificationMessage.trim()) return;
-    dbService.sendClarificationRequest(selectedGapRecord.id, clarificationMessage);
+    await dbService.sendClarificationRequest(selectedGapRecord.id, clarificationMessage);
     alert(`📨 [${selectedGapRecord.partnerCompany}] 현장관리자(영업대표) 앞으로 공식 소명 요구 공문이 발송 및 DB에 기록되었습니다.\n\n🛡️ [법적 보호 조치 완료]\n개별 근로자(${selectedGapRecord.workerName})에 대한 직접 연락 및 지휘·명령을 차단하고, 수급 사업주(${selectedGapRecord.partnerCompany})를 통한 정상적인 도급 검수 절차를 밟았습니다.`);
     setIsClarificationModalOpen(false);
-    loadData();
+    await loadData();
   };
 
   // 법적 방어 리포트 생성 및 모달 열기
@@ -337,6 +337,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
     setDefenseReport(rep);
     setIsDefenseReportModalOpen(true);
   };
+
 
     const displayPartList: OrgPartInfo[] = dbPartList.length > 0
       ? dbPartList

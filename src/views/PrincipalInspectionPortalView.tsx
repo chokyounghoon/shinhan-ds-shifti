@@ -41,6 +41,10 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
   const [selectedEvidenceForNotice, setSelectedEvidenceForNotice] = useState<SlaBreachEvidence | null>(null);
   const [isOfficialNoticeModalOpen, setIsOfficialNoticeModalOpen] = useState(false);
 
+  React.useEffect(() => {
+    dbService.fetchInspectionsFromD1().then(data => setInspections(data));
+  }, []);
+
   // 법적 방어형 SLA 계약 불이행 증거 아카이브 (Evidence Vault)
   const [evidences, setEvidences] = useState<SlaBreachEvidence[]>([
     {
@@ -67,12 +71,14 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
     }
   ]);
 
-  const handleAcceptInspection = (inspId: string) => {
-    dbService.acceptContractInspection(inspId, '신한DS 도급 검수 완료: SLA 공수 정산 및 도급 대금 지급 승인');
-    setInspections(dbService.getInspections());
+  const handleAcceptInspection = async (inspId: string) => {
+    await dbService.acceptContractInspection(inspId, '신한DS 도급 검수 완료: SLA 공수 정산 및 도급 대금 지급 승인');
+    const updated = await dbService.fetchInspectionsFromD1();
+    setInspections(updated);
     setToastMsg('🎉 도급 계약 이행 검수가 승인되어 용역비 정산이 확정되었습니다.');
     setTimeout(() => setToastMsg(null), 3500);
   };
+
 
   const handleOpenNoticeModal = (ev: SlaBreachEvidence) => {
     setSelectedEvidenceForNotice(ev);

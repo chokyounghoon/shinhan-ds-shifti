@@ -934,5 +934,586 @@ app.post('/messages', async (c) => {
   }
 });
 
+app.put('/messages/:id/read', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const db = c.env.DB;
+    await db.prepare("UPDATE app_messages SET is_read = 1 WHERE id = ?").bind(id).run();
+    return c.json({ success: true, message: '메시지가 읽음 처리되었습니다.' });
+  } catch (err: any) {
+    return c.json({ success: false, detail: err.message }, 500);
+  }
+});
+
+app.put('/messages/:id/reply', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    const db = c.env.DB;
+    const now = getKst();
+    await db.prepare(`
+      UPDATE app_messages 
+      SET reply_status = 'COMPLETED', reply_content = ?, replied_at = ?, is_read = 1 
+      WHERE id = ?
+    `).bind(body.replyContent || body.reply_content || '', now, id).run();
+    return c.json({ success: true, message: '답변이 등록되었습니다.' });
+  } catch (err: any) {
+    return c.json({ success: false, detail: err.message }, 500);
+  }
+});
+
+app.put('/messages/read-all', async (c) => {
+  try {
+    const db = c.env.DB;
+    await db.prepare("UPDATE app_messages SET is_read = 1").run();
+    return c.json({ success: true, message: '모든 메시지가 읽음 처리되었습니다.' });
+  } catch (err: any) {
+    return c.json({ success: false, detail: err.message }, 500);
+  }
+});
+
+// =========================================================================
+// 6. 도급 인력 투입 실적 (Manpower Inputs) D1 API
+// =========================================================================
+const ensureManpowerTables = async (db: D1Database) => {
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS manpower_inputs (
+      record_id TEXT PRIMARY KEY,
+      employee_id TEXT NOT NULL,
+      worker_name TEXT NOT NULL,
+      part_name TEXT NOT NULL,
+      partner_company TEXT NOT NULL,
+      work_date TEXT NOT NULL,
+      contracted_hours REAL DEFAULT 8.0,
+      actual_input_hours REAL DEFAULT 8.0,
+      clock_in_time TEXT,
+      clock_out_time TEXT,
+      task_summary TEXT,
+      variance_minutes INTEGER DEFAULT 0,
+      is_sla_breach INTEGER DEFAULT 0,
+      exception_type TEXT,
+      gap_reason TEXT,
+      partner_clarification TEXT,
+      verification_status TEXT DEFAULT 'AUTO_SETTLED',
+      reg_id TEXT DEFAULT 'SYSTEM',
+      reg_dt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      mod_id TEXT,
+      mod_dt DATETIME,
+      UNIQUE(employee_id, work_date)
+    );
+    CREATE TABLE IF NOT EXISTS audit_trails (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      record_id TEXT NOT NULL,
+      actor_id TEXT NOT NULL,
+      actor_name TEXT NOT NULL,
+      actor_role TEXT NOT NULL,
+      action TEXT NOT NULL,
+      system_label TEXT DEFAULT '도급 계약 이행 확인',
+      details TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS sla_clarifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      record_id TEXT NOT NULL,
+      part_name TEXT NOT NULL,
+      partner_company TEXT NOT NULL,
+      requester_id TEXT NOT NULL,
+      official_title TEXT NOT NULL,
+      message_content TEXT NOT NULL,
+      status TEXT DEFAULT 'REQUESTED',
+      answer_content TEXT,
+      answered_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS pre_gap_notices (
+      id TEXT PRIMARY KEY,
+      partner_company TEXT NOT NULL,
+      worker_name TEXT NOT NULL,
+      part_name TEXT NOT NULL,
+      gap_period TEXT NOT NULL,
+      gap_hours REAL DEFAULT 8.0,
+      gap_type TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      status TEXT DEFAULT 'DISPATCHED',
+      acknowledged_by TEXT,
+      acknowledged_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS service_delivery_inspections (
+      id TEXT PRIMARY KEY,
+      project_code TEXT NOT NULL,
+      partner_company TEXT NOT NULL,
+      inspector_id TEXT NOT NULL,
+      inspector_name TEXT NOT NULL,
+      inspection_month TEXT NOT NULL,
+      contracted_man_days REAL NOT NULL,
+      actual_delivered_man_days REAL NOT NULL,
+      inspection_status TEXT DEFAULT 'SUBMITTED',
+      inspection_notes TEXT,
+      inspected_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+};
+
+app.get('/manpower', async (c) => {
+  try {
+    const db = c.env.DB;
+    await ensureManpowerTables(db);
+
+    const part = c.req.query('part');
+    const workDate = c.req.query('work_date') || c.req.query('workDate');
+    const company = c.req.query('company');
+
+    let query = "SELECT * FROM manpower_inputs WHERE 1=1";
+    const params: any[] = [];
+
+    if (part && part !== 'ALL') {
+      query += " AND part_name = ?";
+      params.push(part);
+    }
+    if (workDate) {
+      query += " AND work_date = ?";
+      params.push(workDate);
+    }
+    if (company && company !== 'ALL') {
+      query += " AND partner_company = ?";
+      params.push(company);
+    }
+    query += " ORDER BY reg_dt DESC, record_id DESC";
+
+    const stmt = db.prepare(query);
+    const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
+
+    // 초기 데이터가 비어있는 경우 기본 Roster 자동 생성
+    if (!results || results.length === 0) {
+      const todayStr = getKst().substring(0, 10);
+      const defaultRecords = [
+        {
+          record_id: 'rec-init-01',
+          employee_id: 'UB0001',
+          worker_name: '송무준',
+          part_name: '상담',
+          partner_company: '유브갓',
+          work_date: todayStr,
+          contracted_hours: 8.0,
+          actual_input_hours: 8.0,
+          clock_in_time: '08:50',
+          clock_out_time: '18:00',
+          task_summary: '상담 시스템 기간계 계정계 승인 코어 모듈 유지보수',
+          variance_minutes: 0,
+          is_sla_breach: 0,
+          verification_status: 'AUTO_SETTLED'
+        }
+      ];
+
+      for (const rec of defaultRecords) {
+        await db.prepare(`
+          INSERT OR IGNORE INTO manpower_inputs
+          (record_id, employee_id, worker_name, part_name, partner_company, work_date, contracted_hours, actual_input_hours, clock_in_time, clock_out_time, task_summary, variance_minutes, is_sla_breach, verification_status, reg_id, reg_dt)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SYSTEM', ?)
+        `).bind(
+          rec.record_id, rec.employee_id, rec.worker_name, rec.part_name, rec.partner_company, rec.work_date,
+          rec.contracted_hours, rec.actual_input_hours, rec.clock_in_time, rec.clock_out_time, rec.task_summary,
+          rec.variance_minutes, rec.is_sla_breach, rec.verification_status, getKst()
+        ).run();
+      }
+
+      const refetched = await db.prepare("SELECT * FROM manpower_inputs ORDER BY reg_dt DESC").all();
+      return c.json({ success: true, data: refetched.results || [] });
+    }
+
+    return c.json({ success: true, data: results || [] });
+  } catch (err: any) {
+    return c.json({ success: false, detail: err.message }, 500);
+  }
+});
+
+app.post('/manpower', async (c) => {
+  try {
+    const db = c.env.DB;
+    await ensureManpowerTables(db);
+    const body = await c.req.json();
+    const now = getKst();
+    const recordId = body.recordId || body.record_id || `rec-${Date.now()}`;
+
+    await db.prepare(`
+      INSERT OR REPLACE INTO manpower_inputs
+      (record_id, employee_id, worker_name, part_name, partner_company, work_date, contracted_hours, actual_input_hours, clock_in_time, clock_out_time, task_summary, variance_minutes, is_sla_breach, exception_type, gap_reason, partner_clarification, verification_status, reg_id, reg_dt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      recordId,
+      body.employeeId || body.employee_id,
+      body.workerName || body.worker_name,
+      body.partName || body.part_name || '상담',
+      body.partnerCompany || body.partner_company || '유브갓',
+      body.workDate || body.work_date || now.substring(0, 10),
+      body.contractedHours || body.contracted_hours || 8.0,
+      body.actualInputHours || body.actual_input_hours || 8.0,
+      body.clockInTime || body.clock_in_time || '08:50',
+      body.clockOutTime || body.clock_out_time || '18:00',
+      body.taskSummary || body.task_summary || '',
+      body.varianceMinutes || body.variance_minutes || 0,
+      body.isSlaBreach ? 1 : (body.is_sla_breach ? 1 : 0),
+      body.exceptionType || body.exception_type || null,
+      body.gapReason || body.gap_reason || null,
+      body.partnerClarification || body.partner_clarification || null,
+      body.verificationStatus || body.verification_status || 'AUTO_SETTLED',
+      body.regId || body.reg_id || 'SYSTEM',
+      now
+    ).run();
+
+    // 감사 로그 기록
+    await db.prepare(`
+      INSERT INTO audit_trails (record_id, actor_id, actor_name, actor_role, action, system_label, details, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      recordId,
+      body.regId || 'SYSTEM',
+      body.regName || '도급 인력 투입 관제 엔진',
+      body.regRole || '시스템 자동화',
+      body.isSlaBreach ? '도급 투입 실적 등록 (예외 발생 - PM 검수 대기)' : '도급비 산정을 위한 투입 실적 확정 (시스템 자동 검수)',
+      '도급 계약 이행 확인',
+      `${body.workDate || now.substring(0, 10)} ${body.workerName || body.worker_name} (${body.partnerCompany || body.partner_company}) 투입 실적 등록 완료`,
+      now
+    ).run();
+
+    return c.json({ success: true, recordId, message: '도급 투입 실적이 등록되었습니다.' });
+  } catch (err: any) {
+    return c.json({ success: false, detail: err.message }, 500);
+  }
+});
+
+// PM 일괄 검수 확정
+app.put('/manpower/verify', async (c) => {
+  try {
+    const db = c.env.DB;
+    await ensureManpowerTables(db);
+    const body = await c.req.json();
+    const recordIds: string[] = body.recordIds || body.record_ids || [];
+    const pmName = body.pmName || '조경훈 PM';
+    const now = getKst();
+
+    for (const rid of recordIds) {
+      await db.prepare(`
+        UPDATE manpower_inputs 
+        SET verification_status = 'SETTLED_BY_PRINCIPAL', mod_id = ?, mod_dt = ?
+        WHERE record_id = ?
+      `).bind(pmName, now, rid).run();
+
+      await db.prepare(`
+        INSERT INTO audit_trails (record_id, actor_id, actor_name, actor_role, action, system_label, details, created_at)
+        VALUES (?, 'PM', ?, '원청 책임PM', '원청 책임PM 수동 정산 확정', '도급 계약 이행 확인', ?, ?)
+      `).bind(rid, pmName, `원청 책임PM(${pmName})이 도급 실적을 승인 및 정산 확정하였습니다.`, now).run();
+    }
+
+    return c.json({ success: true, count: recordIds.length, message: `${recordIds.length}건 검수 확정 완료` });
+  } catch (err: any) {
+    return c.json({ success: false, detail: err.message }, 500);
+  }
+});
+
+// 예외 수용/차감 처리
+app.put('/manpower/:id/exception', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    const db = c.env.DB;
+    await ensureManpowerTables(db);
+    const now = getKst();
+
+    const action = body.action; // 'ACCEPT' or 'EXCLUDE'
+    const memo = body.memo || '';
+    const newStatus = action === 'ACCEPT' ? 'SETTLED_BY_PRINCIPAL' : 'EXCLUDED_FROM_SLA';
+
+    await db.prepare(`
+      UPDATE manpower_inputs
+      SET verification_status = ?, gap_reason = ?, mod_id = 'PM', mod_dt = ?
+      WHERE record_id = ?
+    `).bind(newStatus, memo, now, id).run();
+
+    await db.prepare(`
+      INSERT INTO audit_trails (record_id, actor_id, actor_name, actor_role, action, system_label, details, created_at)
+      VALUES (?, 'PM', '원청 책임PM', '원청 책임PM', ?, '도급 계약 이행 확인', ?, ?)
+    `).bind(
+      id,
+      action === 'ACCEPT' ? '예외 사유 수용 (정산 반영)' : '도급비 산정 제외 확정 (공수 차감)',
+      memo,
+      now
+    ).run();
+
+    return c.json({ success: true, message: '예외 처리가 완료되었습니다.' });
+  } catch (err: any) {
+    return c.json({ success: false, detail: err.message }, 500);
+  }
+});
+
+// =========================================================================
+// 7. 전산 감사 로그 (Audit Trails) D1 API
+// =========================================================================
+app.get('/audit-trails', async (c) => {
+  try {
+    const db = c.env.DB;
+    await ensureManpowerTables(db);
+    const recordId = c.req.query('record_id');
+
+    let query = "SELECT * FROM audit_trails WHERE 1=1";
+    const params: any[] = [];
+    if (recordId) {
+      query += " AND record_id = ?";
+      params.push(recordId);
+    }
+    query += " ORDER BY created_at DESC LIMIT 100";
+
+    const stmt = db.prepare(query);
+    const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
+    return c.json({ success: true, data: results || [] });
+  } catch (err: any) {
+    return c.json({ success: false, detail: err.message }, 500);
+  }
+});
+
+// =========================================================================
+// 8. SLA 소명 요청/회신 (SLA Clarifications) D1 API
+// =========================================================================
+app.get('/sla-clarifications', async (c) => {
+  try {
+    const db = c.env.DB;
+    await ensureManpowerTables(db);
+    const part = c.req.query('part');
+
+    let query = "SELECT * FROM sla_clarifications WHERE 1=1";
+    const params: any[] = [];
+    if (part && part !== 'ALL') {
+      query += " AND part_name = ?";
+      params.push(part);
+    }
+    query += " ORDER BY created_at DESC";
+
+    const stmt = db.prepare(query);
+    const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
+    return c.json({ success: true, data: results || [] });
+  } catch (err: any) {
+    return c.json({ success: false, detail: err.message }, 500);
+  }
+});
+
+app.post('/sla-clarifications', async (c) => {
+  try {
+    const db = c.env.DB;
+    await ensureManpowerTables(db);
+    const body = await c.req.json();
+    const now = getKst();
+
+    await db.prepare(`
+      INSERT INTO sla_clarifications
+      (record_id, part_name, partner_company, requester_id, official_title, message_content, status, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'REQUESTED', ?)
+    `).bind(
+      body.recordId || body.record_id,
+      body.partName || body.part_name || '상담',
+      body.partnerCompany || body.partner_company || '유브갓',
+      body.requesterId || body.requester_id || 'PM',
+      body.officialTitle || body.official_title || 'SLA 투입 편차 소명 요청',
+      body.messageContent || body.message_content || '',
+      now
+    ).run();
+
+    return c.json({ success: true, message: '소명 요청이 등록되었습니다.' });
+  } catch (err: any) {
+    return c.json({ success: false, detail: err.message }, 500);
+  }
+});
+
+app.put('/sla-clarifications/:id/answer', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const db = c.env.DB;
+    await ensureManpowerTables(db);
+    const body = await c.req.json();
+    const now = getKst();
+
+    await db.prepare(`
+      UPDATE sla_clarifications
+      SET status = 'ANSWERED', answer_content = ?, answered_at = ?
+      WHERE id = ?
+    `).bind(body.answerContent || body.answer_content || '', now, id).run();
+
+    return c.json({ success: true, message: '소명 답변이 등록되었습니다.' });
+  } catch (err: any) {
+    return c.json({ success: false, detail: err.message }, 500);
+  }
+});
+
+// =========================================================================
+// 9. 사전 공수 결손 통보 (Pre Gap Notices) D1 API
+// =========================================================================
+app.get('/gap-notices', async (c) => {
+  try {
+    const db = c.env.DB;
+    await ensureManpowerTables(db);
+    const part = c.req.query('part');
+
+    let query = "SELECT * FROM pre_gap_notices WHERE 1=1";
+    const params: any[] = [];
+    if (part && part !== 'ALL') {
+      query += " AND part_name = ?";
+      params.push(part);
+    }
+    query += " ORDER BY created_at DESC";
+
+    const stmt = db.prepare(query);
+    const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
+
+    // 기본 사전 결손 통보 시드 주입 (비어있을 시)
+    if (!results || results.length === 0) {
+      const todayStr = getKst().substring(0, 10);
+      const defaultNotices = [
+        {
+          id: 'gap-notice-01',
+          partner_company: '유브갓',
+          worker_name: '송무준',
+          part_name: '상담',
+          gap_period: `${todayStr} 09:00 ~ 13:00`,
+          gap_hours: 4.0,
+          gap_type: '오전반차 (협력사 자체 승인)',
+          reason: '가족 행사로 인한 사전 휴무 신청건',
+          status: 'DISPATCHED'
+        }
+      ];
+
+      for (const n of defaultNotices) {
+        await db.prepare(`
+          INSERT OR IGNORE INTO pre_gap_notices
+          (id, partner_company, worker_name, part_name, gap_period, gap_hours, gap_type, reason, status, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(n.id, n.partner_company, n.worker_name, n.part_name, n.gap_period, n.gap_hours, n.gap_type, n.reason, n.status, getKst()).run();
+      }
+
+      const refetched = await db.prepare("SELECT * FROM pre_gap_notices ORDER BY created_at DESC").all();
+      return c.json({ success: true, data: refetched.results || [] });
+    }
+
+    return c.json({ success: true, data: results || [] });
+  } catch (err: any) {
+    return c.json({ success: false, detail: err.message }, 500);
+  }
+});
+
+app.post('/gap-notices', async (c) => {
+  try {
+    const db = c.env.DB;
+    await ensureManpowerTables(db);
+    const body = await c.req.json();
+    const now = getKst();
+    const id = body.id || `gap-${Date.now()}`;
+
+    await db.prepare(`
+      INSERT INTO pre_gap_notices
+      (id, partner_company, worker_name, part_name, gap_period, gap_hours, gap_type, reason, status, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'DISPATCHED', ?)
+    `).bind(
+      id,
+      body.partnerCompany || body.partner_company || '유브갓',
+      body.workerName || body.worker_name,
+      body.partName || body.part_name || '상담',
+      body.gapPeriod || body.gap_period,
+      body.gapHours || body.gap_hours || 8.0,
+      body.gapType || body.gap_type || '휴가',
+      body.reason,
+      now
+    ).run();
+
+    return c.json({ success: true, id, message: '사전 결손 통보가 등록되었습니다.' });
+  } catch (err: any) {
+    return c.json({ success: false, detail: err.message }, 500);
+  }
+});
+
+app.put('/gap-notices/:id/acknowledge', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const db = c.env.DB;
+    await ensureManpowerTables(db);
+    const body = await c.req.json();
+    const now = getKst();
+    const acknowledgedBy = body.acknowledgedBy || body.acknowledged_by || '조경훈 PM';
+
+    await db.prepare(`
+      UPDATE pre_gap_notices
+      SET status = 'ACKNOWLEDGED', acknowledged_by = ?, acknowledged_at = ?
+      WHERE id = ?
+    `).bind(acknowledgedBy, now, id).run();
+
+    return c.json({ success: true, message: '사전 결손 통보 확인 처리가 완료되었습니다.' });
+  } catch (err: any) {
+    return c.json({ success: false, detail: err.message }, 500);
+  }
+});
+
+// =========================================================================
+// 10. 도급 공수 검수 (Service Delivery Inspections) D1 API
+// =========================================================================
+app.get('/inspections', async (c) => {
+  try {
+    const db = c.env.DB;
+    await ensureManpowerTables(db);
+    const { results } = await db.prepare("SELECT * FROM service_delivery_inspections ORDER BY created_at DESC").all();
+
+    if (!results || results.length === 0) {
+      const defaultInspections = [
+        {
+          id: 'insp-2026-08',
+          project_code: 'PRJ-SHIFTI-2026-08',
+          partner_company: '유브갓',
+          inspector_id: 'S01832',
+          inspector_name: '조경훈 PM',
+          inspection_month: '2026-08',
+          contracted_man_days: 120.0,
+          actual_delivered_man_days: 118.5,
+          inspection_status: 'SUBMITTED',
+          inspection_notes: '2026년 8월 도급 용역 이행 공수 검수 제출'
+        }
+      ];
+
+      for (const item of defaultInspections) {
+        await db.prepare(`
+          INSERT OR IGNORE INTO service_delivery_inspections
+          (id, project_code, partner_company, inspector_id, inspector_name, inspection_month, contracted_man_days, actual_delivered_man_days, inspection_status, inspection_notes, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(item.id, item.project_code, item.partner_company, item.inspector_id, item.inspector_name, item.inspection_month, item.contracted_man_days, item.actual_delivered_man_days, item.inspection_status, item.inspection_notes, getKst()).run();
+      }
+
+      const refetched = await db.prepare("SELECT * FROM service_delivery_inspections ORDER BY created_at DESC").all();
+      return c.json({ success: true, data: refetched.results || [] });
+    }
+
+    return c.json({ success: true, data: results || [] });
+  } catch (err: any) {
+    return c.json({ success: false, detail: err.message }, 500);
+  }
+});
+
+app.put('/inspections/:id/accept', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const db = c.env.DB;
+    await ensureManpowerTables(db);
+    const body = await c.req.json();
+    const now = getKst();
+
+    await db.prepare(`
+      UPDATE service_delivery_inspections
+      SET inspection_status = 'INSPECTED_ACCEPTED', inspection_notes = ?, inspected_at = ?
+      WHERE id = ?
+    `).bind(body.memo || '신한DS 도급 검수 완료: SLA 공수 정산 및 도급 대금 지급 승인', now, id).run();
+
+    return c.json({ success: true, message: '도급 검수가 승인 완료되었습니다.' });
+  } catch (err: any) {
+    return c.json({ success: false, detail: err.message }, 500);
+  }
+});
+
 export const onRequest = handle(app);
+
 

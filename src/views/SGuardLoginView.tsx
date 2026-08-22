@@ -374,7 +374,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
     }
 
     // 2. 외부 사번이거나 로컬 테스트용인 경우 로컬 DB 연동 폴백
-    const localRes = dbService.generateAndStoreOtp(targetEmpId);
+    const localRes = await dbService.generateAndStoreOtp(targetEmpId);
     if (!localRes.success) {
       setLoading(false);
       setError(localRes.error || '사번 조회에 실패하였습니다.');
@@ -437,7 +437,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
     }
 
     // 2. 로컬 DB 검증 폴백
-    const localRes = dbService.verifyOtpInDb(rawEmpId, otp.trim());
+    const localRes = await dbService.verifyOtpInDb(rawEmpId, otp.trim());
     setLoading(false);
     if (localRes.success) {
       setStep('PASSWORD');
@@ -547,7 +547,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
     }
 
     // 2. 로컬 DB 비밀번호 폴백 검증 (오프라인/네트워크 장애 시)
-    const isValidLocal = dbService.verifyPasswordInDb(rawEmpId, password.trim());
+    const isValidLocal = await dbService.verifyPasswordInDb(rawEmpId, password.trim());
     setLoading(false);
 
     if (isValidLocal) {
@@ -560,6 +560,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
       setError('비밀번호가 올바르지 않습니다. 다시 확인 후 입력해 주세요.');
     }
   };
+
 
   // 회원가입 제출 -> 실제 Cloudflare D1 + 로컬 DB 양방향 INSERT
   const handleSignupSubmit = async () => {
@@ -1095,7 +1096,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                       console.warn('[Resend Live Worker error]', e);
                     }
 
-                    const res = dbService.generateAndStoreOtp(targetEmpId);
+                    const res = await dbService.generateAndStoreOtp(targetEmpId);
                     setLoading(false);
                     setTimerKey(Date.now());
                     setOtp('');
@@ -1675,7 +1676,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                     setLoading(false);
 
                     if (!res.ok || data.success === false) {
-                      const localRes = dbService.generateAndStoreOtp(resetEmpId.trim());
+                      const localRes = await dbService.generateAndStoreOtp(resetEmpId.trim());
                       if (!localRes.success) {
                         alert(data.detail || localRes.error || '사용자를 찾을 수 없습니다.');
                         return;
@@ -1691,7 +1692,7 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                     setStep('RESET_B');
                   } catch (err) {
                     setLoading(false);
-                    const localRes = dbService.generateAndStoreOtp(resetEmpId.trim());
+                    const localRes = await dbService.generateAndStoreOtp(resetEmpId.trim());
                     if (localRes.success) {
                       setMaskedEmail(localRes.maskedEmail);
                       setResetOtp('');
@@ -1797,13 +1798,13 @@ export const SGuardLoginView: React.FC<SGuardLoginViewProps> = ({
                       return;
                     }
 
-                    dbService.resetPassword(resetEmpId.trim(), newResetPw.trim());
+                    await dbService.resetPassword(resetEmpId.trim(), newResetPw.trim());
                     alert('🎉 비밀번호가 안전하게 변경되었습니다.\n새로운 비밀번호로 로그인하세요.');
                     setEmpId(resetEmpId.trim());
                     setStep('ID');
                   } catch (err) {
                     setLoading(false);
-                    const ok = dbService.resetPassword(resetEmpId.trim(), newResetPw.trim());
+                    const ok = await dbService.resetPassword(resetEmpId.trim(), newResetPw.trim());
                     if (ok) {
                       alert('🎉 비밀번호가 안전하게 변경되었습니다. 새 비밀번호로 로그인하세요.');
                       setEmpId(resetEmpId.trim());

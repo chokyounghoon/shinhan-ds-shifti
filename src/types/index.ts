@@ -43,10 +43,14 @@ export type VerificationStatus =
   | 'UNVERIFIED'            // 1) 근로자 입력값 (미검증 - 협력업체 확인 전)
   | 'PARTNER_CONFIRMED'     // 2) 협력업체 관리자(유브갓 등) 1차 사실확인 완료 (DS PM 검수 대기)
   | 'SETTLED'               // 3) DS PM [도급비 산정을 위한 투입 실적 확정] 완료 (정산 확정)
+  | 'SETTLED_BY_PRINCIPAL'  // 3-1) 원청 PM 수동 정산 확정
   | 'AUTO_SETTLED'          // 4) 정상 투입(8h) 시스템 자동 정산 확정 (PM 일일 승인 불필요)
   | 'EXCLUDED_FROM_BILLING' // 5) [계약상 투입 제외] (도급비 정산 감액 확정)
+  | 'EXCLUDED_FROM_SLA'     // 5-1) 도급 SLA 제외 확정
   | 'DELAY_REASON_ACCEPTED' // 6) [공정 지연 사유 확정] (소명 인정 / 정산 유지)
+  | 'PENDING_EXCEPTION_REVIEW' // 7) 예외 검토 대기
   | 'VARIANCE_GAP';         // 투입 공백 발생 인원 (지각/미투입 -> 소명요구 대상)
+
 
 export type ExceptionType = 
   | 'LATE_ARRIVAL'         // 지각 (투입 시간 지연)
