@@ -281,8 +281,12 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
           await fetchRemoteCompanies();
           alert(`🗑️ [${name}] 협력사가 성공적으로 삭제되었습니다.`);
         } else {
-          const data = await res.json();
-          alert(`오류: ${data.error || '협력사 삭제에 실패했습니다.'}`);
+          let errText = '협력사 삭제에 실패했습니다.';
+          try {
+            const data = await res.json();
+            errText = data.error || data.detail || errText;
+          } catch (e) {}
+          alert(`오류: ${errText}`);
         }
       } catch (err) {
         console.warn('Company delete warning:', err);

@@ -751,7 +751,19 @@ app.post('/companies', async (c) => {
   }
 });
 
+app.delete('/companies/:id', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const db = c.env.DB;
+    await db.prepare("DELETE FROM companies WHERE id = ?").bind(id).run();
+    return c.json({ success: true, message: '협력사가 삭제되었습니다.' });
+  } catch (err: any) {
+    return c.json({ success: false, detail: err.message }, 500);
+  }
+});
+
 // ==========================================
+
 // 4. 출퇴근 / 도급 투입 / 근태 신청
 // ==========================================
 
