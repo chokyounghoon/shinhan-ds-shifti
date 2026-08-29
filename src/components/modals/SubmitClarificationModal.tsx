@@ -67,7 +67,7 @@ export const SubmitClarificationModal: React.FC<SubmitClarificationModalProps> =
       if (presetType === 'TRAFFIC') {
         text = `출근 시간대 지하철 2호선 열차 신호 고장으로 인해 당일 09:45경 지연 투입되었습니다. 서울교통공사 공식 간편지연증명서(45분 지연)를 증빙으로 첨부하며, 퇴근 후 잔여 공수를 성실히 보충 완료하였습니다. 도급 SLA 공수 정상 참작을 요청드립니다.`;
       } else if (presetType === 'CLIENT_OFFSITE') {
-        text = `당일 오전 09:00부터 신한카드 고객사 현장(을지로 본사 12층) 긴급 배포 작업 지원을 위해 외근지로 직접 이동하여 근무를 개시하였습니다. 현장 작업 일지 및 고객사 담당자 확인 내역을 첨부합니다.`;
+        text = `당일 오전 09:00부터 신한카드 고객사 현장(을지로 본사 12층) 긴급 SM 장애 대응 및 운영 지원을 위해 외근지로 직접 이동하여 근무를 개시하였습니다. 현장 작업 일지 및 고객사 담당자 확인 내역을 첨부합니다.`;
       } else if (presetType === 'SYSTEM_GPS_ERROR') {
         text = `08:55경 사옥 3층 사무실 입실 완료하였으나 단말기 GPS 수신 음영 및 사내 Wi-Fi 교차 검증 일시 지연으로 출근 태그가 누락되었습니다. 사옥 출입 게이트 스피드게이트 통과 기록(08:53)을 증빙으로 첨부하여 소명합니다.`;
       } else if (presetType === 'OFFICIAL_DUTY') {

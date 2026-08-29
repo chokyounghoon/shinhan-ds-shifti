@@ -275,7 +275,7 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
       {/* 2. 총 투입 공수(Man-Power) 및 SLA 준수율 KPI 그리드 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
         <div style={kpiBoxStyle}>
-          <div style={{ fontSize: '11px', color: '#6B7684', fontWeight: 600 }}>총 도급 프로젝트</div>
+          <div style={{ fontSize: '11px', color: '#6B7684', fontWeight: 600 }}>총 도급 SM 운영 파트</div>
           <div style={{ fontSize: '18px', fontWeight: 800, color: '#191F28', marginTop: '4px' }}>2개</div>
         </div>
         <div style={kpiBoxStyle}>
