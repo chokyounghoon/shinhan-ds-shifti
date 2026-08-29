@@ -97,47 +97,49 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
         });
         circle.setMap(map);
 
-        // 2. 파인에비뉴(카드) 메인 핀 커스텀 오버레이
+        // 2. 도급 약정지 메인 핀 커스텀 오버레이 (정밀 지오펜스 중심점 일치)
         const mainOverlayContent = document.createElement('div');
         mainOverlayContent.innerHTML = `
           <div style="
             display: flex;
             flex-direction: column;
             align-items: center;
-            transform: translate(-50%, -100%);
             filter: drop-shadow(0 4px 12px rgba(0,82,255,0.5));
             cursor: pointer;
+            user-select: none;
           ">
             <div style="
               background: #0052FF;
               color: #FFFFFF;
-              padding: 6px 14px;
+              padding: 5px 12px;
               border-radius: 20px;
               font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', sans-serif;
-              font-size: 12px;
+              font-size: 11.5px;
               font-weight: 800;
               white-space: nowrap;
               border: 2px solid #FFFFFF;
               box-shadow: 0 4px 14px rgba(0,82,255,0.55);
-              margin-bottom: 4px;
+              margin-bottom: 2px;
               display: flex;
               align-items: center;
-              gap: 5px;
+              gap: 4px;
             ">
               <span>📍</span> <span>${locName}</span>
-              <span style="background: rgba(255,255,255,0.25); padding: 1px 6px; border-radius: 10px; font-size: 10px;">100m</span>
+              <span style="background: rgba(255,255,255,0.25); padding: 1px 5px; border-radius: 10px; font-size: 9.5px;">100m</span>
             </div>
-            <svg width="34" height="34" viewBox="0 0 24 24" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.8">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.8" style="display: block; margin: 0 auto;">
               <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
               <circle cx="12" cy="9" r="2.5" fill="#FFFFFF" />
             </svg>
+            <div style="width: 8px; height: 8px; background: #0052FF; border: 2px solid #FFFFFF; border-radius: 50%; box-shadow: 0 0 8px #0052FF; margin-top: -3px;"></div>
           </div>
         `;
 
         const mainOverlay = new window.kakao.maps.CustomOverlay({
           position: new window.kakao.maps.LatLng(targetLat, targetLng),
           content: mainOverlayContent,
-          yAnchor: 1,
+          xAnchor: 0.5,
+          yAnchor: 1.0,
           zIndex: 100
         });
         mainOverlay.setMap(map);
@@ -316,22 +318,24 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
       fillOpacity: 0.12
     }).addTo(map);
 
-    // 메인 도급지 핀 마커 (커스텀 HTML)
+    // 메인 도급지 핀 마커 (커스텀 HTML - 지오펜스 중심점 정확 일치)
     const mainPinIcon = L.divIcon({
       className: 'custom-main-pin',
       html: `
-        <div style="display: flex; flex-direction: column; align-items: center; transform: translate(-50%, -100%); filter: drop-shadow(0 4px 10px rgba(0,82,255,0.45)); cursor: pointer;">
-          <div style="background: #0052FF; color: #FFFFFF; padding: 5px 12px; border-radius: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', sans-serif; font-size: 11.5px; font-weight: 800; white-space: nowrap; border: 2px solid #FFFFFF; box-shadow: 0 4px 12px rgba(0,82,255,0.5); display: flex; align-items: center; gap: 5px; margin-bottom: 2px;">
+        <div style="display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0 4px 10px rgba(0,82,255,0.45)); cursor: pointer; user-select: none; width: 160px;">
+          <div style="background: #0052FF; color: #FFFFFF; padding: 5px 12px; border-radius: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', sans-serif; font-size: 11.5px; font-weight: 800; white-space: nowrap; border: 2px solid #FFFFFF; box-shadow: 0 4px 12px rgba(0,82,255,0.5); display: flex; align-items: center; gap: 4px; margin-bottom: 2px;">
             <span>📍</span> <span>${locName}</span>
             <span style="background: rgba(255,255,255,0.25); padding: 1px 5px; border-radius: 8px; font-size: 9.5px;">100m</span>
           </div>
-          <svg width="34" height="34" viewBox="0 0 24 24" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.8">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.8" style="display: block; margin: 0 auto;">
             <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
             <circle cx="12" cy="9" r="2.5" fill="#FFFFFF" />
           </svg>
+          <div style="width: 8px; height: 8px; background: #0052FF; border: 2px solid #FFFFFF; border-radius: 50%; box-shadow: 0 0 8px #0052FF; margin-top: -3px;"></div>
         </div>
       `,
-      iconSize: [0, 0]
+      iconSize: [160, 68],
+      iconAnchor: [80, 68]
     });
     L.marker([targetLat, targetLng], { icon: mainPinIcon }).addTo(map);
 
