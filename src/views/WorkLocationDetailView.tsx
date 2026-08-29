@@ -23,7 +23,7 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const kakaoMapRef = useRef<any>(null);
   const leafletMapRef = useRef<L.Map | null>(null);
-  const [mapType, setMapType] = useState<'ROADMAP' | 'SKYVIEW'>('ROADMAP');
+  const [mapType, setMapType] = useState<'ROADMAP' | 'SKYVIEW' | 'TERRAIN'>('ROADMAP');
   const [isKakaoActive, setIsKakaoActive] = useState<boolean>(true);
 
   const locName = location ? location.name.replace('[좌표] ', '') : '파인에비뉴(카드)';
@@ -260,7 +260,7 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
       });
     };
 
-    // Kakao SDK가 로드되어 있는지 체크하고 로드
+    // Kakao SDK가 로드되어 있는지 체크하고 로드, 없으면 즉시 고해상도 Leaflet 엔진 가동
     if (window.kakao && window.kakao.maps) {
       initKakaoMap();
     } else {
@@ -271,14 +271,13 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
         }
       }, 100);
 
-      // 3초 후에도 카카오가 없으면 Leaflet 폴백
+      // 카카오 미지원 또는 빠른 반응을 위해 200ms 내 Leaflet 고해상도 벡터 지도 즉시 렌더
       const timer = setTimeout(() => {
         clearInterval(checkScript);
         if (!kakaoMapRef.current && mapContainerRef.current) {
-          console.log('Fallback to Leaflet map');
           initLeafletFallback();
         }
-      }, 2500);
+      }, 200);
 
       return () => {
         clearInterval(checkScript);
@@ -287,29 +286,74 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
     }
   }, [targetLat, targetLng, locName]);
 
-  // Leaflet 폴백 엔진
+  // Leaflet 고해상도 상세 지도 엔진 (구글 고화질 한국어 레이어: 빌딩 상세 윤곽, 번지수, 등고선, 지하철역, 줌 22 지원)
   const initLeafletFallback = () => {
     if (!mapContainerRef.current || leafletMapRef.current) return;
     mapContainerRef.current.innerHTML = '';
     const map = L.map(mapContainerRef.current, {
       center: [targetLat, targetLng],
-      zoom: 17.5,
+      zoom: 18,
+      maxZoom: 22,
       zoomControl: false,
       attributionControl: false
     });
     leafletMapRef.current = map;
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png', {
-      maxZoom: 20
+
+    // Google Maps 한국어 표준 고화질 타일 (상세 건물 윤곽 및 지번 완벽 표시)
+    L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=ko', {
+      subdomains: ['0', '1', '2', '3'],
+      maxZoom: 22,
+      maxNativeZoom: 20
     }).addTo(map);
 
+    // 100m 정밀 지오펜스 반경 원
     L.circle([targetLat, targetLng], {
       radius: 100,
       color: '#0052FF',
-      weight: 2.5,
+      weight: 3,
       dashArray: '6, 6',
       fillColor: '#0052FF',
-      fillOpacity: 0.14
+      fillOpacity: 0.12
     }).addTo(map);
+
+    // 메인 도급지 핀 마커 (커스텀 HTML)
+    const mainPinIcon = L.divIcon({
+      className: 'custom-main-pin',
+      html: `
+        <div style="display: flex; flex-direction: column; align-items: center; transform: translate(-50%, -100%); filter: drop-shadow(0 4px 10px rgba(0,82,255,0.45)); cursor: pointer;">
+          <div style="background: #0052FF; color: #FFFFFF; padding: 5px 12px; border-radius: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', sans-serif; font-size: 11.5px; font-weight: 800; white-space: nowrap; border: 2px solid #FFFFFF; box-shadow: 0 4px 12px rgba(0,82,255,0.5); display: flex; align-items: center; gap: 5px; margin-bottom: 2px;">
+            <span>📍</span> <span>${locName}</span>
+            <span style="background: rgba(255,255,255,0.25); padding: 1px 5px; border-radius: 8px; font-size: 9.5px;">100m</span>
+          </div>
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.8">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+            <circle cx="12" cy="9" r="2.5" fill="#FFFFFF" />
+          </svg>
+        </div>
+      `,
+      iconSize: [0, 0]
+    });
+    L.marker([targetLat, targetLng], { icon: mainPinIcon }).addTo(map);
+
+    // 주변 랜드마크 및 전철역 핀 마커
+    const landmarks = nearbyLandmarks[locName] || nearbyLandmarks['파인에비뉴(카드)'] || [];
+    landmarks.forEach(poi => {
+      const isSubway = poi.type === 'SUBWAY';
+      const poiIcon = L.divIcon({
+        className: 'custom-poi-pin',
+        html: `
+          <div style="display: flex; align-items: center; gap: 4px; background: ${isSubway ? '#059669' : '#1E293B'}; color: #FFFFFF; padding: 3px 8px; border-radius: 12px; font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', sans-serif; font-size: 10.5px; font-weight: 800; white-space: nowrap; border: 1.5px solid #FFFFFF; box-shadow: 0 2px 6px rgba(0,0,0,0.3); cursor: pointer; transform: translate(-50%, -50%);">
+            <span>${isSubway ? '🚇' : '🏢'}</span>
+            <span>${poi.name}</span>
+          </div>
+        `,
+        iconSize: [0, 0]
+      });
+      const marker = L.marker([poi.lat, poi.lng], { icon: poiIcon }).addTo(map);
+      marker.on('click', () => {
+        map.setView([poi.lat, poi.lng], 19, { animate: true });
+      });
+    });
   };
 
   // 줌인 (+)
@@ -337,7 +381,7 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
     if (kakaoMapRef.current && window.kakao?.maps) {
       kakaoMapRef.current.panTo(new window.kakao.maps.LatLng(targetLat, targetLng));
     } else if (leafletMapRef.current) {
-      leafletMapRef.current.setView([targetLat, targetLng], 17.5, { animate: true });
+      leafletMapRef.current.setView([targetLat, targetLng], 18, { animate: true });
     }
   };
 
@@ -346,12 +390,13 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
     if (kakaoMapRef.current && window.kakao?.maps) {
       kakaoMapRef.current.panTo(new window.kakao.maps.LatLng(lat, lng));
     } else if (leafletMapRef.current) {
-      leafletMapRef.current.setView([lat, lng], 18.5, { animate: true });
+      leafletMapRef.current.setView([lat, lng], 19.5, { animate: true });
     }
   };
 
-  // 일반지도 / 위성사진 레이어 전환
-  const handleToggleMapType = () => {
+  // 일반지도 / 위성사진 / 지형도 3단 레이어 전환
+  const handleSetMapType = (type: 'ROADMAP' | 'SKYVIEW' | 'TERRAIN') => {
+    setMapType(type);
     if (leafletMapRef.current) {
       leafletMapRef.current.eachLayer((layer) => {
         if (layer instanceof L.TileLayer) {
@@ -359,18 +404,23 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
         }
       });
 
-      if (mapType === 'ROADMAP') {
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-          maxZoom: 19
-        }).addTo(leafletMapRef.current);
-        setMapType('SKYVIEW');
-      } else {
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png', {
-          maxZoom: 20,
-          subdomains: 'abcd'
-        }).addTo(leafletMapRef.current);
-        setMapType('ROADMAP');
+      let url = 'https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=ko';
+      let maxNative = 20;
+
+      if (type === 'SKYVIEW') {
+        // 위성 하이브리드 레이어 (위성 사진 + 건물명/도로명 오버레이)
+        url = 'https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&hl=ko';
+      } else if (type === 'TERRAIN') {
+        // 지형 및 등고선 레이어
+        url = 'https://mt{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}&hl=ko';
+        maxNative = 19;
       }
+
+      L.tileLayer(url, {
+        subdomains: ['0', '1', '2', '3'],
+        maxZoom: 22,
+        maxNativeZoom: maxNative
+      }).addTo(leafletMapRef.current);
     }
   };
 
@@ -453,6 +503,70 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
       }}>
         {/* 실제 인터랙티브 지도 DOM */}
         <div ref={mapContainerRef} style={{ width: '100%', height: '100%', zIndex: 1 }} />
+
+        {/* 🗺️ 상단 좌측: 지도 모드 전환 버튼 (일반 / 위성 / 지형) */}
+        <div style={{
+          position: 'absolute',
+          top: '12px',
+          left: '12px',
+          display: 'flex',
+          background: '#FFFFFF',
+          borderRadius: '8px',
+          padding: '3px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
+          zIndex: 10,
+          border: '1px solid #CBD5E1',
+          gap: '2px'
+        }}>
+          <button
+            type="button"
+            onClick={() => handleSetMapType('ROADMAP')}
+            style={{
+              padding: '5px 8px',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontWeight: mapType === 'ROADMAP' ? 800 : 600,
+              background: mapType === 'ROADMAP' ? '#0052FF' : 'transparent',
+              color: mapType === 'ROADMAP' ? '#FFFFFF' : '#475569',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            🗺️ 일반
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSetMapType('SKYVIEW')}
+            style={{
+              padding: '5px 8px',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontWeight: mapType === 'SKYVIEW' ? 800 : 600,
+              background: mapType === 'SKYVIEW' ? '#0052FF' : 'transparent',
+              color: mapType === 'SKYVIEW' ? '#FFFFFF' : '#475569',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            🛰️ 위성
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSetMapType('TERRAIN')}
+            style={{
+              padding: '5px 8px',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontWeight: mapType === 'TERRAIN' ? 800 : 600,
+              background: mapType === 'TERRAIN' ? '#0052FF' : 'transparent',
+              color: mapType === 'TERRAIN' ? '#FFFFFF' : '#475569',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            ⛰️ 지형
+          </button>
+        </div>
 
         {/* 인터랙티브 줌 컨트롤 (+, -) & 센터 복귀 버튼 */}
         <div style={{
