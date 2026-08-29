@@ -6,54 +6,52 @@
       <stop offset="100%" stop-color="#001850" />
     </linearGradient>
     <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#00E5FF" />
-      <stop offset="100%" stop-color="#0052FF" />
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="50%" stop-color="#0066FF" />
+      <stop offset="100%" stop-color="#003EB3" />
     </linearGradient>
     <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#FFE082" />
       <stop offset="100%" stop-color="#FFB300" />
     </linearGradient>
+    <linearGradient id="penGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#67E8F9" />
+      <stop offset="100%" stop-color="#00E5FF" />
+    </linearGradient>
     <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="12" result="blur" />
+      <feGaussianBlur stdDeviation="10" result="blur" />
       <feComposite in="SourceGraphic" in2="blur" operator="over" />
     </filter>
   </defs>
 
-  <!-- 배경 둥근 사각형 (스마트폰 앱 아이콘 규격) -->
+  <!-- 배경 둥근 사각형 (스마트폰 앱 바로가기 아이콘 규격) -->
   <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
 
   <!-- 외곽 은은한 네온 링 -->
-  <circle cx="256" cy="256" r="210" fill="none" stroke="rgba(0, 229, 255, 0.18)" stroke-width="6" />
+  <circle cx="256" cy="240" r="190" fill="none" stroke="rgba(56, 189, 248, 0.22)" stroke-width="4" />
 
-  <!-- 방패 (Shield) 베이스 -->
-  <path d="M256 96 L376 144 C376 270 256 376 256 376 C256 376 136 270 136 144 Z" 
-        fill="url(#shieldGrad)" 
-        filter="url(#glow)" 
-        opacity="0.95" />
+  <!-- 전자서명 & 보안 계약 인증 서클 베이스 -->
+  <circle cx="256" cy="230" r="140" fill="#001C55" stroke="url(#shieldGrad)" stroke-width="6" filter="url(#glow)" />
 
-  <!-- 방패 내부 음영/보안 라인 -->
-  <path d="M256 122 L352 160 C352 260 256 348 256 348 C256 348 160 260 160 160 Z" 
-        fill="#001C55" />
+  <!-- 중앙 'S' 전자 서명 필기체 및 계약 증명 심볼 -->
+  <path d="M256 145 C200 145 170 178 170 210 C170 270 280 255 280 295 C280 316 260 328 234 328 C200 328 180 308 178 280 L142 280 C145 330 184 358 234 358 C288 358 318 328 318 292 C318 232 208 245 208 208 C208 190 226 177 252 177 C282 177 300 194 302 216 L338 216 C335 174 300 145 256 145 Z" 
+        fill="url(#penGrad)" />
 
-  <!-- 중앙 'S' & 체크 심볼 -->
-  <path d="M256 160 C210 160 186 186 186 214 C186 264 276 252 276 286 C276 304 258 314 236 314 C208 314 192 298 190 274 L160 274 C162 316 194 340 236 340 C280 340 306 314 306 284 C306 234 216 244 216 212 C216 196 232 186 254 186 C280 186 294 200 296 220 L326 220 C324 184 296 160 256 160 Z" 
-        fill="url(#shieldGrad)" />
-
-  <!-- 골드 체크 마크 (출근/근태 승인 심볼) -->
-  <path d="M290 286 L314 310 L368 256" 
+  <!-- 골드 전자 서명 날인 펜촉/체크 마크 (전자서명 S-Sign 심볼) -->
+  <path d="M275 280 L305 310 L370 240" 
         fill="none" 
         stroke="url(#goldGrad)" 
-        stroke-width="14" 
+        stroke-width="15" 
         stroke-linecap="round" 
         stroke-linejoin="round" 
         filter="url(#glow)" />
 
-  <!-- 하단 텍스트 태그 -->
-  <text x="256" y="440" 
+  <!-- 하단 S-Sign 브랜드 네임 -->
+  <text x="256" y="442" 
         font-family="-apple-system, BlinkMacSystemFont, 'Pretendard', sans-serif" 
-        font-size="44" 
+        font-size="46" 
         font-weight="900" 
-        letter-spacing="4" 
+        letter-spacing="5" 
         fill="#FFFFFF" 
-        text-anchor="middle">S-GUARD</text>
+        text-anchor="middle">S-Sign</text>
 </svg>

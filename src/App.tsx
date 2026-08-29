@@ -105,7 +105,7 @@ export function App() {
   const [templatesList, setTemplatesList] = useState<ScheduleTemplateItem[]>(defaultScheduleTemplates);
   const [hasScheduleToday, setHasScheduleToday] = useState(false);
 
-  // S-GUARD 회원 정보 관리(마이페이지) 모달 상태
+  // S-Sign 회원 정보 관리(마이페이지) 모달 상태
   const [isMyPageOpen, setIsMyPageOpen] = useState(false);
 
   // Tab & Page Navigation (초기 기본값: 메인 홈 화면)

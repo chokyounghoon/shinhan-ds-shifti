@@ -921,7 +921,7 @@ app.post('/security/anti-spoof/verify', async (c) => {
         `).bind(
           auditId,
           employee_id,
-          '보안엔진(S-Guard)',
+          '보안엔진(S-Sign)',
           employee_id,
           JSON.stringify({ threats, score, isVpn, isMockGps, asOrg, country, clientIp }),
           clientIp,

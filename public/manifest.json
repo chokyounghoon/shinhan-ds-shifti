@@ -1,7 +1,7 @@
 {
-  "name": "신한DS 도급공정 관제시스템 (S-GUARD)",
-  "short_name": "S-GUARD",
-  "description": "신한DS 및 협력사 도급 공정 근태 및 투입인력 안전 관제 시스템",
+  "name": "신한DS 도급공정 관제시스템 (S-Sign)",
+  "short_name": "S-Sign",
+  "description": "신한DS 및 협력사 도급 공정 전자서명 및 투입인력 안전 관제 시스템 (S-Sign)",
   "start_url": "/",
   "id": "/",
   "display": "standalone",

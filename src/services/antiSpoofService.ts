@@ -1,5 +1,5 @@
 /**
- * S-GUARD Enterprise Anti-GPS Spoofing & Zero-Trust VPN/Proxy Defense Engine
+ * S-Sign Enterprise Anti-GPS Spoofing & Zero-Trust VPN/Proxy Defense Engine
  * 
  * [7중 무결성 보안 방어 체계]
  * 1. Cloudflare Edge 실시간 IP/ASN 분석 (AWS/GCP/Linode/M247 등 데이터센터 및 상용 VPN 차단)

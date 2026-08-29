@@ -402,7 +402,7 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 800, color: isSecurityPassed ? '#0052FF' : '#DC2626' }}>
               {isSecurityPassed ? <ShieldCheck size={13} /> : <ShieldAlert size={13} />}
-              <span>S-GUARD 안티스푸핑 무결성 검증 ({spoofResult.securityScore}점)</span>
+              <span>S-Sign 안티스푸핑 무결성 검증 ({spoofResult.securityScore}점)</span>
             </div>
             <span style={{ fontSize: '10px', color: '#64748B' }}>
               {isSecurityPassed ? '보안 인증 토큰 발급됨 ✓' : '위·변작 위협 탐지됨 🚨'}

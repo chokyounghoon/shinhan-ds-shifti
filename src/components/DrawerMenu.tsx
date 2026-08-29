@@ -214,7 +214,7 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
           </button>
         </div>
 
-        {/* 4. 로그아웃 (S-GUARD 보안 세션 종료) */}
+        {/* 4. 로그아웃 (S-Sign 보안 세션 종료) */}
         <div style={{ marginTop: '14px', marginBottom: '14px' }}>
           <button 
             onClick={() => {
@@ -230,7 +230,7 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
             }}
           >
             <Lock size={18} color="#D9480F" />
-            <span style={{ fontWeight: 700 }}>S-GUARD 보안 로그아웃</span>
+            <span style={{ fontWeight: 700 }}>S-Sign 보안 로그아웃</span>
           </button>
         </div>
 
@@ -248,7 +248,7 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
           <button onClick={onToggleTheme} style={{ color: themeMode === 'ddangyo' ? '#FF462D' : '#0066FF', fontWeight: 700 }}>
             ● {themeMode === 'ddangyo' ? '땡겨요 테마' : '신한블루 테마'}
           </button>
-          <span>v2.0 (S-GUARD)</span>
+          <span>v2.0 (S-Sign)</span>
         </div>
       </div>
     </div>

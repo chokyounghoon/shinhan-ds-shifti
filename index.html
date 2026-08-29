@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>신한DS 협력사 도급 공정 관제 시스템 (S-GUARD)</title>
+    <title>신한DS 협력사 도급 공정 관제 시스템 (S-Sign)</title>
     
     <!-- PWA Web App Manifest & Icons -->
     <link rel="manifest" href="/manifest.json" />
@@ -15,13 +15,13 @@
     <!-- iOS Apple Web App Meta -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="S-GUARD" />
+    <meta name="apple-mobile-web-app-title" content="S-Sign" />
 
     <!-- Android / Chrome / Windows PWA Meta -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#0052FF" />
-    <meta name="application-name" content="S-GUARD" />
-    <meta name="description" content="신한DS 및 협력사 도급 공정 근태 및 투입인력 안전 관제 시스템" />
+    <meta name="application-name" content="S-Sign" />
+    <meta name="description" content="신한DS 및 협력사 도급 공정 전자서명 및 투입인력 안전 관제 시스템 (S-Sign)" />
 
     <!-- Pretendard Variable Font CDN -->
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
@@ -39,10 +39,10 @@
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js')
             .then((reg) => {
-              console.log('[S-GUARD PWA] Service Worker registered successfully with scope:', reg.scope);
+              console.log('[S-Sign PWA] Service Worker registered successfully with scope:', reg.scope);
             })
             .catch((err) => {
-              console.warn('[S-GUARD PWA] Service Worker registration failed:', err);
+              console.warn('[S-Sign PWA] Service Worker registration failed:', err);
             });
         });
       }

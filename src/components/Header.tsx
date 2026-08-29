@@ -143,7 +143,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </button>
 
-        {/* S-GUARD 마이페이지 프로필 버튼 (파트 : 로그인 사용자 이름 풀네임) */}
+        {/* S-Sign 마이페이지 프로필 버튼 (파트 : 로그인 사용자 이름 풀네임) */}
         {onOpenMyPage && (
           <button
             onClick={onOpenMyPage}
@@ -162,7 +162,7 @@ export const Header: React.FC<HeaderProps> = ({
               flexShrink: 0,
               transition: 'all 0.15s ease'
             }}
-            title="S-GUARD 회원 정보 관리"
+            title="S-Sign 회원 정보 관리"
           >
             {/* 사용자 프로필 아바타 / 사진 */}
             <div style={{

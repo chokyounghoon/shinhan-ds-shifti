@@ -443,7 +443,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
 
       // 로컬 DB 및 세션에도 업데이트
       dbService.updateUserPassword(userEmpId, trimmedNewPw);
-      alert('🔒 S-GUARD 2단계 보안 비밀번호가 DB에 안전하게 변경 적용되었습니다.\n다음 로그인 시 변경된 새 비밀번호를 사용해 주세요.');
+      alert('🔒 S-Sign 2단계 보안 비밀번호가 DB에 안전하게 변경 적용되었습니다.\n다음 로그인 시 변경된 새 비밀번호를 사용해 주세요.');
       setIsChangingPassword(false);
       setCurrentPw('');
       setNewPw('');
@@ -456,7 +456,7 @@ export const SGuardMyPageView: React.FC<SGuardMyPageViewProps> = ({
         return;
       }
       dbService.updateUserPassword(userEmpId, trimmedNewPw);
-      alert('🔒 S-GUARD 2단계 보안 비밀번호가 안전하게 변경 적용되었습니다.');
+      alert('🔒 S-Sign 2단계 보안 비밀번호가 안전하게 변경 적용되었습니다.');
       setIsChangingPassword(false);
       setCurrentPw('');
       setNewPw('');

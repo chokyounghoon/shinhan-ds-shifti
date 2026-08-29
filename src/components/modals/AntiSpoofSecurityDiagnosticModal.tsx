@@ -66,7 +66,7 @@ export const AntiSpoofSecurityDiagnosticModal: React.FC<AntiSpoofSecurityDiagnos
             </div>
             <div>
               <div style={{ fontSize: '12px', fontWeight: 700, color: 'rgba(255, 255, 255, 0.85)', letterSpacing: '0.5px' }}>
-                S-GUARD ZERO-TRUST GEOLOCATION DEFENSE
+                S-Sign ZERO-TRUST GEOLOCATION DEFENSE
               </div>
               <h3 style={{ fontSize: '18px', fontWeight: 900, margin: '2px 0 0 0' }}>
                 {result.isSecure ? '7중 위치 무결성 & VPN 방어 가동' : '⚠️ 위치 조작 / VPN 우회 감지'}

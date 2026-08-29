@@ -1,5 +1,5 @@
-// S-GUARD PWA Service Worker v1.0.0
-const CACHE_NAME = 'sguard-pwa-cache-v1';
+// S-Sign PWA Service Worker v2.0.0
+const CACHE_NAME = 'ssign-pwa-cache-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -88,12 +88,12 @@ self.addEventListener('fetch', (event) => {
 
 // 4. 푸시 알림 수신 (Push Notification)
 self.addEventListener('push', (event) => {
-  let data = { title: 'S-GUARD 관제 알림', body: '새로운 도급 공정 알림이 도착했습니다.' };
+  let data = { title: 'S-Sign 관제 알림', body: '새로운 도급 공정 알림이 도착했습니다.' };
   if (event.data) {
     try {
       data = event.data.json();
     } catch (e) {
-      data = { title: 'S-GUARD 관제 알림', body: event.data.text() };
+      data = { title: 'S-Sign 관제 알림', body: event.data.text() };
     }
   }
 
