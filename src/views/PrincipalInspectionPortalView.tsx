@@ -12,12 +12,17 @@ import {
   Clock, 
   DollarSign, 
   Lock, 
-  X
+  X,
+  Sparkles,
+  Radar
 } from 'lucide-react';
 import { dbService } from '../services/db';
 import { ServiceDeliveryInspection } from '../types';
 import { ElectronicSignatureModal } from '../components/modals/ElectronicSignatureModal';
 import { LegalComplianceAuditReportModal } from '../components/modals/LegalComplianceAuditReportModal';
+import { AiClarificationAuditModal } from '../components/modals/AiClarificationAuditModal';
+import { AiOfficialNoticeGeneratorModal } from '../components/modals/AiOfficialNoticeGeneratorModal';
+import { AiAnomalyRadarModal } from '../components/modals/AiAnomalyRadarModal';
 
 interface PrincipalInspectionPortalViewProps {
   themeMode: 'ddangyo' | 'shinhan';
@@ -42,6 +47,11 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [selectedEvidenceForNotice, setSelectedEvidenceForNotice] = useState<SlaBreachEvidence | null>(null);
   const [isOfficialNoticeModalOpen, setIsOfficialNoticeModalOpen] = useState(false);
+
+  // AI 3대 지능형 관리 모달 상태
+  const [isAiClarificationModalOpen, setIsAiClarificationModalOpen] = useState(false);
+  const [isAiNoticeGeneratorModalOpen, setIsAiNoticeGeneratorModalOpen] = useState(false);
+  const [isAiAnomalyRadarModalOpen, setIsAiAnomalyRadarModalOpen] = useState(false);
 
   // 전자 서명 & 감사 리포트 모달 상태
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
@@ -136,6 +146,116 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
           신한DS(원청)는 하청 근로자 개인에 대한 인사권(지각 판단, 징계, 근태 수정)을 행사하지 않으며, 
           <strong>'협력사별 총 투입 인력(Man-Power) 준수율'</strong> 및 <strong>'도급 계약상 SLA 이행 검수'</strong>를 통해 용역비 감액/손해배상 청구 근거를 적법하게 확보합니다.
         </p>
+      </div>
+
+      {/* 1-2. 🤖 Google Gemini AI 3대 지능형 관리 무기 툴바 */}
+      <div style={{
+        background: 'linear-gradient(135deg, #1E1B4B 0%, #312E81 100%)',
+        borderRadius: '14px',
+        padding: '14px 16px',
+        color: '#FFFFFF',
+        boxShadow: '0 4px 14px rgba(30, 27, 75, 0.25)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '10px'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Sparkles size={16} color="#A5B4FC" />
+            <span style={{ fontSize: '13.5px', fontWeight: 900, letterSpacing: '0.3px', color: '#FFFFFF' }}>
+              Google Gemini AI 지능형 도급 관리 3대 솔루션
+            </span>
+          </div>
+          <span style={{ fontSize: '11px', color: '#C7D2FE', fontWeight: 700, background: 'rgba(255,255,255,0.12)', padding: '2px 8px', borderRadius: '12px' }}>
+            SLA 엔진 가동중
+          </span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+          {/* AI 무기 1: 소명 사유 자동 판독 */}
+          <button
+            type="button"
+            onClick={() => setIsAiClarificationModalOpen(true)}
+            style={{
+              background: 'rgba(255, 255, 255, 0.1)',
+              border: '1px solid rgba(165, 180, 252, 0.3)',
+              borderRadius: '8px',
+              padding: '8px 6px',
+              color: '#FFFFFF',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <Scale size={16} color="#A5B4FC" />
+            <span style={{ fontSize: '11.5px', fontWeight: 800, textAlign: 'center', whiteSpace: 'nowrap' }}>
+              1. 소명 사유 AI 판독
+            </span>
+            <span style={{ fontSize: '9.5px', color: '#C7D2FE', textAlign: 'center' }}>
+              SLA 기준 3단계 태깅
+            </span>
+          </button>
+
+          {/* AI 무기 2: 월말 감액 공문 작성 */}
+          <button
+            type="button"
+            onClick={() => setIsAiNoticeGeneratorModalOpen(true)}
+            style={{
+              background: 'rgba(255, 255, 255, 0.1)',
+              border: '1px solid rgba(165, 180, 252, 0.3)',
+              borderRadius: '8px',
+              padding: '8px 6px',
+              color: '#FFFFFF',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <FileText size={16} color="#38BDF8" />
+            <span style={{ fontSize: '11.5px', fontWeight: 800, textAlign: 'center', whiteSpace: 'nowrap' }}>
+              2. 월말 공문 AI 생성
+            </span>
+            <span style={{ fontSize: '9.5px', color: '#C7D2FE', textAlign: 'center' }}>
+              5초 정산 공문/메일
+            </span>
+          </button>
+
+          {/* AI 무기 3: 꼼수 패턴 레이더 */}
+          <button
+            type="button"
+            onClick={() => setIsAiAnomalyRadarModalOpen(true)}
+            style={{
+              background: 'rgba(255, 255, 255, 0.1)',
+              border: '1px solid rgba(253, 164, 175, 0.3)',
+              borderRadius: '8px',
+              padding: '8px 6px',
+              color: '#FFFFFF',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <Radar size={16} color="#FDA4AF" />
+            <span style={{ fontSize: '11.5px', fontWeight: 800, textAlign: 'center', whiteSpace: 'nowrap' }}>
+              3. 꼼수 패턴 AI 탐지
+            </span>
+            <span style={{ fontSize: '9.5px', color: '#FECDD3', textAlign: 'center' }}>
+              이상 징후 인텔리전스
+            </span>
+          </button>
+        </div>
       </div>
 
       {toastMsg && (
@@ -473,6 +593,39 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
         signerName={signerName}
         inspectionMonth="2026년 08월"
         themeMode={themeMode}
+      />
+
+      {/* AI 무기 1: 소명 사유 자동 필터링 및 판독 모달 */}
+      <AiClarificationAuditModal
+        isOpen={isAiClarificationModalOpen}
+        onClose={() => setIsAiClarificationModalOpen(false)}
+        onApplyVerdict={(v) => {
+          setToastMsg(`🤖 AI 권고 판정 [${v.verdictLabel}]이 적용되었습니다: ${v.recommendedAction}`);
+          setTimeout(() => setToastMsg(null), 4000);
+        }}
+      />
+
+      {/* AI 무기 2: 월말 도급 정산용 공문 자동 초안 생성 모달 */}
+      <AiOfficialNoticeGeneratorModal
+        isOpen={isAiNoticeGeneratorModalOpen}
+        onClose={() => setIsAiNoticeGeneratorModalOpen(false)}
+        partnerCompany="유브갓"
+        complianceRate={92.0}
+        totalPenaltyAmount={480000}
+        onSendNoticeSuccess={(doc) => {
+          setToastMsg(`📜 [공문 발송 완료] ${doc.subject} 건이 협력사 대표 메일로 전송되었습니다.`);
+          setTimeout(() => setToastMsg(null), 4000);
+        }}
+      />
+
+      {/* AI 무기 3: 이상 징후(꼼수) 패턴 자동 탐지 레이더 모달 */}
+      <AiAnomalyRadarModal
+        isOpen={isAiAnomalyRadarModalOpen}
+        onClose={() => setIsAiAnomalyRadarModalOpen(false)}
+        onSummonPartnerRep={(target, pattern) => {
+          setToastMsg(`⚔️ [협력사 PM 호출 완료] ${target}님의 '${pattern}' 건에 대해 팩트 기반 소명 확약서 제출을 요구했습니다.`);
+          setTimeout(() => setToastMsg(null), 4000);
+        }}
       />
     </div>
   );
