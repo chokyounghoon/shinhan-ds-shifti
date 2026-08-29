@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { 
   ArrowLeft, 
   Search, 
@@ -8,9 +8,10 @@ import {
   ChevronRight, 
   X,
   Users,
-  FolderPlus
+  FolderPlus,
+  RefreshCw
 } from 'lucide-react';
-import { dbService } from '../services/db';
+import { dbService, safeFetchJson } from '../services/db';
 
 export interface OrgUnit {
   id: string;
@@ -95,6 +96,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
   const [orgList, setOrgList] = useState<OrgUnit[]>([]);
   const [companyList, setCompanyList] = useState<CompanyItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCompanyLoading, setIsCompanyLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   // 신규 조직 추가/수정 모달 상태
@@ -106,47 +108,51 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
   const [editingCompany, setEditingCompany] = useState<CompanyItem | null>(null);
 
   // Cloudflare D1 shifti-db 원격 실시간 조회 (조직 목록)
-  const fetchRemoteOrgs = async () => {
+  const fetchRemoteOrgs = useCallback(async () => {
     setIsLoading(true);
     try {
       const res = await fetch('/api/organizations');
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          const mapped: OrgUnit[] = json.data.map((item: any) => ({
-            id: item.id || `org-${Date.now()}`,
-            hierarchyPath: item.hierarchy_path || `신한DS > ${item.team_name || '카드개발'} > ${item.part_name}`,
-            companyName: item.company_name || '신한DS',
-            teamName: item.team_name || '카드개발',
-            partName: item.part_name || '',
-            leaderName: cleanLeaderName(item.leader_name),
-            locationName: item.location_name || '파인에비뉴(카드)',
-            memberCount: item.member_count !== undefined ? Number(item.member_count) : 0,
-            description: item.description || ''
-          }));
-          setOrgList(mapped);
-        }
+      const json = await safeFetchJson(res);
+      if (json && json.success && Array.isArray(json.data)) {
+        const mapped: OrgUnit[] = json.data.map((item: any) => ({
+          id: item.id || `org-${Date.now()}`,
+          hierarchyPath: item.hierarchy_path || `신한DS > ${item.team_name || '카드개발'} > ${item.part_name}`,
+          companyName: item.company_name || '신한DS',
+          teamName: item.team_name || '카드개발',
+          partName: item.part_name || '',
+          leaderName: cleanLeaderName(item.leader_name),
+          locationName: item.location_name || '파인에비뉴(카드)',
+          memberCount: item.member_count !== undefined ? Number(item.member_count) : 0,
+          description: item.description || ''
+        }));
+        setOrgList(mapped);
       }
     } catch (err) {
       console.warn('Organizations fetch error:', err);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   // Cloudflare D1 shifti-db 원격 실시간 조회 (협력사 목록)
-  const fetchRemoteCompanies = async () => {
+  const fetchRemoteCompanies = useCallback(async () => {
+    setIsCompanyLoading(true);
     try {
       const res = await fetch('/api/companies');
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          setCompanyList(json.data);
-        }
+      const json = await safeFetchJson(res);
+      if (json && json.success && Array.isArray(json.data)) {
+        setCompanyList(json.data);
       }
     } catch (err) {
       console.warn('Companies fetch error:', err);
+    } finally {
+      setIsCompanyLoading(false);
     }
+  }, []);
+
+  const handleRefreshAll = () => {
+    fetchRemoteOrgs();
+    fetchRemoteCompanies();
   };
 
   useEffect(() => {
@@ -158,7 +164,15 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
     } catch (e) {}
     fetchRemoteOrgs();
     fetchRemoteCompanies();
-  }, []);
+  }, [fetchRemoteOrgs, fetchRemoteCompanies]);
+
+  useEffect(() => {
+    if (activeTab === 'COMPANY' && companyList.length === 0) {
+      fetchRemoteCompanies();
+    } else if (activeTab === 'ORG' && orgList.length === 0) {
+      fetchRemoteOrgs();
+    }
+  }, [activeTab, companyList.length, orgList.length, fetchRemoteCompanies, fetchRemoteOrgs]);
 
   // 필터링된 조직 목록
   const filteredOrgs = useMemo(() => {
@@ -438,49 +452,73 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
           </div>
         </div>
 
-        {activeTab === 'ORG' ? (
-          <button 
-            onClick={handleOpenAdd}
-            style={{ 
-              background: '#0052FF', 
-              color: '#FFFFFF', 
-              border: 'none',
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            onClick={handleRefreshAll}
+            disabled={isLoading || isCompanyLoading}
+            style={{
+              background: '#F1F5F9',
+              color: '#475569',
+              border: '1px solid #CBD5E1',
               borderRadius: '8px',
-              padding: '7px 12px',
-              fontSize: '13px',
+              padding: '7px 10px',
+              fontSize: '12.5px',
               fontWeight: 700,
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '5px',
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(0, 82, 255, 0.25)'
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              cursor: (isLoading || isCompanyLoading) ? 'not-allowed' : 'pointer'
             }}
+            title="D1 데이터베이스 실시간 새로고침"
           >
-            <Plus size={16} />
-            <span>조직 추가</span>
+            <RefreshCw size={14} className={(isLoading || isCompanyLoading) ? 'animate-spin' : ''} style={{ animation: (isLoading || isCompanyLoading) ? 'spin 1s linear infinite' : 'none' }} />
+            <span>새로고침</span>
           </button>
-        ) : (
-          <button 
-            onClick={handleOpenAddCompany}
-            style={{ 
-              background: '#0052FF', 
-              color: '#FFFFFF', 
-              border: 'none',
-              borderRadius: '8px',
-              padding: '7px 12px',
-              fontSize: '13px',
-              fontWeight: 700,
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '5px',
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(0, 82, 255, 0.25)'
-            }}
-          >
-            <Plus size={16} />
-            <span>협력사 추가</span>
-          </button>
-        )}
+
+          {activeTab === 'ORG' ? (
+            <button 
+              onClick={handleOpenAdd}
+              style={{ 
+                background: '#0052FF', 
+                color: '#FFFFFF', 
+                border: 'none',
+                borderRadius: '8px',
+                padding: '7px 12px',
+                fontSize: '13px',
+                fontWeight: 700,
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '5px',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(0, 82, 255, 0.25)'
+              }}
+            >
+              <Plus size={16} />
+              <span>조직 추가</span>
+            </button>
+          ) : (
+            <button 
+              onClick={handleOpenAddCompany}
+              style={{ 
+                background: '#0052FF', 
+                color: '#FFFFFF', 
+                border: 'none',
+                borderRadius: '8px',
+                padding: '7px 12px',
+                fontSize: '13px',
+                fontWeight: 700,
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '5px',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(0, 82, 255, 0.25)'
+              }}
+            >
+              <Plus size={16} />
+              <span>협력사 추가</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 2. 상단 2대 마스터 전환 탭 바 (도급 조직 vs 협력사 관리) */}
@@ -801,7 +839,66 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
           )
         ) : (
           /* ================= [협력사 리스트] ================= */
-          filteredCompanies.length === 0 ? (
+          isCompanyLoading ? (
+            <div style={{ padding: '40px 20px', textAlign: 'center', color: '#0052FF', fontSize: '13.5px', fontWeight: 600 }}>
+              데이터베이스에서 협력사 정보를 불러오는 중입니다...
+            </div>
+          ) : companyList.length === 0 ? (
+            <div style={{
+              padding: '60px 20px',
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '12px',
+              background: '#FFFFFF',
+              borderRadius: '16px',
+              border: '1px dashed #CBD5E1',
+              margin: '20px 0'
+            }}>
+              <div style={{
+                width: '54px',
+                height: '54px',
+                borderRadius: '50%',
+                background: 'rgba(0, 82, 255, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#0052FF'
+              }}>
+                <Users size={28} />
+              </div>
+              <div>
+                <div style={{ fontSize: '15.5px', fontWeight: 800, color: '#0F172A', marginBottom: '4px' }}>
+                  등록된 협력사가 없습니다
+                </div>
+                <div style={{ fontSize: '12.5px', color: '#64748B' }}>
+                  우측 상단 <strong>[+ 협력사 추가]</strong> 버튼을 눌러 도급 참여 협력사를 등록해 주세요.
+                </div>
+              </div>
+              <button
+                onClick={handleOpenAddCompany}
+                style={{
+                  marginTop: '6px',
+                  background: '#0052FF',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '9px 18px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 8px rgba(0, 82, 255, 0.25)'
+                }}
+              >
+                <Plus size={16} />
+                <span>첫 협력사 등록하기</span>
+              </button>
+            </div>
+          ) : filteredCompanies.length === 0 ? (
             <div style={{ padding: '40px 20px', textAlign: 'center', color: '#94A3B8', fontSize: '13.5px' }}>
               검색 조건에 해당하는 협력사가 없습니다.
             </div>

@@ -90,51 +90,61 @@ export const SubmitClarificationModal: React.FC<SubmitClarificationModalProps> =
     }
 
     setIsSubmitting(true);
-    const reqId = `clarify-${Date.now()}`;
     const empId = currentUser?.employeeId || currentUser?.id || 'PT20260816';
+    const empName = currentUser?.name || '직원';
+    const companyName = currentUser?.partnerCompany || currentUser?.companyName || '유브갓';
     const typeTitle = incident?.type === 'LATE' ? '지각 투입 소명' : '출근 누락 소명';
-
-    const newRequest = {
-      id: reqId,
-      requestType: 'PUNCH_CORRECTION',
-      title: typeTitle,
-      targetDate: targetDate,
-      startTime: actualStartTime,
-      endTime: actualEndTime,
-      reason: reasonText,
-      status: 'PENDING',
-      partnerCompany: partnerCompany,
-      approverName: approverName,
-      createdDate: new Date().toISOString().substring(0, 10)
-    };
+    const incidentType = incident?.type || 'LATE';
 
     try {
-      // 1. Cloudflare D1 DB에 실시간 INSERT
-      await fetch('/api/attendance/request', {
+      // D1 clarification_requests 테이블에 저장 (2단계 결재 시작)
+      const res = await fetch('/api/clarification-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: reqId,
           employee_id: empId,
-          user_id: empId,
-          request_type: 'PUNCH_CORRECTION',
-          target_date: targetDate,
-          start_date: targetDate,
-          end_date: targetDate,
-          hours: 8,
-          reason: `[${typeTitle}] ${reasonText}`,
-          status: 'PENDING',
-          partner_company: partnerCompany,
-          approver_name: approverName
+          employee_name: empName,
+          company_name: companyName,
+          incident_type: incidentType,
+          incident_date: targetDate,
+          scheduled_time: incident?.scheduledTime || '09:00',
+          actual_time: actualStartTime,
+          delay_minutes: incident?.delayMinutes || 0,
+          reason_text: reasonText,
+          category: category,
+          has_attachment: hasAttachment
         })
-      }).catch(err => console.warn('D1 request fallback:', err));
+      });
 
-      // 2. 로컬 메모리 동기화
+      const json = res.ok ? await res.json() : null;
+      const newId = json?.id || `clar-${Date.now()}`;
+
+      // 로컬 상태 동기화용 요청 객체 (RequestsView 탭에 즉시 반영)
+      const newRequest = {
+        id: newId,
+        requestType: 'PUNCH_CORRECTION',
+        title: typeTitle,
+        targetDate,
+        startTime: actualStartTime,
+        endTime: actualEndTime,
+        reason: reasonText,
+        status: 'PENDING_PARTNER' as any,
+        partnerCompany: companyName,
+        approverName: `${companyName} 현장대리인`,
+        createdDate: new Date().toISOString().substring(0, 10),
+        // 결재 진행 상태 표시용
+        clarificationStep: 1,
+        incidentType
+      };
+
       dbService.addRequest(newRequest);
-
       onClarificationSubmitted(newRequest);
-      alert(`🎉 [${typeTitle}] 소명서가 소속 협력사(${partnerCompany}) 관리자에게 정상 상신되었습니다.\n\n• 수신 결재권자: ${approverName}\n• 발생 일자: ${targetDate}\n• 실제 투입 시간: ${actualStartTime} ~ ${actualEndTime}\n• 증빙 첨부: ${hasAttachment ? '간편지연증명서/게이트로그 첨부완료' : '없음'}\n\n🛡️ 관리자 확인 후 SLA 공수 정산에 반영됩니다.`);
+
+      alert(`🎉 [${typeTitle}] 소명서가 상신되었습니다.\n\n결재 단계:\n1️⃣ [대기중] 협력사(${companyName}) 현장대리인 1차 검수\n2️⃣ [대기중] 신한DS 현장대리인 최종 승인\n\n• 발생 일자: ${targetDate}\n• 실제 투입: ${actualStartTime}\n• 증빙: ${hasAttachment ? '첨부 완료' : '없음'}\n\n🛡️ 승인 완료 시 해당 공수가 정상 인정됩니다.`);
       onClose();
+    } catch (err) {
+      console.warn('소명 등록 오류:', err);
+      alert('소명서 등록 중 오류가 발생했습니다. 다시 시도해주세요.');
     } finally {
       setIsSubmitting(false);
     }

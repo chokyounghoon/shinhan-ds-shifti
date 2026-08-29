@@ -79,32 +79,6 @@ export const Header: React.FC<HeaderProps> = ({
         gap: '6px',
         flexShrink: 0
       }}>
-        {/* 상단 AI 통계 & 공정 시뮬레이터 퀵 버튼 */}
-        {onOpenAiStats && (
-          <button
-            onClick={onOpenAiStats}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '4px 8px',
-              borderRadius: '16px',
-              background: 'linear-gradient(135deg, #312E81 0%, #4338CA 100%)',
-              border: '1px solid rgba(165, 180, 252, 0.4)',
-              color: '#FFFFFF',
-              fontSize: '11.5px',
-              fontWeight: 800,
-              cursor: 'pointer',
-              boxShadow: '0 2px 6px rgba(67, 56, 202, 0.25)',
-              flexShrink: 0
-            }}
-            title="AI 도급 공정 통계 & 시뮬레이터"
-          >
-            <Sparkles size={13} color="#A5B4FC" />
-            <span>AI 통계</span>
-          </button>
-        )}
-
         {/* 메시지 / 도급 소통 아이콘 (실시간 뱃지) */}
         <button 
           onClick={onOpenMessages} 

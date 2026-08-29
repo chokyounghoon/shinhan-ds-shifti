@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, 
   FileCheck, 
@@ -64,6 +64,70 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
     dbService.fetchInspectionsFromD1().then(data => setInspections(data));
   }, []);
 
+  // DS 현장대리인 최종 승인 대기 소명 목록 (D1)
+  const [pendingDsClarifications, setPendingDsClarifications] = useState<any[]>([]);
+  const [dsToastMsg, setDsToastMsg] = useState<string | null>(null);
+
+  const fetchPendingDsClarifications = async () => {
+    try {
+      const res = await fetch('/api/clarification-requests?role=DS_PRINCIPAL_PM');
+      if (res.ok) {
+        const json = await res.json();
+        const all = json.data || [];
+        setPendingDsClarifications(all.filter((c: any) => c.status === 'PENDING_DS'));
+      }
+    } catch (e) {
+      console.warn('DS 소명 조회 실패:', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchPendingDsClarifications();
+  }, []);
+
+  const handleDsApprove = async (clarId: string) => {
+    const memo = window.prompt('최종 승인 메모 (생략 가능):', '소명 내용 검토 완료. 해당 공수를 정상 인정 처리합니다.') ?? '';
+    try {
+      const res = await fetch(`/api/clarification-requests/${clarId}/ds-approve`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          approver_id: 'S01832',
+          approver_name: '조경훈 수석PM (신한DS)',
+          memo
+        })
+      });
+      const json = await res.json();
+      setDsToastMsg(`✅ ${json.message}`);
+      setTimeout(() => setDsToastMsg(null), 3500);
+      fetchPendingDsClarifications();
+    } catch (e) {
+      alert('최종 승인 처리 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleDsReject = async (clarId: string) => {
+    const memo = window.prompt('최종 반려 사유 (필수):', 'DS 최종 검토 결과 소명 불인정. 해당 공수 결손 처리됩니다.');
+    if (!memo) return;
+    try {
+      const res = await fetch(`/api/clarification-requests/${clarId}/ds-reject`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          approver_id: 'S01832',
+          approver_name: '조경훈 수석PM (신한DS)',
+          memo
+        })
+      });
+      const json = await res.json();
+      setDsToastMsg(`❌ ${json.message}`);
+      setTimeout(() => setDsToastMsg(null), 3500);
+      fetchPendingDsClarifications();
+    } catch (e) {
+      alert('최종 반려 처리 중 오류가 발생했습니다.');
+    }
+  };
+
   // 법적 방어형 SLA 계약 불이행 증거 아카이브 (Evidence Vault)
   const [evidences, setEvidences] = useState<SlaBreachEvidence[]>([
     {
@@ -127,6 +191,100 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '90px' }}>
+
+      {/* 🔔 DS 최종 승인 대기 소명 섹션 */}
+      {(pendingDsClarifications.length > 0 || dsToastMsg) && (
+        <div style={{
+          background: pendingDsClarifications.length > 0 ? 'linear-gradient(135deg, #FEF2F2 0%, #FFF7ED 100%)' : '#ECFDF5',
+          border: `2px solid ${pendingDsClarifications.length > 0 ? '#FCA5A5' : '#6EE7B7'}`,
+          borderRadius: '14px',
+          padding: '16px'
+        }}>
+          {dsToastMsg && (
+            <div style={{
+              marginBottom: '10px',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              background: dsToastMsg.startsWith('✅') ? '#ECFDF5' : '#FEF2F2',
+              fontSize: '13px', fontWeight: 700,
+              color: dsToastMsg.startsWith('✅') ? '#065F46' : '#991B1B'
+            }}>{dsToastMsg}</div>
+          )}
+
+          {pendingDsClarifications.length > 0 && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <AlertTriangle size={18} color="#DC2626" />
+                <span style={{ fontSize: '14px', fontWeight: 900, color: '#991B1B' }}>
+                  DS 현장대리인 최종 승인 대기 ({pendingDsClarifications.length}건)
+                </span>
+              </div>
+
+              {pendingDsClarifications.map(clar => (
+                <div key={clar.id} style={{
+                  background: '#FFFFFF',
+                  borderRadius: '12px',
+                  padding: '14px',
+                  marginBottom: '10px',
+                  border: '1px solid #FECACA'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                    <div>
+                      <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#0F172A' }}>
+                        {clar.incident_type === 'LATE' ? '⏰ 지각 투입 소명' : '📋 출근 누락 소명'}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
+                        {clar.employee_name} · {clar.company_name} · {clar.incident_date}
+                      </div>
+                    </div>
+                    <span style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '10px', background: '#EFF6FF', color: '#2563EB', fontWeight: 800, flexShrink: 0 }}>
+                      협력사 1차 검수 완료
+                    </span>
+                  </div>
+
+                  <div style={{ fontSize: '12px', color: '#374151', background: '#F8FAFC', padding: '8px 10px', borderRadius: '6px', marginBottom: '8px' }}>
+                    <strong>소명:</strong> {clar.reason_text}
+                  </div>
+
+                  {clar.partner_approval_memo && (
+                    <div style={{ fontSize: '11.5px', color: '#059669', background: '#ECFDF5', padding: '6px 10px', borderRadius: '6px', marginBottom: '8px' }}>
+                      <strong>협력사 검수 의견:</strong> {clar.partner_approval_memo}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => handleDsApprove(clar.id)}
+                      style={{
+                        flex: 1,
+                        background: 'linear-gradient(135deg, #0052FF 0%, #003DCC 100%)',
+                        color: '#FFFFFF', border: 'none', borderRadius: '10px',
+                        padding: '10px 0', fontSize: '13px', fontWeight: 800,
+                        cursor: 'pointer', boxShadow: '0 2px 6px rgba(0, 82, 255, 0.3)'
+                      }}
+                    >
+                      ✅ 최종 승인 (공수 인정)
+                    </button>
+                    <button
+                      onClick={() => handleDsReject(clar.id)}
+                      style={{
+                        flex: 1,
+                        background: 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)',
+                        color: '#FFFFFF', border: 'none', borderRadius: '10px',
+                        padding: '10px 0', fontSize: '13px', fontWeight: 800,
+                        cursor: 'pointer', boxShadow: '0 2px 6px rgba(220, 38, 38, 0.3)'
+                      }}
+                    >
+                      ❌ 최종 반려 (결손 확정)
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+
       {/* 1. 상단 법적 컴플라이언스 보호막 안내 배너 */}
       <div style={{
         background: '#EDF3FF',

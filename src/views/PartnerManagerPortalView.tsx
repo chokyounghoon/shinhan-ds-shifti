@@ -169,10 +169,85 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
   const [answerText, setAnswerText] = useState('');
   const [isVacationModalOpen, setIsVacationModalOpen] = useState(false);
 
+  // D1 기반 직원 소명 요청 목록 (1차 승인 대기 건)
+  const [d1Clarifications, setD1Clarifications] = useState<any[]>([]);
+  const [clarToastMsg, setClarToastMsg] = useState<string | null>(null);
+
+  const fetchD1Clarifications = async () => {
+    try {
+      const company = currentUser.partnerCompany || selectedPartner || '유브갓';
+      const res = await fetch(`/api/clarification-requests?role=PARTNER_SITE_MANAGER&company_name=${encodeURIComponent(company)}`);
+      if (res.ok) {
+        const json = await res.json();
+        setD1Clarifications(json.data || []);
+      }
+    } catch (e) {
+      console.warn('소명 D1 조회 실패:', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchD1Clarifications();
+  }, [selectedPartner, currentUser.partnerCompany]);
+
+  const handlePartnerApprove = async (clarId: string) => {
+    const memo = window.prompt('1차 승인 메모 (생략 가능):', '협력사 현장대리인 1차 검토 완료. 소명 사유 타당하여 DS 최종 승인 상신합니다.') ?? '';
+    try {
+      const res = await fetch(`/api/clarification-requests/${clarId}/partner-approve`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          approver_id: currentUser.employeeId || currentUser.id,
+          approver_name: currentUser.name,
+          memo
+        })
+      });
+      const json = await res.json();
+      setClarToastMsg(`✅ ${json.message || '1차 승인 완료'}`);
+      setTimeout(() => setClarToastMsg(null), 3000);
+      fetchD1Clarifications();
+    } catch (e) {
+      alert('승인 처리 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handlePartnerReject = async (clarId: string) => {
+    const memo = window.prompt('반려 사유 입력 (필수):', '소명 사유 불충분. 증빙 자료 보완 후 재상신 바랍니다.');
+    if (!memo) return;
+    try {
+      const res = await fetch(`/api/clarification-requests/${clarId}/partner-reject`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          approver_id: currentUser.employeeId || currentUser.id,
+          approver_name: currentUser.name,
+          memo
+        })
+      });
+      const json = await res.json();
+      setClarToastMsg(`❌ ${json.message || '반려 처리 완료'}`);
+      setTimeout(() => setClarToastMsg(null), 3000);
+      fetchD1Clarifications();
+    } catch (e) {
+      alert('반려 처리 중 오류가 발생했습니다.');
+    }
+  };
+
   const pendingClarifications = allClarifications.filter(c => 
     c.partnerCompany === selectedPartner && c.status === 'REQUESTED'
   );
   const myGapNotices = allGapNotices.filter(n => n.partnerCompany === selectedPartner);
+
+  // D1 소명 상태 레이블
+  const getClarStatusLabel = (status: string) => {
+    switch (status) {
+      case 'PENDING_PARTNER': return { label: '1차 검수 대기', color: '#D97706', bg: '#FEF3C7' };
+      case 'PENDING_DS': return { label: 'DS 최종 승인 대기', color: '#2563EB', bg: '#EFF6FF' };
+      case 'APPROVED': return { label: '최종 승인 완료', color: '#059669', bg: '#ECFDF5' };
+      case 'REJECTED': return { label: '반려됨', color: '#DC2626', bg: '#FEF2F2' };
+      default: return { label: '검토 중', color: '#64748B', bg: '#F8FAFC' };
+    }
+  };
 
   const handleOpenAnswerModal = (item: DbSlaClarification) => {
     setSelectedClarification(item);
@@ -321,7 +396,7 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
         >
           <Send size={15} />
           <span>소명관리</span>
-          {pendingClarifications.length > 0 && (
+          {(pendingClarifications.length + d1Clarifications.filter(c => c.status === 'PENDING_PARTNER').length) > 0 && (
             <span style={{
               background: '#EF4444',
               color: '#FFFFFF',
@@ -330,7 +405,7 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
               padding: '1px 5px',
               borderRadius: '10px'
             }}>
-              {pendingClarifications.length}
+              {pendingClarifications.length + d1Clarifications.filter(c => c.status === 'PENDING_PARTNER').length}
             </span>
           )}
         </button>
@@ -567,9 +642,140 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
         {/* ========================================================================= */}
         {activeTab === 'clarifications' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#1E293B' }}>
-              원청(신한DS) 도급 공수 결손 소명 요청서 접수함
+
+            {/* ── D1 직원 소명 1차 승인 섹션 ── */}
+            {clarToastMsg && (
+              <div style={{
+                background: clarToastMsg.startsWith('✅') ? '#ECFDF5' : '#FEF2F2',
+                border: `1px solid ${clarToastMsg.startsWith('✅') ? '#6EE7B7' : '#FCA5A5'}`,
+                borderRadius: '10px',
+                padding: '10px 14px',
+                fontSize: '13px',
+                fontWeight: 700,
+                color: clarToastMsg.startsWith('✅') ? '#065F46' : '#991B1B'
+              }}>
+                {clarToastMsg}
+              </div>
+            )}
+
+            <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#1E293B', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>📋 직원 소명 서류 1차 검수</span>
+              <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748B' }}>(협력사 현장대리인 결재 대기)</span>
             </div>
+
+            {d1Clarifications.filter(c => c.status === 'PENDING_PARTNER').length === 0 ? (
+              <div style={{
+                background: '#FFFFFF',
+                borderRadius: '12px',
+                padding: '28px 20px',
+                textAlign: 'center',
+                border: '1px dashed #CBD5E1',
+                color: '#64748B'
+              }}>
+                <CheckCircle2 size={32} color="#10B981" style={{ margin: '0 auto 8px auto' }} />
+                <div style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A' }}>1차 검수 대기 소명 없음</div>
+                <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '4px' }}>소속 직원의 소명 신청이 들어오면 여기서 확인 후 승인/반려할 수 있습니다.</div>
+              </div>
+            ) : (
+              d1Clarifications.filter(c => c.status === 'PENDING_PARTNER').map(clar => (
+                <div key={clar.id} style={{
+                  background: '#FFFFFF',
+                  borderRadius: '14px',
+                  padding: '16px',
+                  border: '1px solid #FDE68A',
+                  boxShadow: '0 2px 8px rgba(251, 191, 36, 0.1)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A' }}>
+                        {clar.incident_type === 'LATE' ? '🕐 지각 투입 소명' : '📋 출근 누락 소명'}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
+                        신청자: <strong>{clar.employee_name}</strong> · {clar.incident_date}
+                      </div>
+                    </div>
+                    <span style={{ fontSize: '11px', fontWeight: 800, padding: '3px 9px', borderRadius: '12px', background: '#FEF3C7', color: '#B45309', flexShrink: 0 }}>
+                      1차 검수 대기
+                    </span>
+                  </div>
+
+                  <div style={{ fontSize: '12.5px', color: '#374151', background: '#FFFBEB', padding: '8px 12px', borderRadius: '8px', marginBottom: '10px', borderLeft: '3px solid #F59E0B' }}>
+                    <strong>소명 내용:</strong> {clar.reason_text}
+                  </div>
+
+                  {clar.delay_minutes > 0 && (
+                    <div style={{ fontSize: '12px', color: '#B45309', marginBottom: '8px' }}>
+                      ⏱ 지연 시간: <strong>{clar.delay_minutes}분</strong> · 약정: {clar.scheduled_time} → 실제: {clar.actual_time}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => handlePartnerApprove(clar.id)}
+                      style={{
+                        flex: 1,
+                        background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        borderRadius: '10px',
+                        padding: '10px 0',
+                        fontSize: '13px',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 6px rgba(5, 150, 105, 0.3)'
+                      }}
+                    >
+                      ✅ 1차 승인 → DS 상신
+                    </button>
+                    <button
+                      onClick={() => handlePartnerReject(clar.id)}
+                      style={{
+                        flex: 1,
+                        background: 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        borderRadius: '10px',
+                        padding: '10px 0',
+                        fontSize: '13px',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 6px rgba(220, 38, 38, 0.3)'
+                      }}
+                    >
+                      ❌ 반려
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+
+            {/* 이미 DS 상신된 소명 이력 */}
+            {d1Clarifications.filter(c => c.status !== 'PENDING_PARTNER').length > 0 && (
+              <>
+                <div style={{ fontSize: '13px', fontWeight: 800, color: '#475569', marginTop: '8px' }}>처리 완료 이력</div>
+                {d1Clarifications.filter(c => c.status !== 'PENDING_PARTNER').map(clar => {
+                  const st = getClarStatusLabel(clar.status);
+                  return (
+                    <div key={clar.id} style={{
+                      background: '#F8FAFC',
+                      borderRadius: '10px',
+                      padding: '12px 14px',
+                      border: '1px solid #E2E8F0',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#1E293B' }}>{clar.employee_name} · {clar.incident_date}</div>
+                        <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '2px' }}>{clar.incident_type === 'LATE' ? '지각 투입 소명' : '출근 누락 소명'}</div>
+                      </div>
+                      <span style={{ fontSize: '11.5px', fontWeight: 800, padding: '3px 9px', borderRadius: '12px', background: st.bg, color: st.color }}>{st.label}</span>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+
 
             {pendingClarifications.length === 0 ? (
               <div style={{

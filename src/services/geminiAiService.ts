@@ -219,28 +219,45 @@ export class GeminiAiService {
   }
 
   /**
-   * [AI 통계 1] SLA-공수 실시간 최적화 및 병목 예측 자율 에이전트
+   * [AI 통계 1] 도급 인력 실투입 vs 약정 공수(M/D) 달성률 및 월말 정산 적격성 AI 진단
    */
-  public async getPredictiveSlaOptimization(params?: {
-    currentWeek?: string;
+  public async getManpowerSettlementAudit(params?: {
+    partnerCompany?: string;
+    evaluationMonth?: string;
     targetPart?: string;
   }): Promise<{
-    riskLevel: 'CRITICAL' | 'WARNING' | 'NORMAL';
-    predictedBottleneck: string;
-    slaRiskPercentage: number;
-    trafficImpact: string;
-    aiDirectiveAction: string;
-    recommendedShiftPlan: {
-      sourcePartner: string;
-      shiftWorkerCount: number;
-      shiftDuration: string;
-      expectedSlaRecovery: string;
-      officialDispatchDraft: string;
+    evaluationMonth: string;
+    targetPart: string;
+    partnerCompany: string;
+    settlementGrade: 'PASS' | 'REVIEW_REQUIRED';
+    metrics: {
+      contractedManDays: number;
+      actualDeliveredManDays: number;
+      fulfillmentRate: number;
+      varianceHours: number;
+      breachCount: number;
+      autoSettledRate: number;
     };
-    simulationCurve: Array<{ time: string; withoutAi: number; withAiShift: number }>;
+    settlementVerdict: {
+      status: string;
+      summary: string;
+      deductionAmount: string;
+    };
+    breakdownByWorker: Array<{
+      workerName: string;
+      contractedHours: number;
+      actualHours: number;
+      fulfillmentRate: number;
+      status: string;
+    }>;
+    aiAuditFindings: Array<{
+      title: string;
+      description: string;
+    }>;
+    officialSettlementReportDraft: string;
   }> {
     try {
-      const res = await fetch('/api/ai/predictive-sla-optimizer', {
+      const res = await fetch('/api/ai/manpower-settlement-auditor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params || {})
@@ -250,35 +267,53 @@ export class GeminiAiService {
         if (json.success && json.data) return json.data;
       }
     } catch (e) {
-      console.warn('[Gemini-SLA-Optimizer-Error]', e);
+      console.warn('[Gemini-Manpower-Settlement-Error]', e);
     }
 
     return {
-      riskLevel: 'CRITICAL',
-      predictedBottleneck: '금주 목요일(8/27) 14:00~17:00 월말 결제 트래픽 피크 타임 SM 운영 인력 2명 결손 예상',
-      slaRiskPercentage: 87,
-      trafficImpact: '카드 승인 및 결제 API 대기시간 급증 및 서비스 수준 협약(SLA) 미달 위협',
-      aiDirectiveAction: '협력사 A(유브갓)의 예비 SM 온콜 대기 리소스 2명을 피크 집중 관제 파트로 3시간 임시 지원 배치 권고',
-      recommendedShiftPlan: {
-        sourcePartner: '(주)유브갓',
-        shiftWorkerCount: 2,
-        shiftDuration: '3시간 (14:00 ~ 17:00)',
-        expectedSlaRecovery: '96.8% (정상 기준선 95% 초과 회복)',
-        officialDispatchDraft: '수신: (주)유브갓 SM 현장대리인 최영호 귀하\n\nSM 도급계약서 제7조(공정 탄력 조율)에 의거하여, 금주 목요일 오후 월말 결제 피크 시간대(14:00~17:00) 온콜 대기 인력 2명의 집중 모니터링 긴급 지원 배치를 요청합니다.'
+      evaluationMonth: '2026년 8월',
+      targetPart: params?.targetPart || '상담 공정 파트',
+      partnerCompany: params?.partnerCompany || '(주)유브갓',
+      settlementGrade: 'PASS',
+      metrics: {
+        contractedManDays: 160.0,
+        actualDeliveredManDays: 159.1,
+        fulfillmentRate: 99.4,
+        varianceHours: -7.2,
+        breachCount: 0,
+        autoSettledRate: 98.8
       },
-      simulationCurve: [
-        { time: '10:00', withoutAi: 98, withAiShift: 98 },
-        { time: '12:00', withoutAi: 96, withAiShift: 97 },
-        { time: '14:00', withoutAi: 88, withAiShift: 96 },
-        { time: '15:00', withoutAi: 84, withAiShift: 97 },
-        { time: '16:00', withoutAi: 86, withAiShift: 96 },
-        { time: '18:00', withoutAi: 95, withAiShift: 98 }
-      ]
+      settlementVerdict: {
+        status: '정산 적격 (100% 정상 지급 권고)',
+        summary: '약정 공수(160.0 M/D) 대비 실투입 공수(159.1 M/D) 달성률 99.4%로 도급 계약 기준(95% 이상)을 초과 달성하여 전액 정상 정산 승인 적격으로 판정되었습니다.',
+        deductionAmount: '0원 (감액 사유 없음)'
+      },
+      breakdownByWorker: [
+        { workerName: '송무준', contractedHours: 160, actualHours: 160, fulfillmentRate: 100, status: '정상 완수' },
+        { workerName: '김철수', contractedHours: 160, actualHours: 158.5, fulfillmentRate: 99.1, status: '소명 인정 완수' },
+        { workerName: '이영희', contractedHours: 160, actualHours: 159.0, fulfillmentRate: 99.4, status: '정상 완수' },
+        { workerName: '박민호', contractedHours: 160, actualHours: 159.0, fulfillmentRate: 99.4, status: '정상 완수' }
+      ],
+      aiAuditFindings: [
+        {
+          title: '무결격 약정 공수 이행 달성',
+          description: '실투입 공수 달성률 99.4%로 월간 계약 범위 내 안정적 도급 공정 완수 확인.'
+        },
+        {
+          title: '위장도급 방지 컴플라이언스 준수',
+          description: '근태 및 투입 실적이 협력사 현장대리인의 자체 관리 및 소명 검수를 거쳐 확정되어 도급 법적 적격성 확보.'
+        }
+      ],
+      officialSettlementReportDraft: '2026년 8월 (주)유브갓 도급 공수 정산 결과서\n\n1. 약정 공수: 160.0 M/D\n2. 실투입 공수: 159.1 M/D (99.4% 달성)\n3. 정산 판정: 정상 승인 (감액 없음)\n4. 검수관 의견: 협력사 현장대리인의 자체 검수가 완료되었으며 위장도급 리스크 없이 적법하게 공수가 이행되었음을 확인함.'
     };
   }
 
+  public async getPredictiveSlaOptimization(params?: any): Promise<any> {
+    return this.getManpowerSettlementAudit(params);
+  }
+
   /**
-   * [AI 통계 2] SM 무중단 서비스 SLA 가용성(99.98%) & 장애 복구 시간(MTTR) 지능형 관제
+   * [AI 통계 2] 출퇴근 시간대 패턴 & 정시성(Punctuality) 및 공수 이행률 다차원 분석
    */
   public async getSmServiceAvailabilityAndMttr(params?: {
     partnerCompany?: string;
@@ -289,32 +324,22 @@ export class GeminiAiService {
     partnerCompany: string;
     evaluationMonth: string;
     overallHealthScore: number;
-    serviceAvailability: {
-      target: string;
-      actual: string;
-      status: string;
-      uptimeHours: number;
-      unplannedDowntimeMinutes: number;
+    commuteMetrics: {
+      avgArrivalTime: string;
+      onTimeRate: string;
+      contractFulfillmentRate: string;
+      gpsIntegrityRate: string;
+      totalPunchCount: number;
+      lateCount: number;
+      missingPunchCount: number;
     };
-    mttrMetrics: {
-      targetMinutes: number;
-      actualAverageMinutes: number;
-      totalIncidents: number;
-      fastestRecoveryMinutes: number;
-      status: string;
-    };
-    srFulfillment: {
-      totalReceived: number;
-      completedOnTime: number;
-      fulfillmentRate: string;
-      averageProcessingHours: number;
-    };
-    onCallReadiness: {
-      nightDutyCount: number;
-      emergencyDispatchCount: number;
-      avgResponseMinutes: number;
-      complianceRate: string;
-    };
+    timeDistribution: Array<{
+      bracket: string;
+      label: string;
+      percentage: number;
+      count: number;
+      color: string;
+    }>;
     aiOperationalInsights: Array<{
       category: string;
       title: string;
@@ -333,62 +358,51 @@ export class GeminiAiService {
         if (json.success && json.data) return json.data;
       }
     } catch (e) {
-      console.warn('[Gemini-SM-Availability-Error]', e);
+      console.warn('[Gemini-Commute-Time-Stats-Error]', e);
     }
 
     const partnerCompany = params?.partnerCompany || '(주)유브갓';
     const evaluationMonth = params?.evaluationMonth || '2026년 8월';
-    const targetSystem = params?.targetSystem || '신한 카드IS 코어 SM 운영계';
+    const targetSystem = params?.targetSystem || '상담 공정 파트 풀';
 
     return {
       systemName: targetSystem,
       partnerCompany,
       evaluationMonth,
-      overallHealthScore: 98.6,
-      serviceAvailability: {
-        target: '99.95%',
-        actual: '99.98%',
-        status: 'EXCELLENT',
-        uptimeHours: 1420.5,
-        unplannedDowntimeMinutes: 8.5
+      overallHealthScore: 98.4,
+      commuteMetrics: {
+        avgArrivalTime: '08:44:12',
+        onTimeRate: '98.6%',
+        contractFulfillmentRate: '99.4%',
+        gpsIntegrityRate: '99.8%',
+        totalPunchCount: 176,
+        lateCount: 2,
+        missingPunchCount: 1
       },
-      mttrMetrics: {
-        targetMinutes: 30,
-        actualAverageMinutes: 14.2,
-        totalIncidents: 4,
-        fastestRecoveryMinutes: 6.0,
-        status: 'OPTIMAL'
-      },
-      srFulfillment: {
-        totalReceived: 142,
-        completedOnTime: 139,
-        fulfillmentRate: '97.9%',
-        averageProcessingHours: 3.4
-      },
-      onCallReadiness: {
-        nightDutyCount: 12,
-        emergencyDispatchCount: 3,
-        avgResponseMinutes: 18.0,
-        complianceRate: '100%'
-      },
+      timeDistribution: [
+        { bracket: '08:00~08:30', label: '얼리버드 출근', percentage: 18, count: 14, color: '#3B82F6' },
+        { bracket: '08:30~08:50', label: '안정 출근 구간', percentage: 54, count: 43, color: '#10B981' },
+        { bracket: '08:50~09:00', label: '마감 임박 구간', percentage: 22, count: 18, color: '#F59E0B' },
+        { bracket: '09:00 이후', label: '지각/소명 대상', percentage: 6, count: 5, color: '#EF4444' }
+      ],
       aiOperationalInsights: [
         {
-          category: '예방 점검 (Preventive)',
-          title: '월말 정기 배치 메모리 누수 사전 감지',
-          action: '매월 25일 02:00 배치 서버 JVM 힙 메모리 자동 가비지 컬렉션 및 인스턴스 롤링 재기동 스케줄 권고'
+          category: '출근 병목 (Congestion)',
+          title: '월요일 08:50~09:00 엘리베이터 혼잡 구간 타각 집중',
+          action: '월요일 08:55 이후 타각자(4명) 대상 10분 조기 출근 유도 또는 파트별 시차 출근제 권고'
         },
         {
-          category: '장애 격리 (Isolation)',
-          title: '외부 결제 PG사 네트워크 타임아웃 감지',
-          action: '서킷 브레이커(Circuit Breaker) 임계치를 3초➔1.5초로 탄력 조정하여 코어 뱅킹 스레드 고갈 방지 완료'
+          category: '소명 분석 (Fidelity)',
+          title: '지각 소명 신청 2건 중 1건(지하철 연착) 정상 인정 완료',
+          action: '단순 교통 정체 소명건은 도급 계약 제12조에 의거 면책 불가 처리 및 정상 공수 반영'
         }
       ],
-      officialReportSummary: `${targetSystem} ${evaluationMonth} SM 운영 무결점 달성: 서비스 가용성 99.98% (목표 99.95% 초과), MTTR 14.2분(목표 대비 52% 단축), SR 적기 처리율 97.9%로 최우수 운영 등급 획득`
+      officialReportSummary: `${targetSystem} ${evaluationMonth} 도급 근태 정산 요약: 평균 출근 시각 08:44, 정시 출근율 98.6%, 약정 공수 이행률 99.4%로 도급 인력 운영 건전성 최우수 등급 달성`
     };
   }
 
   /**
-   * [AI 통계 3] 협력사 SM 운영 품질 및 서비스 신뢰도 지수 (SM Operational Excellence Index)
+   * [AI 통계 3] 협력사별 도급 근태 신뢰도 및 공정 완수 지수 (Partner Attendance Compliance Index)
    */
   public async getPartnerComplianceIndex(): Promise<{
     evaluationPeriod: string;
@@ -398,10 +412,10 @@ export class GeminiAiService {
       companyName: string;
       grade: 'S' | 'A' | 'B' | 'B-' | 'C' | 'D';
       complianceIndex: number;
-      timeConsistencyScore: number;
-      slaAchievementScore: number;
+      onTimeRate: number;
+      manpowerDeliveryRate: number;
       clarificationFidelityScore: number;
-      securityCleanRate: number;
+      gpsAccuracyRate: number;
       procurementRecommendation: string;
       highlight: string;
     }>;
@@ -422,62 +436,63 @@ export class GeminiAiService {
     }
 
     return {
-      evaluationPeriod: '2026년 3분기 (누적)',
+      evaluationPeriod: '2026년 8월 (당월 누적)',
       totalEvaluatedPartners: 4,
       partnerRankings: [
         {
           rank: 1,
           companyName: '(주)협력아이티에스',
           grade: 'S',
-          complianceIndex: 98.4,
-          timeConsistencyScore: 99.0,
-          slaAchievementScore: 98.5,
-          clarificationFidelityScore: 97.0,
-          securityCleanRate: 100.0,
-          procurementRecommendation: '최우수 SM 파트너사: 카드 코어 무중단 가동률 1위, 차기년도 SM 재계약 최우선권 부여',
-          highlight: '월간 무결격 SM 상주율 99.8% 유지 및 장애 초동 대응 평균 8분 이내 달성'
+          complianceIndex: 98.8,
+          onTimeRate: 99.4,
+          manpowerDeliveryRate: 100.0,
+          clarificationFidelityScore: 98.0,
+          gpsAccuracyRate: 100.0,
+          procurementRecommendation: '최우수 도급 파트너사: 정시 출근율 99.4% 및 무결격 공수 100% 완수, 차기년도 우선 계약 권고',
+          highlight: '월간 지각 0건, 전 인원 08:50 이전 출근 타각 완료로 최우수 근태 건전성 기록'
         },
         {
           rank: 2,
           companyName: '현대IT솔루션',
           grade: 'A',
-          complianceIndex: 94.2,
-          timeConsistencyScore: 94.0,
-          slaAchievementScore: 95.0,
-          clarificationFidelityScore: 92.0,
-          securityCleanRate: 98.0,
-          procurementRecommendation: '우수 SM 파트너사: 모바일 뱅킹 SM 및 대외계 안정적 운영 파트너 유지',
-          highlight: '장애 대응 MTTR 100% 준수, 예방 점검 일지 정기 작성 우수'
+          complianceIndex: 95.2,
+          onTimeRate: 97.8,
+          manpowerDeliveryRate: 98.5,
+          clarificationFidelityScore: 94.0,
+          gpsAccuracyRate: 99.5,
+          procurementRecommendation: '우수 도급 파트너사: 약정 공수 안정적 투입 중, 우수 파트너 등급 유지',
+          highlight: 'GPS 정상 권역 타각율 99.5% 달성, 소명 승인 처리 신속도 양호'
         },
         {
           rank: 3,
           companyName: '(주)유브갓',
           grade: 'B',
-          complianceIndex: 89.1,
-          timeConsistencyScore: 87.0,
-          slaAchievementScore: 91.5,
-          clarificationFidelityScore: 85.0,
-          securityCleanRate: 96.0,
-          procurementRecommendation: '양호 SM 파트너사: 가맹점 SM 안정 운영 중이나 금요일 피크시간 온콜 백업 강화 권고',
-          highlight: 'SR 적기 처리율 96.2%, 월말 피크 대응 인력 보강 필요'
+          complianceIndex: 90.4,
+          onTimeRate: 94.0,
+          manpowerDeliveryRate: 96.8,
+          clarificationFidelityScore: 88.0,
+          gpsAccuracyRate: 98.0,
+          procurementRecommendation: '양호 도급 파트너사: 상담 공정 인력 휴가 분산 및 월요일 아슬아슬 타각 개선 지도 권고',
+          highlight: '08:59 마감 타각 비율(8.2%) 다소 발생, 현장대리인 근태 가이드 필요'
         },
         {
           rank: 4,
           companyName: '부뜰정보통신',
           grade: 'B-',
-          complianceIndex: 85.2,
-          timeConsistencyScore: 83.0,
-          slaAchievementScore: 86.0,
+          complianceIndex: 86.1,
+          onTimeRate: 89.5,
+          manpowerDeliveryRate: 92.0,
           clarificationFidelityScore: 84.0,
-          securityCleanRate: 92.0,
-          procurementRecommendation: '지도 대상 SM 파트너사: 예방점검 일지 제출 지연 개선 및 당직 인력 교육 강화 지도',
-          highlight: '야간 온콜 응답 시간 편차 발생, 현장대리인 품질 통제 강화 권고'
+          gpsAccuracyRate: 96.5,
+          procurementRecommendation: '지도 대상 파트너사: 누락 타각 소명서 지연 제출(3건) 개선 및 현장대리인 근태 통제 강화',
+          highlight: '출근 미타각 소명 발생률 5.2%, 정기 근태 교육 실시 권고'
         }
       ],
-      executiveSummary: '2026년 3분기 SM 협력사 평가 결과: 협력아이티에스(98.4점) 1위, 현대IT(94.2점) 2위로 전반적 무중단 가동률 양호.'
+      executiveSummary: '2026년 8월 협력사 도급 근태 분석 결과: 협력아이티에스(98.8점) 1위, 현대IT(95.2점) 2위로 전반적 출퇴근 정시성 및 약정 공수 이행률 양호.'
     };
   }
 }
 
 export const geminiAiService = new GeminiAiService();
+
 
