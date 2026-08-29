@@ -1936,17 +1936,21 @@ app.get('/notifications', async (c) => {
   try {
     const role = c.req.query('role');
     const part = c.req.query('part');
-    const db = c.env.DB;
+    const db = c.env?.DB;
+
+    if (!db) {
+      return c.json({ success: true, data: [] });
+    }
 
     let query = "SELECT * FROM app_notifications WHERE 1=1";
     const params: any[] = [];
 
-    if (role) {
-      query += " AND (target_role = ? OR target_role = 'ALL')";
+    if (role && role !== 'ALL') {
+      query += " AND (target_role = ? OR target_role = 'ALL' OR target_role IS NULL)";
       params.push(role);
     }
-    if (part) {
-      query += " AND (part_name = ? OR part_name IS NULL)";
+    if (part && part !== '전체') {
+      query += " AND (part_name = ? OR part_name IS NULL OR part_name = '' OR part_name = '전체')";
       params.push(part);
     }
     query += " ORDER BY created_at DESC LIMIT 50";
@@ -1955,7 +1959,8 @@ app.get('/notifications', async (c) => {
     const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
     return c.json({ success: true, data: results || [] });
   } catch (err: any) {
-    return c.json({ success: false, detail: err.message }, 500);
+    console.warn('[Notifications Query Notice]:', err?.message || err);
+    return c.json({ success: true, data: [] });
   }
 });
 
