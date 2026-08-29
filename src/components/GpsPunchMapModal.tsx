@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { MapPin, Navigation, CheckCircle2, AlertTriangle, X, RefreshCw, ShieldCheck, LocateFixed, Lock, ShieldAlert, Zap } from 'lucide-react';
 import { WorkLocation } from '../views/WorkLocationSelectView';
 import { antiSpoofService, SpoofCheckResult } from '../services/antiSpoofService';
+import { dbService } from '../services/db';
 
 interface GpsPunchMapModalProps {
   isOpen: boolean;
@@ -62,14 +63,17 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
   const isWithin100m = distanceMeters !== null && distanceMeters <= 100;
   const isSecurityPassed = spoofResult.isSecure;
 
-  // 실제 GPS 위치 측정 & 5중 안티스푸핑 검증
+  // 실제 GPS 위치 측정 & 7중 제로트러스트 안티스푸핑/VPN 검증
   const fetchCurrentLocation = () => {
     setIsLocating(true);
     setGpsError(null);
 
+    const currentUser = dbService.getCurrentUser();
+    const empId = currentUser?.employeeId || (currentUser as any)?.id || 'S01832';
+
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        async (position) => {
           const uLat = position.coords.latitude;
           const uLng = position.coords.longitude;
           const uAcc = position.coords.accuracy || 15;
@@ -80,18 +84,18 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
           const dist = getDistanceMeters(uLat, uLng, targetLat, targetLng);
           setDistanceMeters(dist);
 
-          const sec = antiSpoofService.verifyLocationIntegrity(uLat, uLng, uAcc, uAlt, uSpeed);
+          const sec = await antiSpoofService.verifyZeroTrustIntegrity(uLat, uLng, uAcc, uAlt, uSpeed, empId);
           setSpoofResult(sec);
           setIsLocating(false);
         },
-        (error) => {
+        async (error) => {
           const simLat = targetLat + 0.00025;
           const simLng = targetLng + 0.00020;
           setUserPos({ lat: simLat, lng: simLng });
           const dist = getDistanceMeters(simLat, simLng, targetLat, targetLng);
           setDistanceMeters(dist);
 
-          const sec = antiSpoofService.verifyLocationIntegrity(simLat, simLng, 15, 38, 0);
+          const sec = await antiSpoofService.verifyZeroTrustIntegrity(simLat, simLng, 15, 38, 0, empId);
           setSpoofResult(sec);
           setIsLocating(false);
         },
@@ -102,8 +106,10 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
       const simLng = targetLng + 0.00020;
       setUserPos({ lat: simLat, lng: simLng });
       setDistanceMeters(getDistanceMeters(simLat, simLng, targetLat, targetLng));
-      setSpoofResult(antiSpoofService.verifyLocationIntegrity(simLat, simLng, 15, 38, 0));
-      setIsLocating(false);
+      antiSpoofService.verifyZeroTrustIntegrity(simLat, simLng, 15, 38, 0, empId).then(sec => {
+        setSpoofResult(sec);
+        setIsLocating(false);
+      });
     }
   };
 

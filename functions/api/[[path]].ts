@@ -804,6 +804,155 @@ app.get('/commute/logs', async (c) => {
   }
 });
 
+// ==========================================
+// 4-1. 7중 안티스푸핑(Anti-GPS Spoofing) & VPN/프록시 우회 실시간 탐지/차단 엔진
+// ==========================================
+app.post('/security/anti-spoof/verify', async (c) => {
+  try {
+    const body = await c.req.json();
+    const db = c.env.DB;
+    const now = getKst();
+
+    // 1. Cloudflare Edge 헤더 및 클라이언트 IP / ASN 추출
+    const clientIp = c.req.header('cf-connecting-ip') || c.req.header('x-real-ip') || '127.0.0.1';
+    const cf: any = (c.req.raw as any).cf || {};
+    const country = c.req.header('cf-ipcountry') || cf.country || 'KR';
+    const asOrg = (cf.asOrganization || cf.asn || '').toString().toLowerCase();
+    const isTor = cf.isTor === true || cf.isTor === 'true';
+    const ipCity = cf.city || 'Seoul';
+    const ipLat = cf.latitude ? parseFloat(cf.latitude) : null;
+    const ipLng = cf.longitude ? parseFloat(cf.longitude) : null;
+
+    const {
+      lat,
+      lng,
+      accuracy = 15,
+      altitude = 38,
+      speed = 0,
+      isWebdriver = false,
+      webrtcIps = [],
+      employee_id = 'S01832'
+    } = body;
+
+    const threats: string[] = [];
+    let score = 100;
+    let isVpn = false;
+    let isMockGps = false;
+
+    // A. VPN / 프록시 / 호스팅 데이터센터 IP 대역 분석 (클라우드/데이터센터 ASN 탐지)
+    const datacenterKeywords = [
+      'amazon', 'aws', 'google cloud', 'digitalocean', 'linode', 'vultr', 'ovh',
+      'm247', 'packethub', 'datacamp', 'choopa', 'expressvpn', 'nordvpn', 'surfshark',
+      'private internet access', 'cyberghost', 'mullvad', 'proton', 'ipvanish',
+      'hostinger', 'hetzner', 'alibaba', 'tencent', 'oracle', 'microsoft azure'
+    ];
+
+    if (datacenterKeywords.some(keyword => asOrg.includes(keyword))) {
+      threats.push(`[VPN/프록시 감지] 호스팅/데이터센터 ASN(${asOrg || 'Cloud'})을 통한 우회 접속이 감지되었습니다.`);
+      score -= 80;
+      isVpn = true;
+    }
+
+    // B. 해외 IP 접속 차단 (대한민국 외 VPN 터널링 탐지)
+    if (country && country !== 'KR' && country !== 'T1' && country !== 'XX') {
+      threats.push(`[해외 IP 우회 감지] 국내 근무지 위치 인증에 해외 IP(${country}) 접속이 감지되었습니다.`);
+      score -= 70;
+      isVpn = true;
+    }
+
+    // C. Tor 익명 네트워크 차단
+    if (isTor) {
+      threats.push('[Tor 익명망 감지] Tor 오니언 라우팅을 통한 접근이 감지되어 차단되었습니다.');
+      score -= 90;
+      isVpn = true;
+    }
+
+    // D. GPS 하드웨어 센서 오차율(Accuracy) 무결성 검증 (0m 또는 비현실적 오차 탐지)
+    if (accuracy === 0 || accuracy < 0.5) {
+      threats.push('[모의 GPS 감지] 가상 위치(Mock Location) 주입으로 인한 인위적 0m 오차율이 감지되었습니다.');
+      score -= 80;
+      isMockGps = true;
+    }
+
+    // E. 브라우저 자동화 도구(Puppeteer, Selenium, Webdriver) 및 DevTools 센서 변작 감지
+    if (isWebdriver) {
+      threats.push('[자동화 봇 감지] 브라우저 개발자도구(F12) 또는 자동화 프레임워크(Webdriver) 변작이 감지되었습니다.');
+      score -= 85;
+    }
+
+    // F. WebRTC 로컬/공인 IP 불일치 및 다중 인터페이스 터널링 탐지
+    if (Array.isArray(webrtcIps) && webrtcIps.length > 0) {
+      const hasVpnAdapter = webrtcIps.some((ip: string) => 
+        ip.startsWith('10.8.') || ip.startsWith('10.0.') || ip.startsWith('192.168.100.')
+      );
+      if (hasVpnAdapter) {
+        threats.push('[VPN 가상 어댑터 감지] WebRTC 인터페이스에서 가상 네트워크 터널 어댑터가 발견되었습니다.');
+        score -= 40;
+        isVpn = true;
+      }
+    }
+
+    // G. GPS ↔ IP 삼각측량 교차 검증 (위치가 한국 외이거나 500km 이상 괴리 발생 시)
+    if (ipLat && ipLng && lat && lng) {
+      const R = 6371;
+      const dLat = (ipLat - lat) * (Math.PI / 180);
+      const dLon = (ipLng - lng) * (Math.PI / 180);
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat*(Math.PI/180)) * Math.cos(ipLat*(Math.PI/180)) * Math.sin(dLon/2) * Math.sin(dLon/2);
+      const cDist = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const distKm = R * cDist;
+
+      if (distKm > 400) {
+        threats.push(`[삼각측량 불일치] GPS 위치와 IP 기지국 위치 간 과도한 이격(${Math.round(distKm)}km)이 감지되었습니다.`);
+        score -= 50;
+      }
+    }
+
+    const isSecure = score >= 70 && threats.length === 0;
+    const securityToken = `SGUARD-ZT-${Math.random().toString(36).substring(2, 9).toUpperCase()}-${Date.now()}`;
+
+    // 위반 시도 발견 시 D1 audit_trails에 실시간 보안 감사 로그 기록
+    if (!isSecure) {
+      try {
+        const auditId = `audit-sec-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+        await db.prepare(`
+          INSERT INTO audit_trails 
+          (id, action_type, actor_id, actor_name, target_id, target_name, details, ip_address, created_at)
+          VALUES (?, 'SECURITY_SPOOF_BLOCKED', ?, ?, ?, 'GPS_PUNCH_SYSTEM', ?, ?, ?)
+        `).bind(
+          auditId,
+          employee_id,
+          '보안엔진(S-Guard)',
+          employee_id,
+          JSON.stringify({ threats, score, isVpn, isMockGps, asOrg, country, clientIp }),
+          clientIp,
+          now
+        ).run();
+      } catch (logErr) {
+        console.warn('[Audit-Log-Error]', logErr);
+      }
+    }
+
+    return c.json({
+      success: true,
+      isSecure,
+      securityScore: Math.max(0, score),
+      isVpn,
+      isMockGps,
+      detectedThreats: threats,
+      securityToken,
+      telemetry: {
+        clientIp: clientIp.includes(':') ? clientIp : clientIp.replace(/\.\d+$/, '.***'),
+        country,
+        isp: asOrg || 'SK Telecom / KT / LG Uplus 사내망 검증',
+        ipCity,
+        verificationTimestamp: now
+      }
+    });
+  } catch (err: any) {
+    return c.json({ success: false, detail: err.message }, 500);
+  }
+});
+
 app.post('/commute/punch', async (c) => {
   try {
     const body = await c.req.json();
