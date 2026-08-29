@@ -135,72 +135,15 @@ export const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
       border: '1px solid #E5E8EB',
       marginBottom: '12px'
     }}>
-      {/* 1. 헤더 & 월 네비게이션 */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+      {/* 1. 상단 타이틀 헤더 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
           <Calendar size={18} color="#0052FF" />
-          <span style={{ fontSize: '16px', fontWeight: 900, color: '#191F28' }}>
+          <span style={{ fontSize: '16.5px', fontWeight: 900, color: '#191F28', whiteSpace: 'nowrap' }}>
             월간 도급 투입 공수 관리
           </span>
           <button onClick={onOpenInfo} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex' }}>
             <Info size={15} color="#8B95A1" />
-          </button>
-        </div>
-
-        {/* 월 변경 및 새로고침 컨트롤 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <button
-            type="button"
-            onClick={handlePrevMonth}
-            style={{
-              background: '#F1F3F5',
-              border: 'none',
-              borderRadius: '6px',
-              width: '26px',
-              height: '26px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer'
-            }}
-          >
-            <ChevronLeft size={16} color="#4E5968" />
-          </button>
-          <span style={{ fontSize: '13.5px', fontWeight: 800, color: '#191F28', minWidth: '78px', textAlign: 'center' }}>
-            {currentYear}년 {currentMonth}월
-          </span>
-          <button
-            type="button"
-            onClick={handleNextMonth}
-            style={{
-              background: '#F1F3F5',
-              border: 'none',
-              borderRadius: '6px',
-              width: '26px',
-              height: '26px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer'
-            }}
-          >
-            <ChevronRight size={16} color="#4E5968" />
-          </button>
-          <button
-            onClick={handleRefresh}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#8B95A1',
-              cursor: 'pointer',
-              marginLeft: '4px',
-              padding: '2px',
-              transform: isSpinning ? 'rotate(360deg)' : 'none',
-              transition: 'transform 0.5s ease'
-            }}
-            aria-label="달력 데이터 새로고침"
-          >
-            <RotateCw size={15} />
           </button>
         </div>
       </div>
@@ -218,7 +161,7 @@ export const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
       }}>
         <div>
           <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>{currentMonth}월 누적 실투입 공수</div>
-          <div style={{ fontSize: '18px', fontWeight: 900, color: '#0052FF', marginTop: '1px' }}>
+          <div style={{ fontSize: '18px', fontWeight: 900, color: '#0052FF', marginTop: '1px', whiteSpace: 'nowrap' }}>
             {totalHours}.0<span style={{ fontSize: '13px', fontWeight: 700, color: '#64748B' }}>h</span>
             <span style={{ fontSize: '12px', color: '#16A34A', fontWeight: 700, marginLeft: '6px' }}>
               ({totalWorkedDays}/{totalMonthWorkingDays} M/D 투입완료)
@@ -226,15 +169,86 @@ export const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
           </div>
         </div>
 
-        <div style={{ textAlign: 'right' }}>
+        <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
           <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>도급 검수 상태</div>
-          <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#0D9488', marginTop: '2px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 800, color: '#0D9488', marginTop: '2px' }}>
             ✓ 협력사 1차 확정
           </div>
         </div>
       </div>
 
-      {/* 3. 월 달력 요일 헤더 */}
+      {/* 3. 달력 위 년월 네비게이션 컨트롤 (달력 바로 상단 중앙 배치) */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '8px',
+        marginBottom: '10px',
+        padding: '4px 0'
+      }}>
+        <button
+          type="button"
+          onClick={handlePrevMonth}
+          style={{
+            background: '#F1F3F5',
+            border: 'none',
+            borderRadius: '6px',
+            width: '28px',
+            height: '28px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer'
+          }}
+          aria-label="이전 달"
+        >
+          <ChevronLeft size={16} color="#4E5968" />
+        </button>
+
+        <span style={{ fontSize: '15px', fontWeight: 900, color: '#191F28', minWidth: '95px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+          {currentYear}년 {currentMonth}월
+        </span>
+
+        <button
+          type="button"
+          onClick={handleNextMonth}
+          style={{
+            background: '#F1F3F5',
+            border: 'none',
+            borderRadius: '6px',
+            width: '28px',
+            height: '28px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer'
+          }}
+          aria-label="다음 달"
+        >
+          <ChevronRight size={16} color="#4E5968" />
+        </button>
+
+        <button
+          onClick={handleRefresh}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#8B95A1',
+            cursor: 'pointer',
+            marginLeft: '2px',
+            padding: '4px',
+            display: 'flex',
+            alignItems: 'center',
+            transform: isSpinning ? 'rotate(360deg)' : 'none',
+            transition: 'transform 0.5s ease'
+          }}
+          aria-label="달력 데이터 새로고침"
+        >
+          <RotateCw size={15} />
+        </button>
+      </div>
+
+      {/* 4. 월 달력 요일 헤더 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', textAlign: 'center', marginBottom: '6px' }}>
         {['일', '월', '화', '수', '목', '금', '토'].map((dow, idx) => (
           <div key={dow} style={{
