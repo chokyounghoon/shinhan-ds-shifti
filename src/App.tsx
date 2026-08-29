@@ -366,6 +366,9 @@ export function App() {
                 <ContractFulfillmentDashboardView
                   currentUser={currentUser}
                   themeMode={themeMode}
+                  onOpenEmployees={() => setCurrentPage('employees')}
+                  onOpenOrganizations={() => setCurrentPage('organizations')}
+                  onOpenAiStats={() => setCurrentPage('ai_stats')}
                 />
               )}
 
@@ -614,7 +617,15 @@ export function App() {
               {/* 17. 직원 관리 화면 */}
               {currentPage === 'employees' && (
                 <EmployeeManageView
-                  onBack={() => setCurrentPage('home')}
+                  onBack={() => {
+                    if (currentUser.role === 'DS_PRINCIPAL_PM' || currentUser.role === 'PRINCIPAL_INSPECTOR') {
+                      setCurrentPage('principal_portal');
+                    } else if (currentUser.role === 'PARTNER_SITE_MANAGER' || currentUser.role === 'PARTNER_PART_LEADER') {
+                      setCurrentPage('partner_portal');
+                    } else {
+                      setCurrentPage('home');
+                    }
+                  }}
                   onSelectEmployee={emp => alert(`👤 ${emp.name} (${emp.company} / ${emp.team} ${emp.part}파트) - ${emp.position}`)}
                   themeMode={themeMode}
                 />

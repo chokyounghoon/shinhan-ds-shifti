@@ -24,7 +24,8 @@ import {
   Check, 
   Slash,
   AlertCircle,
-  Megaphone
+  Megaphone,
+  Sparkles
 } from 'lucide-react';
 import { dbService, PM_PART_LIST } from '../services/db';
 import { aiAnalyticsService } from '../services/aiAnalyticsService';
@@ -34,6 +35,9 @@ import { User, ManpowerInputRecord, PartFulfillmentSummary, LegalDefenseReport }
 interface ContractFulfillmentDashboardViewProps {
   currentUser: User;
   themeMode: 'ddangyo' | 'shinhan';
+  onOpenEmployees?: () => void;
+  onOpenOrganizations?: () => void;
+  onOpenAiStats?: () => void;
 }
 
 export interface OrgPartInfo {
@@ -48,7 +52,10 @@ export interface OrgPartInfo {
 
 export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashboardViewProps> = ({
   currentUser,
-  themeMode
+  themeMode,
+  onOpenEmployees,
+  onOpenOrganizations,
+  onOpenAiStats
 }) => {
   const [dbPartList, setDbPartList] = useState<OrgPartInfo[]>([]);
   const [activePart, setActivePart] = useState<string>(currentUser.partName || '상담');
@@ -58,6 +65,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
   const [summary, setSummary] = useState<PartFulfillmentSummary>(dbService.getPartSummary('상담'));
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
   const [d1Users, setD1Users] = useState<any[]>([]);
+  const [dbCompanies, setDbCompanies] = useState<string[]>(['신한DS', '유브갓', '(주)협력아이티에스', '현대IT솔루션']);
 
   // 🔍 다양한 검색 조건 상태 (일자별, 협력사별, 성명/사번, 상태별)
   const todayStr = new Date().toISOString().substring(0, 10);
@@ -65,6 +73,23 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
   const [filterCompany, setFilterCompany] = useState<string>('ALL');
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'NORMAL' | 'VARIANCE_GAP' | 'PARTNER_CONFIRMED'>('ALL');
+
+  // ✨ 신규 직원/인력 등록 모달 상태 (Cloudflare D1 실시간 저장)
+  const [isRegisterEmployeeModalOpen, setIsRegisterEmployeeModalOpen] = useState(false);
+  const [isRegisteringEmp, setIsRegisteringEmp] = useState(false);
+  const [registerEmployeeForm, setRegisterEmployeeForm] = useState({
+    employeeId: '',
+    name: '',
+    company: '유브갓',
+    customCompany: '',
+    team: '카드개발팀',
+    part: currentUser.partName || '상담',
+    position: '선임',
+    role: 'PARTNER_WORKER' as 'PARTNER_WORKER' | 'PARTNER_MANAGER' | 'DS_PM',
+    phone: '',
+    email: '',
+    status: '정상투입'
+  });
   
   // D1 DB에서 실제 등록된 파트 목록 및 사용자 목록 조회
   useEffect(() => {
@@ -102,12 +127,97 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
             setD1Users(uJson.data);
           }
         }
+
+        // 3. 협력사 목록 조회
+        const compRes = await fetch('/api/companies');
+        if (compRes.ok) {
+          const cJson = await compRes.json();
+          if (cJson.data && Array.isArray(cJson.data)) {
+            const names = cJson.data.map((c: any) => c.company_name).filter(Boolean);
+            if (names.length > 0) setDbCompanies(names);
+          }
+        }
       } catch (err) {
         console.warn('Failed to fetch D1 master data:', err);
       }
     };
     fetchD1MasterData();
   }, [currentUser.partName]);
+
+  // 신규 직원/인력 Cloudflare D1 등록 제출 핸들러
+  const handleRegisterEmployeeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanId = registerEmployeeForm.employeeId.trim().toUpperCase();
+    const cleanName = registerEmployeeForm.name.trim();
+    if (!cleanId || !cleanName) {
+      alert('사번(아이디)과 성명을 모두 입력해 주세요.');
+      return;
+    }
+
+    const finalCompany = registerEmployeeForm.company === 'CUSTOM'
+      ? (registerEmployeeForm.customCompany.trim() || '협력사')
+      : registerEmployeeForm.company;
+
+    setIsRegisteringEmp(true);
+    try {
+      const userRole = registerEmployeeForm.role === 'DS_PM'
+        ? 'DS_PRINCIPAL_PM'
+        : registerEmployeeForm.role === 'PARTNER_MANAGER'
+        ? 'PARTNER_PART_LEADER'
+        : 'PARTNER_WORKER';
+
+      const isManagerFlag = registerEmployeeForm.role === 'PARTNER_MANAGER' ? 1 : 0;
+
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employeeId: cleanId,
+          name: cleanName,
+          company: registerEmployeeForm.role === 'DS_PM' ? '신한DS' : finalCompany,
+          team: registerEmployeeForm.team,
+          part: registerEmployeeForm.part || activePart,
+          position: registerEmployeeForm.position,
+          role: userRole,
+          isPartnerManager: isManagerFlag,
+          phone: registerEmployeeForm.phone,
+          email: registerEmployeeForm.email || `${cleanId.toLowerCase()}@shinhands.co.kr`,
+          status: registerEmployeeForm.status === '정상투입' ? 'ACTIVE' : registerEmployeeForm.status
+        })
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        alert(`🎉 [${cleanName} / ${cleanId}] 직원이 Cloudflare D1에 성공적으로 등록되었습니다.\n• 소속: ${finalCompany} (${registerEmployeeForm.part || activePart} 파트)\n• 직무: ${registerEmployeeForm.role === 'DS_PM' ? '신한DS 현장대리인' : registerEmployeeForm.role === 'PARTNER_MANAGER' ? '협력사 현장대리인' : '도급 인력 (협력사)'}`);
+        setIsRegisterEmployeeModalOpen(false);
+        setRegisterEmployeeForm({
+          employeeId: '',
+          name: '',
+          company: '유브갓',
+          customCompany: '',
+          team: '카드개발팀',
+          part: activePart,
+          position: '선임',
+          role: 'PARTNER_WORKER',
+          phone: '',
+          email: '',
+          status: '정상투입'
+        });
+        await loadData();
+        const usersRes = await fetch('/api/users');
+        if (usersRes.ok) {
+          const uJson = await usersRes.json();
+          if (uJson.data) setD1Users(uJson.data);
+        }
+      } else {
+        alert(`직원 등록 실패: ${json.detail || '오류가 발생했습니다.'}`);
+      }
+    } catch (err) {
+      alert('직원 등록 중 네트워크 오류가 발생했습니다.');
+    } finally {
+      setIsRegisteringEmp(false);
+    }
+  };
 
   // 모달 상태
   const [isAddWorkerModalOpen, setIsAddWorkerModalOpen] = useState(false);
@@ -483,6 +593,92 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
               </button>
             ))}
           </div>
+
+          {/* ⚡ DS 현장대리인 핵심 기능 퀵 액션 바 (직원 등록 / 전체 관리 / AI 통계) */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: onOpenEmployees ? '1.2fr 1fr 1fr' : '1fr',
+            gap: '8px',
+            marginTop: '12px'
+          }}>
+            <button
+              type="button"
+              onClick={() => {
+                setRegisterEmployeeForm(prev => ({
+                  ...prev,
+                  part: activePart,
+                  company: currentPartInfo?.partnerCompany || '유브갓'
+                }));
+                setIsRegisterEmployeeModalOpen(true);
+              }}
+              style={{
+                padding: '10px 14px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #0052FF 0%, #00C6FF 100%)',
+                color: '#FFFFFF',
+                border: 'none',
+                fontSize: '12.5px',
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                boxShadow: '0 3px 12px rgba(0, 82, 255, 0.4)'
+              }}
+            >
+              <UserPlus size={15} />
+              <span>+ 신규 직원/인력 등록</span>
+            </button>
+
+            {onOpenEmployees && (
+              <button
+                type="button"
+                onClick={onOpenEmployees}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(0, 229, 255, 0.3)',
+                  color: '#E0F7FA',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Users size={15} color="#00E5FF" />
+                <span>직원 관리 화면</span>
+              </button>
+            )}
+
+            {onOpenAiStats && (
+              <button
+                type="button"
+                onClick={onOpenAiStats}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  background: 'rgba(67, 56, 202, 0.3)',
+                  border: '1px solid #818CF8',
+                  color: '#C7D2FE',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Sparkles size={15} color="#A5B4FC" />
+                <span>AI 통계 & 정산</span>
+              </button>
+            )}
+          </div>
         </div>
 
       <div style={{ padding: '14px 16px 8px 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -501,9 +697,38 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
             <span style={{ fontSize: '12.5px', fontWeight: 800, color: '#00E5FF', display: 'flex', alignItems: 'center', gap: '5px' }}>
               <span>🔍</span> <span>도급 공정 검수 검색 조건</span>
             </span>
-            <span style={{ fontSize: '11px', color: '#90A4AE' }}>
-              관리 직원 <strong style={{ color: '#FFFFFF' }}>{records.length}명</strong> 조회됨
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '11px', color: '#90A4AE' }}>
+                관리 직원 <strong style={{ color: '#FFFFFF' }}>{records.length}명</strong>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setRegisterEmployeeForm(prev => ({
+                    ...prev,
+                    part: activePart,
+                    company: currentPartInfo?.partnerCompany || '유브갓'
+                  }));
+                  setIsRegisterEmployeeModalOpen(true);
+                }}
+                style={{
+                  background: 'rgba(0, 229, 255, 0.15)',
+                  border: '1px solid rgba(0, 229, 255, 0.4)',
+                  color: '#00E5FF',
+                  borderRadius: '6px',
+                  padding: '3px 8px',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '3px'
+                }}
+              >
+                <UserPlus size={12} />
+                <span>+ 등록</span>
+              </button>
+            </div>
           </div>
 
           {/* 1행: 일자 선택 + 협력사 선택 */}
@@ -1953,6 +2178,318 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
             >
               닫기
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 팝업: DS 현장대리인 전용 신규 직원/인력 등록 모달 (Cloudflare D1 저장) */}
+      {/* ========================================================================= */}
+      {isRegisterEmployeeModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.82)',
+          backdropFilter: 'blur(8px)',
+          zIndex: 1100,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px'
+        }}>
+          <div style={{
+            width: '100%',
+            maxWidth: '460px',
+            background: '#0F1E36',
+            border: '1.5px solid #00E5FF',
+            borderRadius: '20px',
+            padding: '24px',
+            color: '#FFFFFF',
+            maxHeight: '92vh',
+            overflowY: 'auto',
+            boxShadow: '0 20px 50px rgba(0, 229, 255, 0.25)'
+          }}>
+            {/* 모달 헤더 */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '18px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '12px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#00E5FF', fontSize: '17px', fontWeight: 900 }}>
+                  <UserPlus size={20} />
+                  <span>신규 직원 / 도급 인력 등록</span>
+                </div>
+                <div style={{ fontSize: '11.5px', color: '#90A4AE', marginTop: '3px' }}>
+                  Cloudflare D1 DB에 실시간 영구 등록되며 즉시 관제 목록에 반영됩니다.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsRegisterEmployeeModalOpen(false)}
+                style={{ background: 'none', border: 'none', color: '#90A4AE', cursor: 'pointer', padding: '4px' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleRegisterEmployeeSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* 1. 직무 역할 구분 */}
+              <div>
+                <label style={{ fontSize: '12px', color: '#80D8FF', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
+                  직무 / 역할 구분 *
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.15fr 1fr', gap: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setRegisterEmployeeForm({ ...registerEmployeeForm, role: 'PARTNER_WORKER' })}
+                    style={{
+                      padding: '8px 4px',
+                      borderRadius: '8px',
+                      fontSize: '11.5px',
+                      fontWeight: registerEmployeeForm.role === 'PARTNER_WORKER' ? 800 : 500,
+                      background: registerEmployeeForm.role === 'PARTNER_WORKER' ? '#0052FF' : 'rgba(255, 255, 255, 0.06)',
+                      color: '#FFFFFF',
+                      border: registerEmployeeForm.role === 'PARTNER_WORKER' ? '1px solid #00E5FF' : '1px solid rgba(255, 255, 255, 0.1)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    협력사 직원
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRegisterEmployeeForm({ ...registerEmployeeForm, role: 'PARTNER_MANAGER' })}
+                    style={{
+                      padding: '8px 4px',
+                      borderRadius: '8px',
+                      fontSize: '11.5px',
+                      fontWeight: registerEmployeeForm.role === 'PARTNER_MANAGER' ? 800 : 500,
+                      background: registerEmployeeForm.role === 'PARTNER_MANAGER' ? '#0052FF' : 'rgba(255, 255, 255, 0.06)',
+                      color: '#FFFFFF',
+                      border: registerEmployeeForm.role === 'PARTNER_MANAGER' ? '1px solid #00E5FF' : '1px solid rgba(255, 255, 255, 0.1)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    협력사 현장대리인
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRegisterEmployeeForm({ ...registerEmployeeForm, role: 'DS_PM', company: '신한DS' })}
+                    style={{
+                      padding: '8px 4px',
+                      borderRadius: '8px',
+                      fontSize: '11.5px',
+                      fontWeight: registerEmployeeForm.role === 'DS_PM' ? 800 : 500,
+                      background: registerEmployeeForm.role === 'DS_PM' ? '#4F46E5' : 'rgba(255, 255, 255, 0.06)',
+                      color: '#FFFFFF',
+                      border: registerEmployeeForm.role === 'DS_PM' ? '1px solid #A5B4FC' : '1px solid rgba(255, 255, 255, 0.1)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    DS 현장대리인
+                  </button>
+                </div>
+              </div>
+
+              {/* 2. 성명 & 사원번호/ID */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '11.5px', color: '#90A4AE', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                    성명 *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="예: 홍길동"
+                    value={registerEmployeeForm.name}
+                    onChange={e => setRegisterEmployeeForm({ ...registerEmployeeForm, name: e.target.value })}
+                    style={formInputStyle}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11.5px', color: '#90A4AE', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                    사원번호 / ID *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="예: S01832, PT2026..."
+                    value={registerEmployeeForm.employeeId}
+                    onChange={e => setRegisterEmployeeForm({ ...registerEmployeeForm, employeeId: e.target.value.toUpperCase() })}
+                    style={formInputStyle}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* 3. 소속 회사 */}
+              <div>
+                <label style={{ fontSize: '11.5px', color: '#90A4AE', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                  소속 회사 (수급사) *
+                </label>
+                {registerEmployeeForm.role === 'DS_PM' ? (
+                  <input
+                    type="text"
+                    value="신한DS"
+                    disabled
+                    style={{ ...formInputStyle, background: 'rgba(255, 255, 255, 0.05)', color: '#818CF8', fontWeight: 800 }}
+                  />
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <select
+                      value={registerEmployeeForm.company}
+                      onChange={e => setRegisterEmployeeForm({ ...registerEmployeeForm, company: e.target.value })}
+                      style={formInputStyle}
+                    >
+                      {dbCompanies.filter(c => c !== '신한DS').map(c => (
+                        <option key={c} value={c} style={{ background: '#0D1726', color: '#FFFFFF' }}>{c}</option>
+                      ))}
+                      <option value="CUSTOM" style={{ background: '#0D1726', color: '#00E5FF' }}>+ 기타 협력사 직접 입력</option>
+                    </select>
+                    {registerEmployeeForm.company === 'CUSTOM' && (
+                      <input
+                        type="text"
+                        placeholder="협력사 상호명 입력 (예: (주)새한시스템)"
+                        value={registerEmployeeForm.customCompany}
+                        onChange={e => setRegisterEmployeeForm({ ...registerEmployeeForm, customCompany: e.target.value })}
+                        style={formInputStyle}
+                        required
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* 4. 소속 팀 & 배정 파트 */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '11.5px', color: '#90A4AE', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                    소속 팀 *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="예: 카드개발팀, 상담운영팀"
+                    value={registerEmployeeForm.team}
+                    onChange={e => setRegisterEmployeeForm({ ...registerEmployeeForm, team: e.target.value })}
+                    style={formInputStyle}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11.5px', color: '#90A4AE', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                    관제 파트 (D1 조직) *
+                  </label>
+                  <select
+                    value={registerEmployeeForm.part}
+                    onChange={e => setRegisterEmployeeForm({ ...registerEmployeeForm, part: e.target.value })}
+                    style={formInputStyle}
+                  >
+                    {displayPartList.map(p => (
+                      <option key={p.id || p.partName} value={p.partName} style={{ background: '#0D1726', color: '#FFFFFF' }}>
+                        {p.partName} 파트
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* 5. 직급 & 상태 */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '11.5px', color: '#90A4AE', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                    직급 / 직책
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="예: 선임, 수석, 대표, PM"
+                    value={registerEmployeeForm.position}
+                    onChange={e => setRegisterEmployeeForm({ ...registerEmployeeForm, position: e.target.value })}
+                    style={formInputStyle}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11.5px', color: '#90A4AE', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                    투입 상태
+                  </label>
+                  <select
+                    value={registerEmployeeForm.status}
+                    onChange={e => setRegisterEmployeeForm({ ...registerEmployeeForm, status: e.target.value })}
+                    style={formInputStyle}
+                  >
+                    <option value="정상투입" style={{ background: '#0D1726', color: '#00E676' }}>정상투입 (ACTIVE)</option>
+                    <option value="휴가/외근" style={{ background: '#0D1726', color: '#FFB300' }}>휴가/외근</option>
+                    <option value="미배정" style={{ background: '#0D1726', color: '#90A4AE' }}>미배정</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* 6. 연락처 & 이메일 */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '11.5px', color: '#90A4AE', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                    연락처 (휴대폰)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="010-0000-0000"
+                    value={registerEmployeeForm.phone}
+                    onChange={e => setRegisterEmployeeForm({ ...registerEmployeeForm, phone: e.target.value })}
+                    style={formInputStyle}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11.5px', color: '#90A4AE', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                    이메일 주소
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="user@shinhands.co.kr"
+                    value={registerEmployeeForm.email}
+                    onChange={e => setRegisterEmployeeForm({ ...registerEmployeeForm, email: e.target.value })}
+                    style={formInputStyle}
+                  />
+                </div>
+              </div>
+
+              {/* 하단 버튼 */}
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsRegisterEmployeeModalOpen(false)}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    borderRadius: '10px',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    color: '#90A4AE',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={isRegisteringEmp}
+                  style={{
+                    flex: 2,
+                    padding: '12px',
+                    borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #0052FF 0%, #00C6FF 100%)',
+                    border: 'none',
+                    color: '#FFFFFF',
+                    fontSize: '13.5px',
+                    fontWeight: 900,
+                    cursor: isRegisteringEmp ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 4px 14px rgba(0, 82, 255, 0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <UserPlus size={16} />
+                  <span>{isRegisteringEmp ? 'D1에 등록 중...' : 'Cloudflare D1에 등록 완료'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

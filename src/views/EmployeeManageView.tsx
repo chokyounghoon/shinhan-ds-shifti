@@ -61,6 +61,7 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
 
   // 직원 편집/추가 모달 상태
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isAddMode, setIsAddMode] = useState(false);
   const [editingEmp, setEditingEmp] = useState<EmployeeItem | null>(null);
 
   // 1. Cloudflare D1 users 원격 실시간 조회
@@ -192,9 +193,30 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
     };
   }, [employees]);
 
+  // 신규 직원 등록 열기
+  const handleOpenAddModal = () => {
+    setEditingEmp({
+      id: '',
+      name: '',
+      employeeId: '',
+      company: activeRoleTab === 'DS_PM' ? '신한DS' : (dbCompanies.find(c => c !== '신한DS') || '유브갓'),
+      team: '카드개발팀',
+      part: availableParts[0] || '상담',
+      role: activeRoleTab,
+      position: activeRoleTab === 'DS_PM' ? '수석' : activeRoleTab === 'PARTNER_MANAGER' ? '대표' : '선임',
+      phone: '',
+      email: '',
+      status: '정상투입',
+      joinedDate: new Date().toISOString().substring(0, 10)
+    });
+    setIsAddMode(true);
+    setIsEditModalOpen(true);
+  };
+
   // 기존 직원 수정 열기
   const handleOpenEditModal = (emp: EmployeeItem) => {
     setEditingEmp({ ...emp });
+    setIsAddMode(false);
     setIsEditModalOpen(true);
   };
 
@@ -309,6 +331,28 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
             </div>
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={handleOpenAddModal}
+          style={{
+            background: 'linear-gradient(135deg, #0052FF 0%, #00C6FF 100%)',
+            color: '#FFFFFF',
+            border: 'none',
+            borderRadius: '9px',
+            padding: '8px 14px',
+            fontSize: '12.5px',
+            fontWeight: 800,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(0, 82, 255, 0.3)'
+          }}
+        >
+          <UserPlus size={15} />
+          <span>+ 신규 직원 등록</span>
+        </button>
       </div>
 
       {/* 2. 3대 역할 탭 바 (협력사 / 협력사 관리인 / DS 현장관리인) */}
@@ -692,7 +736,7 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <UserIcon size={18} color="#0052FF" />
                 <span style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A' }}>
-                  {editingEmp.name} ({editingEmp.employeeId}) 정보 수정
+                  {isAddMode ? '✨ 신규 직원 / 협력인력 등록' : `${editingEmp.name} (${editingEmp.employeeId}) 정보 수정`}
                 </span>
               </div>
               <button
@@ -762,7 +806,7 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
                 </div>
               </div>
 
-              {/* 2. 성명 & 사번 (사번은 키값이므로 수정 불가 잠금) */}
+              {/* 2. 성명 & 사번 */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
@@ -785,21 +829,23 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
                 </div>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
-                    사원번호 / 아이디 (고유 키값)
+                    사원번호 / ID *
                   </label>
                   <input
                     type="text"
                     value={editingEmp.employeeId}
-                    disabled
+                    disabled={!isAddMode}
+                    onChange={e => setEditingEmp({ ...editingEmp, employeeId: e.target.value.toUpperCase() })}
+                    placeholder={isAddMode ? "예: S01832, PT2026..." : ""}
                     style={{
                       width: '100%',
                       padding: '8px 10px',
                       borderRadius: '8px',
-                      border: '1px solid #E2E8F0',
+                      border: isAddMode ? '1.5px solid #0052FF' : '1px solid #E2E8F0',
                       fontSize: '13px',
-                      background: '#F1F5F9',
-                      color: '#64748B',
-                      cursor: 'not-allowed',
+                      background: isAddMode ? '#FFFFFF' : '#F1F5F9',
+                      color: isAddMode ? '#0F172A' : '#64748B',
+                      cursor: isAddMode ? 'text' : 'not-allowed',
                       fontWeight: 700,
                       boxSizing: 'border-box'
                     }}
