@@ -17,13 +17,13 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
 }) => {
   return (
     <div className="week-schedule-card">
-      <div className="week-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <div className="week-title" style={{ fontSize: '15px', fontWeight: 800 }}>
+      <div className="week-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="week-title" style={{ fontSize: '14.5px', fontWeight: 800, color: '#191F28', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             주간 도급 투입 계획 (Man-Day)
           </div>
-          <div style={{ fontSize: '11px', color: '#6B7684', marginTop: '2px' }}>
-            소속사에 휴가 신청 시 관리자가 원청에 공백을 통보합니다
+          <div style={{ fontSize: '11px', color: '#6B7684', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            소속사 휴가 결재 ➔ 원청 공백 사전 통보
           </div>
         </div>
 
@@ -37,12 +37,14 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
               color: '#15803D',
               fontSize: '11.5px',
               fontWeight: 800,
-              padding: '5px 9px',
+              padding: '5px 10px',
               borderRadius: '8px',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '4px'
+              gap: '4px',
+              whiteSpace: 'nowrap',
+              flexShrink: 0
             }}
           >
             <FileText size={13} />

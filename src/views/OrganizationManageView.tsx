@@ -305,7 +305,7 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
       hierarchyPath: '',
       leaderName: '',
       locationName: '파인에비뉴(카드)',
-      memberCount: 0,
+      memberCount: '' as any,
       description: ''
     };
     setEditingOrg(newOrg);
@@ -347,18 +347,36 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...finalItem,
+          id: finalItem.id,
+          company_name: finalItem.companyName,
+          companyName: finalItem.companyName,
+          team_name: finalItem.teamName,
+          teamName: finalItem.teamName,
+          part_name: finalItem.partName,
+          partName: finalItem.partName,
+          hierarchy_path: finalItem.hierarchyPath,
+          hierarchyPath: finalItem.hierarchyPath,
+          leader_name: finalItem.leaderName,
+          leaderName: finalItem.leaderName,
+          location_name: finalItem.locationName,
+          locationName: finalItem.locationName,
+          member_count: finalItem.memberCount,
+          memberCount: finalItem.memberCount,
+          description: finalItem.description || '',
           actor: actorId
         })
       });
       if (res.ok) {
         await fetchRemoteOrgs();
+        alert(`✅ [${finalItem.hierarchyPath}] 조직 정보가 DB에 안전하게 저장되었습니다.\n• 협력사 투입 인원: ${finalItem.memberCount}명`);
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        alert(`❌ 조직 저장 실패: ${errJson.detail || errJson.message || '서버 오류가 발생했습니다.'}`);
       }
     } catch (err) {
       console.warn('D1 organizations save warning:', err);
+      alert('❌ 조직 저장 중 네트워크 오류가 발생했습니다.');
     }
-
-    alert(`✅ [${finalItem.hierarchyPath}] 조직 정보가 DB에 안전하게 저장되었습니다.\n• 협력사 투입 인원: ${finalItem.memberCount}명`);
   };
 
   // 삭제 처리 (Cloudflare D1 직접 삭제)
@@ -1042,8 +1060,15 @@ export const OrganizationManageView: React.FC<OrganizationManageViewProps> = ({
                   <input
                     type="number"
                     min="0"
-                    value={editingOrg.memberCount}
-                    onChange={e => setEditingOrg({ ...editingOrg, memberCount: Number(e.target.value) })}
+                    value={editingOrg.memberCount ? editingOrg.memberCount : ''}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setEditingOrg({ 
+                        ...editingOrg, 
+                        memberCount: val === '' ? 0 : Math.max(0, parseInt(val, 10) || 0)
+                      });
+                    }}
+                    placeholder="0"
                     style={{
                       width: '100%',
                       padding: '8px 10px',

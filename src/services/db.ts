@@ -256,33 +256,31 @@ export class PureDatabaseEngine {
   public async fetchUsersFromD1(): Promise<DbUser[]> {
     try {
       const res = await fetch(`${this.API_BASE}/users`);
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data && Array.isArray(json.data)) {
-          this.users = json.data.map((u: any) => ({
-            employeeId: u.employee_id || u.employeeId,
-            email: u.email,
-            name: u.name,
-            passwordHash: u.password_hash || u.passwordHash || '••••••••',
-            role: u.role || 'PARTNER_WORKER',
-            authProvider: u.auth_provider || 'local',
-            company: u.company || '신한DS',
-            phone: u.phone || '',
-            team: u.team || '',
-            part: u.part || '상담',
-            position: u.position || '사원',
-            status: u.status || 'ACTIVE',
-            failedAttempts: u.failed_attempts || 0,
-            lastLoginAt: u.last_login_at,
-            createdAt: u.created_at,
-            isActive: Boolean(u.is_active),
-            isAdmin: u.is_admin ? 1 : 0,
-            deviceType: u.device_type || 'Android',
-            regId: u.created_by || 'SYSTEM',
-            regDt: u.created_at
-          }));
-          return [...this.users];
-        }
+      const json = await safeFetchJson(res);
+      if (json && json.data && Array.isArray(json.data)) {
+        this.users = json.data.map((u: any) => ({
+          employeeId: u.employee_id || u.employeeId,
+          email: u.email,
+          name: u.name,
+          passwordHash: u.password_hash || u.passwordHash || '••••••••',
+          role: u.role || 'PARTNER_WORKER',
+          authProvider: u.auth_provider || 'local',
+          company: u.company || '신한DS',
+          phone: u.phone || '',
+          team: u.team || '',
+          part: u.part || '상담',
+          position: u.position || '사원',
+          status: u.status || 'ACTIVE',
+          failedAttempts: u.failed_attempts || 0,
+          lastLoginAt: u.last_login_at,
+          createdAt: u.created_at,
+          isActive: Boolean(u.is_active),
+          isAdmin: u.is_admin ? 1 : 0,
+          deviceType: u.device_type || 'Android',
+          regId: u.created_by || 'SYSTEM',
+          regDt: u.created_at
+        }));
+        return [...this.users];
       }
     } catch (e) {
       console.warn('[D1 Users Fetch Error]:', e);
@@ -301,12 +299,12 @@ export class PureDatabaseEngine {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userDto)
       });
-      const json = await res.json();
-      if (res.ok && json.success) {
+      const json = await safeFetchJson(res);
+      if (res.ok && json?.success) {
         await this.fetchUsersFromD1();
         return { success: true, message: json.message || '등록되었습니다.' };
       }
-      return { success: false, message: json.detail || json.message || '등록 실패' };
+      return { success: false, message: json?.detail || json?.message || '등록 실패' };
     } catch (e: any) {
       return { success: false, message: e.message };
     }
@@ -332,8 +330,8 @@ export class PureDatabaseEngine {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ employeeId: empId, password: plainPw })
       });
-      const json = await res.json();
-      return Boolean(json.success);
+      const json = await safeFetchJson(res);
+      return Boolean(res && res.ok && json?.success);
     } catch (e) {
       return false;
     }
@@ -356,16 +354,22 @@ export class PureDatabaseEngine {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ employeeId: empId })
       });
-      const json = await res.json();
-      if (res.ok && json.success) {
+      const json = await safeFetchJson(res);
+      if (res && res.ok && json?.success) {
         return {
           success: true,
           otpCode: json.devOtp || '',
-          maskedEmail: json.maskedEmail || '',
+          maskedEmail: json.maskedEmail || json.masked_email || '',
           expiresAt: Date.now() + 180000
         };
       }
-      return { success: false, otpCode: '', maskedEmail: '', expiresAt: 0, error: json.detail || json.message };
+      return { 
+        success: false, 
+        otpCode: '', 
+        maskedEmail: '', 
+        expiresAt: 0, 
+        error: json?.detail || json?.message || 'D1 DB 사번 조회 및 OTP 발송에 실패하였습니다.' 
+      };
     } catch (e: any) {
       return { success: false, otpCode: '', maskedEmail: '', expiresAt: 0, error: e.message };
     }
@@ -382,15 +386,18 @@ export class PureDatabaseEngine {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ employeeId: empId, otp: inputOtp })
       });
-      const json = await res.json();
-      if (res.ok && json.success) {
+      const json = await safeFetchJson(res);
+      if (res && res.ok && (json?.success || json?.code === 'OTP_VERIFIED')) {
         if (json.user) {
           this.currentUser = json.user;
           this.activePmPart = json.user.partName || '상담';
         }
         return { success: true, user: json.user };
       }
-      return { success: false, error: json.detail || json.message || 'OTP 인증 실패' };
+      return { 
+        success: false, 
+        error: json?.detail || json?.message || 'D1 DB OTP 인증에 실패하였습니다.' 
+      };
     } catch (e: any) {
       return { success: false, error: e.message };
     }
@@ -408,33 +415,31 @@ export class PureDatabaseEngine {
       if (company && company !== 'ALL') url += `&company=${encodeURIComponent(company)}`;
 
       const res = await fetch(url);
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data && Array.isArray(json.data)) {
-          this.manpowerInputs = json.data.map((r: any) => ({
-            recordId: r.record_id || r.recordId,
-            employeeId: r.employee_id || r.employeeId,
-            workerName: r.worker_name || r.workerName,
-            partName: r.part_name || r.partName,
-            partnerCompany: r.partner_company || r.partnerCompany,
-            workDate: r.work_date || r.workDate,
-            contractedHours: Number(r.contracted_hours ?? r.contractedHours ?? 8.0),
-            actualInputHours: Number(r.actual_input_hours ?? r.actualInputHours ?? 8.0),
-            clockInTime: r.clock_in_time || r.clockInTime || '08:50',
-            clockOutTime: r.clock_out_time || r.clockOutTime || '18:00',
-            taskSummary: r.task_summary || r.taskSummary || '',
-            varianceMinutes: Number(r.variance_minutes ?? r.varianceMinutes ?? 0),
-            isSlaBreach: Boolean(r.is_sla_breach ?? r.isSlaBreach),
-            exceptionType: r.exception_type || r.exceptionType,
-            gapReason: r.gap_reason || r.gapReason,
-            partnerClarification: r.partner_clarification || r.partnerClarification,
-            verificationStatus: (r.verification_status || r.verificationStatus || 'AUTO_SETTLED') as VerificationStatus,
-            regId: r.reg_id || r.regId || 'SYSTEM',
-            regDt: r.reg_dt || r.regDt || ''
-          }));
+      const json = await safeFetchJson(res);
+      if (json && json.data && Array.isArray(json.data)) {
+        this.manpowerInputs = json.data.map((r: any) => ({
+          recordId: r.record_id || r.recordId,
+          employeeId: r.employee_id || r.employeeId,
+          workerName: r.worker_name || r.workerName,
+          partName: r.part_name || r.partName,
+          partnerCompany: r.partner_company || r.partnerCompany,
+          workDate: r.work_date || r.workDate,
+          contractedHours: Number(r.contracted_hours ?? r.contractedHours ?? 8.0),
+          actualInputHours: Number(r.actual_input_hours ?? r.actualInputHours ?? 8.0),
+          clockInTime: r.clock_in_time || r.clockInTime || '08:50',
+          clockOutTime: r.clock_out_time || r.clockOutTime || '18:00',
+          taskSummary: r.task_summary || r.taskSummary || '',
+          varianceMinutes: Number(r.variance_minutes ?? r.varianceMinutes ?? 0),
+          isSlaBreach: Boolean(r.is_sla_breach ?? r.isSlaBreach),
+          exceptionType: r.exception_type || r.exceptionType,
+          gapReason: r.gap_reason || r.gapReason,
+          partnerClarification: r.partner_clarification || r.partnerClarification,
+          verificationStatus: (r.verification_status || r.verificationStatus || 'AUTO_SETTLED') as VerificationStatus,
+          regId: r.reg_id || r.regId || 'SYSTEM',
+          regDt: r.reg_dt || r.regDt || ''
+        }));
 
-          return this.manpowerInputs.map(r => this.mapToManpowerRecord(r));
-        }
+        return this.manpowerInputs.map(r => this.mapToManpowerRecord(r));
       }
     } catch (e) {
       console.warn('[D1 Manpower Fetch Error]:', e);
@@ -593,22 +598,20 @@ export class PureDatabaseEngine {
       let url = `${this.API_BASE}/audit-trails`;
       if (recordId) url += `?record_id=${encodeURIComponent(recordId)}`;
       const res = await fetch(url);
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data && Array.isArray(json.data)) {
-          this.auditTrails = json.data.map((a: any) => ({
-            id: a.id,
-            recordId: a.record_id || a.recordId,
-            actorId: a.actor_id || a.actorId,
-            actorName: a.actor_name || a.actorName,
-            actorRole: a.actor_role || a.actorRole,
-            action: a.action,
-            systemLabel: a.system_label || a.systemLabel || '도급 계약 이행 확인',
-            details: a.details,
-            createdAt: a.created_at || a.createdAt
-          }));
-          return [...this.auditTrails];
-        }
+      const json = await safeFetchJson(res);
+      if (json && json.data && Array.isArray(json.data)) {
+        this.auditTrails = json.data.map((a: any) => ({
+          id: a.id,
+          recordId: a.record_id || a.recordId,
+          actorId: a.actor_id || a.actorId,
+          actorName: a.actor_name || a.actorName,
+          actorRole: a.actor_role || a.actorRole,
+          action: a.action,
+          systemLabel: a.system_label || a.systemLabel || '도급 계약 이행 확인',
+          details: a.details,
+          createdAt: a.created_at || a.createdAt
+        }));
+        return [...this.auditTrails];
       }
     } catch (e) {}
     return [...this.auditTrails];
@@ -618,24 +621,22 @@ export class PureDatabaseEngine {
     try {
       const targetPart = partName || this.activePmPart;
       const res = await fetch(`${this.API_BASE}/sla-clarifications?part=${encodeURIComponent(targetPart)}`);
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data && Array.isArray(json.data)) {
-          this.slaClarifications = json.data.map((c: any) => ({
-            id: c.id,
-            recordId: c.record_id || c.recordId,
-            partName: c.part_name || c.partName,
-            partnerCompany: c.partner_company || c.partnerCompany,
-            requesterId: c.requester_id || c.requesterId,
-            officialTitle: c.official_title || c.officialTitle,
-            messageContent: c.message_content || c.messageContent,
-            status: c.status,
-            answerContent: c.answer_content || c.answerContent,
-            answeredAt: c.answered_at || c.answeredAt,
-            createdAt: c.created_at || c.createdAt
-          }));
-          return [...this.slaClarifications];
-        }
+      const json = await safeFetchJson(res);
+      if (json && json.data && Array.isArray(json.data)) {
+        this.slaClarifications = json.data.map((c: any) => ({
+          id: c.id,
+          recordId: c.record_id || c.recordId,
+          partName: c.part_name || c.partName,
+          partnerCompany: c.partner_company || c.partnerCompany,
+          requesterId: c.requester_id || c.requesterId,
+          officialTitle: c.official_title || c.officialTitle,
+          messageContent: c.message_content || c.messageContent,
+          status: c.status,
+          answerContent: c.answer_content || c.answerContent,
+          answeredAt: c.answered_at || c.answeredAt,
+          createdAt: c.created_at || c.createdAt
+        }));
+        return [...this.slaClarifications];
       }
     } catch (e) {}
     return [...this.slaClarifications];
@@ -688,25 +689,23 @@ export class PureDatabaseEngine {
     try {
       const targetPart = partName || this.activePmPart;
       const res = await fetch(`${this.API_BASE}/gap-notices?part=${encodeURIComponent(targetPart)}`);
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data && Array.isArray(json.data)) {
-          this.preGapNotices = json.data.map((n: any) => ({
-            id: n.id,
-            partnerCompany: n.partner_company || n.partnerCompany,
-            workerName: n.worker_name || n.workerName,
-            partName: n.part_name || n.partName,
-            gapPeriod: n.gap_period || n.gapPeriod,
-            gapHours: Number(n.gap_hours ?? n.gapHours ?? 8.0),
-            gapType: n.gap_type || n.gapType,
-            reason: n.reason,
-            status: n.status,
-            acknowledgedBy: n.acknowledged_by || n.acknowledgedBy,
-            acknowledgedAt: n.acknowledged_at || n.acknowledgedAt,
-            createdAt: n.created_at || n.createdAt
-          }));
-          return [...this.preGapNotices];
-        }
+      const json = await safeFetchJson(res);
+      if (json && json.data && Array.isArray(json.data)) {
+        this.preGapNotices = json.data.map((n: any) => ({
+          id: n.id,
+          partnerCompany: n.partner_company || n.partnerCompany,
+          workerName: n.worker_name || n.workerName,
+          partName: n.part_name || n.partName,
+          gapPeriod: n.gap_period || n.gapPeriod,
+          gapHours: Number(n.gap_hours ?? n.gapHours ?? 8.0),
+          gapType: n.gap_type || n.gapType,
+          reason: n.reason,
+          status: n.status,
+          acknowledgedBy: n.acknowledged_by || n.acknowledgedBy,
+          acknowledgedAt: n.acknowledged_at || n.acknowledgedAt,
+          createdAt: n.created_at || n.createdAt
+        }));
+        return [...this.preGapNotices];
       }
     } catch (e) {}
     return [...this.preGapNotices];
@@ -753,25 +752,23 @@ export class PureDatabaseEngine {
   public async fetchInspectionsFromD1(): Promise<ServiceDeliveryInspection[]> {
     try {
       const res = await fetch(`${this.API_BASE}/inspections`);
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data && Array.isArray(json.data)) {
-          this.inspections = json.data.map((i: any) => ({
-            id: i.id,
-            projectCode: i.project_code || i.projectCode,
-            partnerCompany: i.partner_company || i.partnerCompany,
-            inspectorId: i.inspector_id || i.inspectorId,
-            inspectorName: i.inspector_name || i.inspectorName,
-            inspectionMonth: i.inspection_month || i.inspectionMonth,
-            contractedManDays: Number(i.contracted_man_days ?? i.contractedManDays ?? 0),
-            actualDeliveredManDays: Number(i.actual_delivered_man_days ?? i.actualDeliveredManDays ?? 0),
-            inspectionStatus: i.inspection_status || i.inspectionStatus,
-            inspectionNotes: i.inspection_notes || i.inspectionNotes,
-            inspectedAt: i.inspected_at || i.inspectedAt,
-            createdAt: i.created_at || i.createdAt
-          }));
-          return [...this.inspections];
-        }
+      const json = await safeFetchJson(res);
+      if (json && json.data && Array.isArray(json.data)) {
+        this.inspections = json.data.map((i: any) => ({
+          id: i.id,
+          projectCode: i.project_code || i.projectCode,
+          partnerCompany: i.partner_company || i.partnerCompany,
+          inspectorId: i.inspector_id || i.inspectorId,
+          inspectorName: i.inspector_name || i.inspectorName,
+          inspectionMonth: i.inspection_month || i.inspectionMonth,
+          contractedManDays: Number(i.contracted_man_days ?? i.contractedManDays ?? 0),
+          actualDeliveredManDays: Number(i.actual_delivered_man_days ?? i.actualDeliveredManDays ?? 0),
+          inspectionStatus: i.inspection_status || i.inspectionStatus,
+          inspectionNotes: i.inspection_notes || i.inspectionNotes,
+          inspectedAt: i.inspected_at || i.inspectedAt,
+          createdAt: i.created_at || i.createdAt
+        }));
+        return [...this.inspections];
       }
     } catch (e) {}
     return [...this.inspections];
@@ -978,9 +975,7 @@ export class PureDatabaseEngine {
           status: data.status || 'NORMAL'
         })
       });
-      if (res.ok) {
-        return await res.json();
-      }
+      return await safeFetchJson(res);
     } catch (e) {
       console.warn('[D1 Commute Punch Error]:', e);
     }
@@ -996,9 +991,9 @@ export class PureDatabaseEngine {
       if (queryParams.length > 0) url += `?${queryParams.join('&')}`;
 
       const res = await fetch(url);
-      if (res.ok) {
-        const json = await res.json();
-        return json.data || [];
+      const json = await safeFetchJson(res);
+      if (json && json.data && Array.isArray(json.data)) {
+        return json.data;
       }
     } catch (e) {
       console.warn('[D1 Commute Logs Fetch Error]:', e);
@@ -1040,9 +1035,7 @@ export class PureDatabaseEngine {
           approver_name: req.approverName || `${req.partnerCompany || '유브갓'} 현장관리인`
         })
       });
-      if (res.ok) {
-        return await res.json();
-      }
+      return await safeFetchJson(res);
     } catch (e) {
       console.warn('[D1 Attendance Request Error]:', e);
     }
@@ -1054,9 +1047,9 @@ export class PureDatabaseEngine {
       let url = `${this.API_BASE}/attendance/requests`;
       if (empId) url += `?employee_id=${encodeURIComponent(empId)}`;
       const res = await fetch(url);
-      if (res.ok) {
-        const json = await res.json();
-        return json.data || [];
+      const json = await safeFetchJson(res);
+      if (json && json.data && Array.isArray(json.data)) {
+        return json.data;
       }
     } catch (e) {
       console.warn('[D1 Attendance Requests Fetch Error]:', e);
@@ -1084,22 +1077,20 @@ export class PureDatabaseEngine {
       if (queryParams.length > 0) url += `?${queryParams.join('&')}`;
 
       const res = await fetch(url);
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data && Array.isArray(json.data)) {
-          this.notifications = json.data.map((row: any) => ({
-            id: row.id,
-            type: row.type,
-            title: row.title,
-            content: row.content,
-            targetRole: row.target_role,
-            partName: row.part_name,
-            isRead: Boolean(row.is_read),
-            createdAt: row.created_at,
-            linkUrl: row.link_url
-          }));
-          return [...this.notifications];
-        }
+      const json = await safeFetchJson(res);
+      if (json && json.data && Array.isArray(json.data)) {
+        this.notifications = json.data.map((row: any) => ({
+          id: row.id,
+          type: row.type,
+          title: row.title,
+          content: row.content,
+          targetRole: row.target_role,
+          partName: row.part_name,
+          isRead: Boolean(row.is_read),
+          createdAt: row.created_at,
+          linkUrl: row.link_url
+        }));
+        return [...this.notifications];
       }
     } catch (err) {
       console.warn('[D1 Notifications Fetch Error]:', err);
@@ -1138,24 +1129,22 @@ export class PureDatabaseEngine {
       if (partName) url += `?part=${encodeURIComponent(partName)}`;
 
       const res = await fetch(url);
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data && Array.isArray(json.data)) {
-          this.messages = json.data.map((row: any) => ({
-            id: row.id,
-            senderName: row.sender_name,
-            senderRole: row.sender_role,
-            partName: row.part_name,
-            title: row.title,
-            content: row.content,
-            isRead: Boolean(row.is_read),
-            replyStatus: row.reply_status,
-            replyContent: row.reply_content,
-            repliedAt: row.replied_at,
-            createdAt: row.created_at
-          }));
-          return [...this.messages];
-        }
+      const json = await safeFetchJson(res);
+      if (json && json.data && Array.isArray(json.data)) {
+        this.messages = json.data.map((row: any) => ({
+          id: row.id,
+          senderName: row.sender_name,
+          senderRole: row.sender_role,
+          partName: row.part_name,
+          title: row.title,
+          content: row.content,
+          isRead: Boolean(row.is_read),
+          replyStatus: row.reply_status,
+          replyContent: row.reply_content,
+          repliedAt: row.replied_at,
+          createdAt: row.created_at
+        }));
+        return [...this.messages];
       }
     } catch (err) {
       console.warn('[D1 Messages Fetch Error]:', err);
@@ -1238,6 +1227,19 @@ export interface DbAppMessage {
   repliedAt?: string;
 }
 
+// Safe JSON parser helper to prevent HTML/SPA fallback from throwing SyntaxError
+export async function safeFetchJson<T = any>(res: Response | null | undefined): Promise<T | null> {
+  if (!res || !res.ok) return null;
+  try {
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      return null;
+    }
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 export const dbService = new PureDatabaseEngine();
 export const predefinedUsers: User[] = [];
-

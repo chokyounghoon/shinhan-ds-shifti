@@ -115,6 +115,7 @@ export function App() {
   const [isNoScheduleModalOpen, setIsNoScheduleModalOpen] = useState(false);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [isVacationModalOpen, setIsVacationModalOpen] = useState(false);
+  const [selectedVacationType, setSelectedVacationType] = useState<string>('연차');
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [selectedDaySchedule, setSelectedDaySchedule] = useState<DaySchedule | null>(null);
 
@@ -325,7 +326,7 @@ export function App() {
         ) : (
           <>
             {/* 📌 상단 고정 영역: 역할 시뮬레이터 바 + 헤더 (스크롤 시 고정) */}
-            <div style={{
+            <div className="sticky-header-container" style={{
               position: 'sticky',
               top: 0,
               zIndex: 1000,
@@ -457,8 +458,8 @@ export function App() {
                 <VacationTypeSelectView
                   onBack={() => setCurrentPage('vacation')}
                   onSelectType={typeName => {
-                    alert(`✈️ [${typeName}] 휴가 신청서 작성으로 이동합니다.`);
-                    setIsRequestModalOpen(true);
+                    setSelectedVacationType(typeName);
+                    setIsVacationModalOpen(true);
                     setCurrentPage('vacation');
                   }}
                   themeMode={themeMode}
@@ -722,6 +723,7 @@ export function App() {
               }}
               currentUser={currentUser}
               isManagerMode={currentUser.role === 'PARTNER_PART_LEADER' || (currentUser as any).isPartnerManager}
+              initialType={selectedVacationType}
               themeMode={themeMode}
             />
 

@@ -9,6 +9,7 @@ interface VacationRegistrationModalProps {
   onSuccess: (type: string, dateRange: string) => void;
   currentUser?: User;
   isManagerMode?: boolean; // true: 협력사 관리자 (원청 통보 모드), false: 협력사 개인 (소속사 신청 모드)
+  initialType?: string;
   themeMode: 'ddangyo' | 'shinhan';
 }
 
@@ -18,6 +19,7 @@ export const VacationRegistrationModal: React.FC<VacationRegistrationModalProps>
   onSuccess,
   currentUser = dbService.getCurrentUser(),
   isManagerMode = false,
+  initialType,
   themeMode
 }) => {
   const isManager = isManagerMode || currentUser.role === 'PARTNER_PART_LEADER' || (currentUser as any).role === 'PARTNER_MANAGER';
@@ -29,7 +31,7 @@ export const VacationRegistrationModal: React.FC<VacationRegistrationModalProps>
     isManager ? (rosterWorkers[0]?.workerName || '송무준') : (currentUser.name.split(' ')[0] || '송무준')
   );
 
-  const [vacationType, setVacationType] = useState<string>('연차');
+  const [vacationType, setVacationType] = useState<string>(initialType || '연차');
   const [startDate, setStartDate] = useState<string>('2026-08-17');
   const [endDate, setEndDate] = useState<string>('2026-08-18');
   const [reason, setReason] = useState<string>('소속사 복무규정에 따른 하계 정기 연차 휴가 사용');

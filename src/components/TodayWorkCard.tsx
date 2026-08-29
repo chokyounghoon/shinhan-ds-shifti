@@ -212,38 +212,36 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
         marginBottom: '12px'
       }}>
         {/* 헤더: 도급 인력 투입 확인 뱃지 */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-          <div>
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              background: 'rgba(0, 82, 255, 0.08)',
-              color: '#0052FF',
-              fontSize: '11px',
-              fontWeight: 800,
-              padding: '2px 8px',
-              borderRadius: '12px',
-              marginBottom: '4px'
-            }}>
-              <ShieldCheck size={12} />
-              <span>실시간 GPS 반경 100m 진입 시 조건부 활성화</span>
-            </div>
-            <h2 style={{ fontSize: '18px', fontWeight: 900, color: '#191F28', margin: 0 }}>
-              오늘 도급 투입 실적 ({month}월 {date}일, {dayName})
-            </h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            background: 'rgba(0, 82, 255, 0.08)',
+            color: '#0052FF',
+            fontSize: '11px',
+            fontWeight: 800,
+            padding: '2px 8px',
+            borderRadius: '12px',
+            whiteSpace: 'nowrap',
+            flexShrink: 0
+          }}>
+            <ShieldCheck size={12} />
+            <span>GPS 반경 100m 조건부 인증</span>
           </div>
 
           <div style={{
             background: isInputCompleted ? '#E8F5E9' : !isSecurityPassed ? '#FEF2F2' : isWithin100m ? '#EFF6FF' : '#F1F5F9',
             color: isInputCompleted ? '#2E7D32' : !isSecurityPassed ? '#DC2626' : isWithin100m ? '#0052FF' : '#64748B',
-            fontSize: '11.5px',
+            fontSize: '11px',
             fontWeight: 800,
-            padding: '4px 10px',
-            borderRadius: '8px',
+            padding: '3px 8px',
+            borderRadius: '6px',
             display: 'flex',
             alignItems: 'center',
-            gap: '4px'
+            gap: '4px',
+            whiteSpace: 'nowrap',
+            flexShrink: 0
           }}>
             {isInputCompleted ? (
               <CheckCircle2 size={13} color="#2E7D32" />
@@ -257,6 +255,19 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
             </span>
           </div>
         </div>
+
+        {/* 타이틀: 오늘 도급 투입 실적 (한 줄 고정) */}
+        <h2 style={{ 
+          fontSize: '17px', 
+          fontWeight: 900, 
+          color: '#191F28', 
+          margin: '0 0 10px 0',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis'
+        }}>
+          오늘 도급 투입 실적 ({month}월 {date}일, {dayName})
+        </h2>
 
         {/* 도급 수행 장소 및 실시간 GPS 거리 */}
         <div style={{

@@ -94,7 +94,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
         {[
           { id: 'pending', label: '대기중', count: pendingRequests.length },
           { id: 'my', label: '내 요청', count: 0 },
-          { id: 'completed', label: '완료', count: 8 },
+          { id: 'completed', label: '완료', count: completedRequests.length },
           { id: 'ref', label: '참조', count: undefined }
         ].map(tab => {
           const isActive = activeTab === tab.id;

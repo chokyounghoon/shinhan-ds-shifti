@@ -1,6 +1,6 @@
 import React from 'react';
 import { Menu, MessageSquare, Bell } from 'lucide-react';
-
+import { ShinhanLogo } from './ShinhanLogo';
 import { User } from '../types';
 
 interface HeaderProps {
@@ -67,30 +67,7 @@ export const Header: React.FC<HeaderProps> = ({
           whiteSpace: 'nowrap'
         }}>
           {/* 신한금융그룹 공식 CI 심볼 마크 + 신한DS 브랜드 로고 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, whiteSpace: 'nowrap' }}>
-            <svg width="24" height="24" viewBox="0 0 36 36" fill="none" style={{ flexShrink: 0 }}>
-              <circle cx="18" cy="18" r="18" fill="#0046FF" />
-              {/* 신한금융그룹 공식 비둘기 날개 & 태양 모티프 CI */}
-              <path 
-                d="M9.5 20.2C10.8 14.5 15.2 11.2 21 12C18.2 14 16.6 16.8 16.2 21.2C16.2 24.2 18.2 25.2 20.2 25.2C14.8 25.2 10.2 23 9.5 20.2Z" 
-                fill="white" 
-              />
-              <circle cx="23" cy="16.5" r="2.5" fill="white" />
-            </svg>
-            <span style={{ 
-              fontWeight: 800, 
-              fontSize: '18px', 
-              letterSpacing: '-0.5px', 
-              color: '#0046FF',
-              display: 'inline-flex',
-              alignItems: 'center',
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-              gap: '3px'
-            }}>
-              신한<span style={{ fontWeight: 900 }}>DS</span>
-            </span>
-          </div>
+          <ShinhanLogo size={26} textColor="#0046FF" />
         </div>
       </div>
 

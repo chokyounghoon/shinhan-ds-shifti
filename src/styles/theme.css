@@ -97,30 +97,53 @@ button {
 .mobile-frame {
   width: 100%;
   max-width: 440px;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
   background-color: #F6F8FB;
   box-shadow: 0 0 40px rgba(0, 0, 0, 0.08);
   position: relative;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
   overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 @media (min-width: 640px) {
   .mobile-frame {
     margin: 20px auto;
-    min-height: calc(100vh - 40px);
+    height: calc(100vh - 40px);
+    max-height: 940px;
     border-radius: 28px;
     border: 8px solid #FFFFFF;
     box-shadow: 0 25px 60px -15px rgba(0, 24, 64, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.04);
   }
 }
 
-/* 상단 탑바 */
-.top-header {
+.mobile-frame.fullscreen-mode {
+  max-width: 100% !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  border: none !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+}
+
+/* 상단 고정 영역: 역할 시뮬레이터 바 + 헤더 */
+.sticky-header-container {
   position: sticky;
   top: 0;
-  z-index: 40;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: #FFFFFF;
+  width: 100%;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* 상단 탑바 */
+.top-header {
   background: #FFFFFF;
   display: flex;
   align-items: center;

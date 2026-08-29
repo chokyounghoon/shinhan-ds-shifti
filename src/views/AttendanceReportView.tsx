@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Filter, Search, Calendar, ChevronDown, ChevronRight, User as UserIcon, Building2, ShieldCheck, CheckCircle2, AlertTriangle, FileSpreadsheet } from 'lucide-react';
+import { ArrowLeft, Filter, Search, Calendar, ChevronDown, ChevronRight, User as UserIcon, Building2, ShieldCheck, CheckCircle2, AlertTriangle, FileSpreadsheet, Download, BarChart2, List } from 'lucide-react';
 import { User } from '../types';
 import { dbService, DbManpowerInput } from '../services/db';
+import { InteractiveAnalyticsCharts } from '../components/charts/InteractiveAnalyticsCharts';
+import { excelService } from '../services/excelService';
 
 export interface EmployeeManpowerSummary {
   id: string;
@@ -29,6 +31,7 @@ export const AttendanceReportView: React.FC<AttendanceReportViewProps> = ({
   const [dateRange, setDateRange] = useState('08.01 - 08.31');
   const [selectedPartner, setSelectedPartner] = useState<string>(currentUser.partnerCompany || '유브갓');
   const [selectedWorkerDetail, setSelectedWorkerDetail] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'chart'>('list');
 
   // 역할 판정: 개인 근로자 vs 협력사 관리인/영업대표 vs 원청 PM
   const isIndividual = currentUser.role === 'PARTNER_WORKER' || currentUser.role === 'PARTNER_EMPLOYEE';
@@ -46,6 +49,13 @@ export const AttendanceReportView: React.FC<AttendanceReportViewProps> = ({
   // 협력사별 인력 풀
   const partnerCompanies = ['유브갓', '(주)협력아이티에스', '현대IT솔루션', '오토시스', '파이낸스ITS'];
 
+  const handleExportCsv = () => {
+    if (allInputs && allInputs.length > 0) {
+      excelService.exportManpowerRecords(allInputs, selectedPartner);
+    } else {
+      excelService.exportAttendanceStats(partnerWorkers, dateRange);
+    }
+  };
 
   // 1. 개인 근로자용 일일 투입 내역 (8월 기준)
   const personalDailyLogs = [
@@ -104,12 +114,72 @@ export const AttendanceReportView: React.FC<AttendanceReportViewProps> = ({
           </span>
         </div>
 
-        <button 
-          onClick={() => alert(`리포트 기준: ${dateRange} 도급 공수 정산 내역`)}
-          style={{ color: '#4E5968', display: 'flex', alignItems: 'center', padding: '4px', background: 'none', border: 'none', cursor: 'pointer' }}
-        >
-          <Filter size={20} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* 뷰 모드 토글 (목록 / 차트) */}
+          <div style={{ display: 'flex', background: '#F1F3F5', borderRadius: '8px', padding: '2px' }}>
+            <button
+              onClick={() => setViewMode('list')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                border: 'none',
+                background: viewMode === 'list' ? '#FFFFFF' : 'transparent',
+                color: viewMode === 'list' ? '#191F28' : '#8B95A1',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: viewMode === 'list' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+              }}
+            >
+              <List size={14} />
+              <span>목록</span>
+            </button>
+            <button
+              onClick={() => setViewMode('chart')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                border: 'none',
+                background: viewMode === 'chart' ? '#FFFFFF' : 'transparent',
+                color: viewMode === 'chart' ? '#0066FF' : '#8B95A1',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: viewMode === 'chart' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+              }}
+            >
+              <BarChart2 size={14} />
+              <span>차트</span>
+            </button>
+          </div>
+
+          <button 
+            onClick={handleExportCsv}
+            title="엑셀(CSV) 다운로드"
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '4px', 
+              padding: '6px 10px', 
+              background: '#00A859', 
+              color: '#FFFFFF', 
+              borderRadius: '6px', 
+              border: 'none', 
+              fontSize: '12px', 
+              fontWeight: 700, 
+              cursor: 'pointer' 
+            }}
+          >
+            <Download size={14} />
+            <span>엑셀</span>
+          </button>
+        </div>
       </div>
 
       {/* 2. 기간 선택기 */}
@@ -140,17 +210,23 @@ export const AttendanceReportView: React.FC<AttendanceReportViewProps> = ({
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* 3-A. [협력사 개인 탭] : 본인 1인의 도급 공수 리포트만 표출 */}
-      {/* ========================================================================= */}
-      {isIndividual ? (
-        <div style={{ padding: '8px 18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {/* 본인 요약 카드 */}
-          <div style={{
-            background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
-            borderRadius: '16px',
-            padding: '18px',
-            color: '#FFFFFF',
+      {/* 차트 뷰 모드 표출 */}
+      {viewMode === 'chart' && (
+        <div style={{ padding: '12px 18px' }}>
+          <InteractiveAnalyticsCharts themeMode={themeMode} />
+        </div>
+      )}
+
+      {/* 목록 뷰 모드 표출 */}
+      {viewMode === 'list' && (
+        isIndividual ? (
+          <div style={{ padding: '8px 18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {/* 본인 요약 카드 */}
+            <div style={{
+              background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
+              borderRadius: '16px',
+              padding: '18px',
+              color: '#FFFFFF',
             boxShadow: '0 8px 24px rgba(15, 23, 42, 0.15)'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -403,7 +479,8 @@ export const AttendanceReportView: React.FC<AttendanceReportViewProps> = ({
             </div>
           </div>
         </div>
-      )}
+      ))}
     </div>
   );
 };
+

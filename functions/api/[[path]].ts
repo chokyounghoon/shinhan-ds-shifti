@@ -679,20 +679,30 @@ app.post('/organizations', async (c) => {
     const db = c.env.DB;
     const now = getKst();
 
+    const companyName = body.company_name || body.companyName || '신한DS';
+    const teamName = body.team_name || body.teamName || '카드개발';
+    const partName = body.part_name || body.partName || '';
+    const hierarchyPath = body.hierarchy_path || body.hierarchyPath || `${companyName} > ${teamName} > ${partName}`;
+    const leaderName = body.leader_name || body.leaderName || '';
+    const locationName = body.location_name || body.locationName || '파인에비뉴(카드)';
+    const rawMemberCount = body.member_count !== undefined ? body.member_count : (body.memberCount !== undefined ? body.memberCount : 0);
+    const memberCount = isNaN(Number(rawMemberCount)) ? 0 : Number(rawMemberCount);
+    const description = body.description || '';
+
     await db.prepare(`
       INSERT OR REPLACE INTO organizations
       (id, company_name, team_name, part_name, hierarchy_path, leader_name, location_name, member_count, description, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       body.id || `org-${Date.now()}`,
-      body.company_name || '신한DS',
-      body.team_name,
-      body.part_name,
-      body.hierarchy_path || `${body.company_name} > ${body.team_name} > ${body.part_name}`,
-      body.leader_name,
-      body.location_name || '파인에비뉴(카드)',
-      body.member_count || 0,
-      body.description || '',
+      companyName,
+      teamName,
+      partName,
+      hierarchyPath,
+      leaderName,
+      locationName,
+      memberCount,
+      description,
       now
     ).run();
 
@@ -988,84 +998,100 @@ app.put('/messages/read-all', async (c) => {
 // 6. 도급 인력 투입 실적 (Manpower Inputs) D1 API
 // =========================================================================
 const ensureManpowerTables = async (db: D1Database) => {
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS manpower_inputs (
-      record_id TEXT PRIMARY KEY,
-      employee_id TEXT NOT NULL,
-      worker_name TEXT NOT NULL,
-      part_name TEXT NOT NULL,
-      partner_company TEXT NOT NULL,
-      work_date TEXT NOT NULL,
-      contracted_hours REAL DEFAULT 8.0,
-      actual_input_hours REAL DEFAULT 8.0,
-      clock_in_time TEXT,
-      clock_out_time TEXT,
-      task_summary TEXT,
-      variance_minutes INTEGER DEFAULT 0,
-      is_sla_breach INTEGER DEFAULT 0,
-      exception_type TEXT,
-      gap_reason TEXT,
-      partner_clarification TEXT,
-      verification_status TEXT DEFAULT 'AUTO_SETTLED',
-      reg_id TEXT DEFAULT 'SYSTEM',
-      reg_dt DATETIME DEFAULT CURRENT_TIMESTAMP,
-      mod_id TEXT,
-      mod_dt DATETIME,
-      UNIQUE(employee_id, work_date)
-    );
-    CREATE TABLE IF NOT EXISTS audit_trails (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      record_id TEXT NOT NULL,
-      actor_id TEXT NOT NULL,
-      actor_name TEXT NOT NULL,
-      actor_role TEXT NOT NULL,
-      action TEXT NOT NULL,
-      system_label TEXT DEFAULT '도급 계약 이행 확인',
-      details TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-    CREATE TABLE IF NOT EXISTS sla_clarifications (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      record_id TEXT NOT NULL,
-      part_name TEXT NOT NULL,
-      partner_company TEXT NOT NULL,
-      requester_id TEXT NOT NULL,
-      official_title TEXT NOT NULL,
-      message_content TEXT NOT NULL,
-      status TEXT DEFAULT 'REQUESTED',
-      answer_content TEXT,
-      answered_at DATETIME,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-    CREATE TABLE IF NOT EXISTS pre_gap_notices (
-      id TEXT PRIMARY KEY,
-      partner_company TEXT NOT NULL,
-      worker_name TEXT NOT NULL,
-      part_name TEXT NOT NULL,
-      gap_period TEXT NOT NULL,
-      gap_hours REAL DEFAULT 8.0,
-      gap_type TEXT NOT NULL,
-      reason TEXT NOT NULL,
-      status TEXT DEFAULT 'DISPATCHED',
-      acknowledged_by TEXT,
-      acknowledged_at DATETIME,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-    CREATE TABLE IF NOT EXISTS service_delivery_inspections (
-      id TEXT PRIMARY KEY,
-      project_code TEXT NOT NULL,
-      partner_company TEXT NOT NULL,
-      inspector_id TEXT NOT NULL,
-      inspector_name TEXT NOT NULL,
-      inspection_month TEXT NOT NULL,
-      contracted_man_days REAL NOT NULL,
-      actual_delivered_man_days REAL NOT NULL,
-      inspection_status TEXT DEFAULT 'SUBMITTED',
-      inspection_notes TEXT,
-      inspected_at DATETIME,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
+  try {
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS manpower_inputs (
+        record_id TEXT PRIMARY KEY,
+        employee_id TEXT NOT NULL,
+        worker_name TEXT NOT NULL,
+        part_name TEXT NOT NULL,
+        partner_company TEXT NOT NULL,
+        work_date TEXT NOT NULL,
+        contracted_hours REAL DEFAULT 8.0,
+        actual_input_hours REAL DEFAULT 8.0,
+        clock_in_time TEXT,
+        clock_out_time TEXT,
+        task_summary TEXT,
+        variance_minutes INTEGER DEFAULT 0,
+        is_sla_breach INTEGER DEFAULT 0,
+        exception_type TEXT,
+        gap_reason TEXT,
+        partner_clarification TEXT,
+        verification_status TEXT DEFAULT 'AUTO_SETTLED',
+        reg_id TEXT DEFAULT 'SYSTEM',
+        reg_dt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        mod_id TEXT,
+        mod_dt DATETIME,
+        UNIQUE(employee_id, work_date)
+      )
+    `).run();
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS audit_trails (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        record_id TEXT NOT NULL,
+        actor_id TEXT NOT NULL,
+        actor_name TEXT NOT NULL,
+        actor_role TEXT NOT NULL,
+        action TEXT NOT NULL,
+        system_label TEXT DEFAULT '도급 계약 이행 확인',
+        details TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run();
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS sla_clarifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        record_id TEXT NOT NULL,
+        part_name TEXT NOT NULL,
+        partner_company TEXT NOT NULL,
+        requester_id TEXT NOT NULL,
+        official_title TEXT NOT NULL,
+        message_content TEXT NOT NULL,
+        status TEXT DEFAULT 'REQUESTED',
+        answer_content TEXT,
+        answered_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run();
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS pre_gap_notices (
+        id TEXT PRIMARY KEY,
+        partner_company TEXT NOT NULL,
+        worker_name TEXT NOT NULL,
+        part_name TEXT NOT NULL,
+        gap_period TEXT NOT NULL,
+        gap_hours REAL DEFAULT 8.0,
+        gap_type TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        status TEXT DEFAULT 'DISPATCHED',
+        acknowledged_by TEXT,
+        acknowledged_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run();
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS service_delivery_inspections (
+        id TEXT PRIMARY KEY,
+        project_code TEXT NOT NULL,
+        partner_company TEXT NOT NULL,
+        inspector_id TEXT NOT NULL,
+        inspector_name TEXT NOT NULL,
+        inspection_month TEXT NOT NULL,
+        contracted_man_days REAL NOT NULL,
+        actual_delivered_man_days REAL NOT NULL,
+        inspection_status TEXT DEFAULT 'SUBMITTED',
+        inspection_notes TEXT,
+        inspected_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run();
+  } catch (e) {
+    console.warn('ensureManpowerTables warning:', e);
+  }
 };
 
 app.get('/manpower', async (c) => {

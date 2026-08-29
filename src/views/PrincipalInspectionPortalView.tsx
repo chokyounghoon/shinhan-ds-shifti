@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { dbService } from '../services/db';
 import { ServiceDeliveryInspection } from '../types';
+import { ElectronicSignatureModal } from '../components/modals/ElectronicSignatureModal';
+import { LegalComplianceAuditReportModal } from '../components/modals/LegalComplianceAuditReportModal';
 
 interface PrincipalInspectionPortalViewProps {
   themeMode: 'ddangyo' | 'shinhan';
@@ -40,6 +42,13 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [selectedEvidenceForNotice, setSelectedEvidenceForNotice] = useState<SlaBreachEvidence | null>(null);
   const [isOfficialNoticeModalOpen, setIsOfficialNoticeModalOpen] = useState(false);
+
+  // 전자 서명 & 감사 리포트 모달 상태
+  const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
+  const [isAuditReportModalOpen, setIsAuditReportModalOpen] = useState(false);
+  const [pendingInspId, setPendingInspId] = useState<string | null>(null);
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | undefined>(undefined);
+  const [signerName, setSignerName] = useState<string>('조경훈 수석PM (신한DS)');
 
   React.useEffect(() => {
     dbService.fetchInspectionsFromD1().then(data => setInspections(data));
@@ -71,12 +80,21 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
     }
   ]);
 
-  const handleAcceptInspection = async (inspId: string) => {
-    await dbService.acceptContractInspection(inspId, '신한DS 도급 검수 완료: SLA 공수 정산 및 도급 대금 지급 승인');
-    const updated = await dbService.fetchInspectionsFromD1();
-    setInspections(updated);
-    setToastMsg('🎉 도급 계약 이행 검수가 승인되어 용역비 정산이 확정되었습니다.');
-    setTimeout(() => setToastMsg(null), 3500);
+  const handleStartInspectionSign = (inspId: string) => {
+    setPendingInspId(inspId);
+    setIsSignatureModalOpen(true);
+  };
+
+  const handleSaveSignature = async (sigData: string, name: string) => {
+    setSignatureDataUrl(sigData);
+    setSignerName(name);
+    if (pendingInspId) {
+      await dbService.acceptContractInspection(pendingInspId, `신한DS 도급 검수 완료 (전자 서명자: ${name}): SLA 공수 정산 및 도급 대금 지급 승인`);
+      const updated = await dbService.fetchInspectionsFromD1();
+      setInspections(updated);
+      setToastMsg(`🎉 [${name}] 전자 서명이 날인되어 도급 기성 검수가 확정되었습니다.`);
+      setTimeout(() => setToastMsg(null), 3500);
+    }
   };
 
 
@@ -152,9 +170,32 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
 
       {/* 3. 섹션: 협력사별 총 투입 인력(Man-Power) 이행 검수 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <div style={{ fontSize: '15px', fontWeight: 800, color: '#191F28', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <FileCheck size={18} color="#4E5968" />
-          <span>협력사별 월간 투입 공수(M/M) 정산 검수</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: '15px', fontWeight: 800, color: '#191F28', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <FileCheck size={18} color="#4E5968" />
+            <span>협력사별 월간 투입 공수(M/M) 정산 검수</span>
+          </div>
+
+          <button
+            onClick={() => setIsAuditReportModalOpen(true)}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '6px',
+              background: '#0F172A',
+              color: '#FFFFFF',
+              border: 'none',
+              fontSize: '12px',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              boxShadow: '0 2px 6px rgba(15, 23, 42, 0.2)'
+            }}
+          >
+            <FileText size={14} color="#38BDF8" />
+            <span>📄 노동청 감사 리포트 출력</span>
+          </button>
         </div>
 
         {inspections.map(insp => (
@@ -180,7 +221,7 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
                 padding: '3px 8px',
                 borderRadius: '4px'
               }}>
-                {insp.status === 'INSPECTED_ACCEPTED' ? '검수 완료 (대금 확정)' : '검수 대기중'}
+                {insp.status === 'INSPECTED_ACCEPTED' ? '검수 완료 (전자서명 날인됨)' : '검수 대기중'}
               </span>
             </div>
 
@@ -208,7 +249,7 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
 
             {insp.status === 'SUBMITTED' && (
               <button
-                onClick={() => handleAcceptInspection(insp.id)}
+                onClick={() => handleStartInspectionSign(insp.id)}
                 style={{
                   width: '100%',
                   height: '42px',
@@ -226,7 +267,7 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
                 }}
               >
                 <CheckCircle2 size={16} />
-                <span>도급 공수 이행 검수 승인 (용역 대금 정산 확정)</span>
+                <span>전자 서명 날인 및 도급 공수 이행 검수 확정</span>
               </button>
             )}
           </div>
@@ -411,6 +452,28 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
           </div>
         </div>
       )}
+
+      {/* 전자 서명 모달 */}
+      <ElectronicSignatureModal
+        isOpen={isSignatureModalOpen}
+        onClose={() => setIsSignatureModalOpen(false)}
+        onSaveSignature={handleSaveSignature}
+        title="도급 공수 기성 검수 전자 서명 날인"
+        defaultSignerName={signerName}
+        themeMode={themeMode}
+      />
+
+      {/* 노동청 적법 도급 감사 리포트 출력 모달 */}
+      <LegalComplianceAuditReportModal
+        isOpen={isAuditReportModalOpen}
+        onClose={() => setIsAuditReportModalOpen(false)}
+        partName="카드개발팀 (상담/국제/오토금융)"
+        partnerCompany="(주)유브갓 / (주)협력아이티에스"
+        signatureDataUrl={signatureDataUrl}
+        signerName={signerName}
+        inspectionMonth="2026년 08월"
+        themeMode={themeMode}
+      />
     </div>
   );
 };
