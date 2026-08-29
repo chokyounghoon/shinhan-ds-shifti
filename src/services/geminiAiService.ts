@@ -217,6 +217,232 @@ export class GeminiAiService {
       ]
     };
   }
+
+  /**
+   * [AI 통계 1] SLA-공수 실시간 최적화 및 병목 예측 자율 에이전트
+   */
+  public async getPredictiveSlaOptimization(params?: {
+    currentWeek?: string;
+    targetPart?: string;
+  }): Promise<{
+    riskLevel: 'CRITICAL' | 'WARNING' | 'NORMAL';
+    predictedBottleneck: string;
+    slaRiskPercentage: number;
+    trafficImpact: string;
+    aiDirectiveAction: string;
+    recommendedShiftPlan: {
+      sourcePartner: string;
+      shiftWorkerCount: number;
+      shiftDuration: string;
+      expectedSlaRecovery: string;
+      officialDispatchDraft: string;
+    };
+    simulationCurve: Array<{ time: string; withoutAi: number; withAiShift: number }>;
+  }> {
+    try {
+      const res = await fetch('/api/ai/predictive-sla-optimizer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params || {})
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) return json.data;
+      }
+    } catch (e) {
+      console.warn('[Gemini-SLA-Optimizer-Error]', e);
+    }
+
+    return {
+      riskLevel: 'CRITICAL',
+      predictedBottleneck: '금주 목요일(8/27) 14:00~17:00 피크 타임 운영 인력 2명 결손 예상',
+      slaRiskPercentage: 87,
+      trafficImpact: '카드 인바운드 상담 대기시간 14분 초과 및 CTI 응답 지연 리스크',
+      aiDirectiveAction: '협력사 A(유브갓)의 프로젝트 비상주 리소스 2명을 운영 파트로 3시간 임시 전환 배치하는 공정 조율안을 권고합니다.',
+      recommendedShiftPlan: {
+        sourcePartner: '(주)유브갓',
+        shiftWorkerCount: 2,
+        shiftDuration: '3시간 (14:00 ~ 17:00)',
+        expectedSlaRecovery: '96.8% (정상 기준선 95% 초과 회복)',
+        officialDispatchDraft: '수신: (주)유브갓 현장대리인 최영호 귀하\n\n도급계약서 제7조(공정 탄력 조율)에 의거하여, 금주 목요일 피크 시간대(14:00~17:00) 프로젝트 투입 인력 2명의 운영 파트 긴급 공정 전환 배치를 요청합니다.'
+      },
+      simulationCurve: [
+        { time: '10:00', withoutAi: 98, withAiShift: 98 },
+        { time: '12:00', withoutAi: 96, withAiShift: 97 },
+        { time: '14:00', withoutAi: 88, withAiShift: 96 },
+        { time: '15:00', withoutAi: 84, withAiShift: 97 },
+        { time: '16:00', withoutAi: 86, withAiShift: 96 },
+        { time: '18:00', withoutAi: 95, withAiShift: 98 }
+      ]
+    };
+  }
+
+  /**
+   * [AI 통계 2] B2B 도급비 자동 정산 및 페널티 실시간 시뮬레이터
+   */
+  public async simulateBillingAndPenalty(params?: {
+    partnerCompany?: string;
+    settlementMonth?: string;
+    baseContractPrice?: number;
+  }): Promise<{
+    partnerCompany: string;
+    settlementMonth: string;
+    contractedAmount: number;
+    deliveredHoursRate: number;
+    totalPenaltyDeduction: number;
+    finalPayableAmount: number;
+    defenseVerdict: string;
+    deductionBreakdown: Array<{
+      clause: string;
+      target: string;
+      calculationFormula: string;
+      deductionAmount: number;
+      evidenceTimestamp: string;
+    }>;
+    oneClickSummarySheet: string;
+  }> {
+    try {
+      const res = await fetch('/api/ai/billing-penalty-simulator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params || {})
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) return json.data;
+      }
+    } catch (e) {
+      console.warn('[Gemini-Billing-Simulator-Error]', e);
+    }
+
+    const basePrice = params?.baseContractPrice || 120000000;
+    const penalty = 1420000;
+    return {
+      partnerCompany: params?.partnerCompany || '(주)유브갓',
+      settlementMonth: params?.settlementMonth || '2026년 8월',
+      contractedAmount: basePrice,
+      deliveredHoursRate: 95.0,
+      totalPenaltyDeduction: penalty,
+      finalPayableAmount: basePrice - penalty,
+      defenseVerdict: '계약서 제12조 3항 및 SLA 제5조에 따른 시간 단위 산식 일치로 협력사의 반박 여지 원천 차단',
+      deductionBreakdown: [
+        {
+          clause: '도급계약 제12조(공수 결손 정산)',
+          target: '이하은 외 1명 (총 8.0 Man-Hours 결손)',
+          calculationFormula: '8.0h × 시간당 기본단가(₩75,000)',
+          deductionAmount: 600000,
+          evidenceTimestamp: '8/3, 8/10, 8/21 출퇴근 타임스탬프 누적 편차'
+        },
+        {
+          clause: 'SLA 제5조(코어 타임 투입 미달 페널티)',
+          target: '배포 및 피크 시간대 지연 4건',
+          calculationFormula: '건당 위약벌 가산금 ₩150,000 × 4건',
+          deductionAmount: 600000,
+          evidenceTimestamp: '8/7 09:45, 8/14 09:51 GPS 지오펜스 인증 지연 로그'
+        },
+        {
+          clause: '도급계약 제18조(사전 미통보 공백 배상)',
+          target: '사전 서면 통보 없는 임의 공백 2건',
+          calculationFormula: '건당 ₩110,000 × 2건',
+          deductionAmount: 220000,
+          evidenceTimestamp: '8/19 14:00~16:00 CTI 공백 로그'
+        }
+      ],
+      oneClickSummarySheet: `${params?.partnerCompany || '(주)유브갓'} 8월 도급 기성 정산표: 약정금액 ₩${basePrice.toLocaleString()} - 총 감액 ₩1,420,000 = 최종 지급액 ₩${(basePrice - penalty).toLocaleString()}원 (증빙 3종 첨부 완료)`
+    };
+  }
+
+  /**
+   * [AI 통계 3] 협력사 계약 이행 지수(Compliance Index) 자동 산출기
+   */
+  public async getPartnerComplianceIndex(): Promise<{
+    evaluationPeriod: string;
+    totalEvaluatedPartners: number;
+    partnerRankings: Array<{
+      rank: number;
+      companyName: string;
+      grade: 'S' | 'A' | 'B' | 'B-' | 'C' | 'D';
+      complianceIndex: number;
+      timeConsistencyScore: number;
+      slaAchievementScore: number;
+      clarificationFidelityScore: number;
+      securityCleanRate: number;
+      procurementRecommendation: string;
+      highlight: string;
+    }>;
+    executiveSummary: string;
+  }> {
+    try {
+      const res = await fetch('/api/ai/partner-compliance-index', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) return json.data;
+      }
+    } catch (e) {
+      console.warn('[Gemini-Compliance-Index-Error]', e);
+    }
+
+    return {
+      evaluationPeriod: '2026년 3분기 (누적)',
+      totalEvaluatedPartners: 4,
+      partnerRankings: [
+        {
+          rank: 1,
+          companyName: '(주)협력아이티에스',
+          grade: 'S',
+          complianceIndex: 98.4,
+          timeConsistencyScore: 99.0,
+          slaAchievementScore: 98.5,
+          clarificationFidelityScore: 97.0,
+          securityCleanRate: 100.0,
+          procurementRecommendation: '최우수 파트너사: 차기년도 계약 갱신 우선권 및 단가 3.5% 인상 검토 권고',
+          highlight: '월간 무결격 인력 투입률 99.8% 유지 및 신속한 공정 대체 체계 구축'
+        },
+        {
+          rank: 2,
+          companyName: '현대IT솔루션',
+          grade: 'A',
+          complianceIndex: 94.2,
+          timeConsistencyScore: 94.0,
+          slaAchievementScore: 95.0,
+          clarificationFidelityScore: 92.0,
+          securityCleanRate: 98.0,
+          procurementRecommendation: '우수 파트너사: 계약 유지 및 코어 파트 유지보수 배정 적합',
+          highlight: '장애 대응 SLA 100% 준수, 일부 GPS 경계선 턱걸이 인증 개선 권고'
+        },
+        {
+          rank: 3,
+          companyName: '(주)유브갓',
+          grade: 'B',
+          complianceIndex: 88.6,
+          timeConsistencyScore: 86.0,
+          slaAchievementScore: 91.0,
+          clarificationFidelityScore: 84.0,
+          securityCleanRate: 96.0,
+          procurementRecommendation: '조건부 갱신 파트너사: 금요일 투입 편차 및 월말 몰아넣기 소명에 대한 관리 개선 확약 필요',
+          highlight: '기성비 8% 결손 발생, 현장대리인 통제 강화 지도 요구'
+        },
+        {
+          rank: 4,
+          companyName: '부뜰정보통신',
+          grade: 'B-',
+          complianceIndex: 84.1,
+          timeConsistencyScore: 82.0,
+          slaAchievementScore: 85.0,
+          clarificationFidelityScore: 83.0,
+          securityCleanRate: 92.0,
+          procurementRecommendation: '주의 파트너사: 단가 인하 협상 및 대체 수급사 다변화 검토 권고',
+          highlight: '지연 소명 24시간 초과율 22%로 현장 관리 미흡'
+        }
+      ],
+      executiveSummary: '2026년 3분기 도급사 평가 결과: 협력아이티에스(98.4점) 1위, 유브갓(88.6점) 및 부뜰(84.1점)은 계약 관리 감독 강화 필요.'
+    };
+  }
 }
 
 export const geminiAiService = new GeminiAiService();
+

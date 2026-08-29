@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Filter, Search, Calendar, ChevronDown, ChevronRight, User as UserIcon, Building2, ShieldCheck, CheckCircle2, AlertTriangle, FileSpreadsheet, Download, BarChart2, List } from 'lucide-react';
+import { ArrowLeft, Filter, Search, Calendar, ChevronDown, ChevronRight, User as UserIcon, Building2, ShieldCheck, CheckCircle2, AlertTriangle, FileSpreadsheet, Download, BarChart2, List, Sparkles } from 'lucide-react';
 import { User } from '../types';
 import { dbService, DbManpowerInput } from '../services/db';
 import { InteractiveAnalyticsCharts } from '../components/charts/InteractiveAnalyticsCharts';
@@ -20,12 +20,14 @@ interface AttendanceReportViewProps {
   onBack: () => void;
   themeMode: 'ddangyo' | 'shinhan';
   currentUser?: User;
+  onOpenAiStats?: () => void;
 }
 
 export const AttendanceReportView: React.FC<AttendanceReportViewProps> = ({
   onBack,
   themeMode,
-  currentUser = dbService.getCurrentUser()
+  currentUser = dbService.getCurrentUser(),
+  onOpenAiStats
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [dateRange, setDateRange] = useState('08.01 - 08.31');
@@ -158,6 +160,30 @@ export const AttendanceReportView: React.FC<AttendanceReportViewProps> = ({
               <span>차트</span>
             </button>
           </div>
+
+          {onOpenAiStats && (
+            <button 
+              onClick={onOpenAiStats}
+              title="AI 도급 공정 통계 & 시뮬레이터"
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '4px', 
+                padding: '6px 10px', 
+                background: 'linear-gradient(135deg, #312E81 0%, #4338CA 100%)', 
+                color: '#FFFFFF', 
+                borderRadius: '6px', 
+                border: 'none', 
+                fontSize: '12px', 
+                fontWeight: 800, 
+                cursor: 'pointer',
+                boxShadow: '0 2px 6px rgba(67, 56, 202, 0.3)'
+              }}
+            >
+              <Sparkles size={13} color="#A5B4FC" />
+              <span>AI 통계</span>
+            </button>
+          )}
 
           <button 
             onClick={handleExportCsv}

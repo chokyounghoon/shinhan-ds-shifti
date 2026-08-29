@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   X, Megaphone, Users, Network, MapPin, 
   MessageSquare, HelpCircle, MessagesSquare,
-  Lock, LogOut
+  Lock, Sparkles
 } from 'lucide-react';
 import { User } from '../types';
 
@@ -24,6 +24,7 @@ interface DrawerMenuProps {
   onOpenEmployees: () => void;
   onOpenScheduleTemplates: () => void;
   onOpenVacation?: () => void;
+  onOpenAiStats?: () => void;
 }
 
 export const DrawerMenu: React.FC<DrawerMenuProps> = ({
@@ -40,11 +41,18 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
   onOpenOrganizations,
   onOpenEmployees,
   onOpenScheduleTemplates,
-  onOpenVacation
+  onOpenVacation,
+  onOpenAiStats
 }) => {
   if (!isOpen) return null;
 
   const handleMenuClick = (menuTitle: string) => {
+    if (menuTitle === 'AI 통계' && onOpenAiStats) {
+      onClose();
+      onOpenAiStats();
+      return;
+    }
+
     if (menuTitle === '내 계정' || menuTitle === '내 프로필') {
       onClose();
       onOpenAccountSettings();
@@ -105,7 +113,6 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
         }}
         onClick={e => e.stopPropagation()}
       >
-        {/* 1. 상단 프로필 헤더 (스크린샷 일치) */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
@@ -117,46 +124,82 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
               </span>
             </div>
 
-            {/* 내 계정 | 내 프로필 파란색 링크 */}
-            <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', fontSize: '13px', fontWeight: 700 }}>
               <button 
-                onClick={() => { onClose(); onOpenAccountSettings(); }}
-                style={{
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  color: themeMode === 'ddangyo' ? '#FF462D' : '#0066FF'
-                }}
+                onClick={() => handleMenuClick('내 계정')}
+                style={{ color: '#0066FF', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 700 }}
               >
                 내 계정
               </button>
+              <span style={{ color: '#D1D6DB' }}>|</span>
               <button 
-                onClick={() => { onClose(); onOpenAccountSettings(); }}
-                style={{
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  color: themeMode === 'ddangyo' ? '#FF462D' : '#0066FF'
-                }}
+                onClick={() => handleMenuClick('내 프로필')}
+                style={{ color: '#0066FF', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 700 }}
               >
                 내 프로필
               </button>
             </div>
           </div>
 
-          <button onClick={onClose} style={{ color: themeMode === 'ddangyo' ? '#FF462D' : '#0066FF', padding: '2px' }}>
-            <X size={26} strokeWidth={2.2} />
+          <button 
+            onClick={onClose} 
+            className="icon-btn-ghost" 
+            aria-label="메뉴 닫기"
+            style={{ width: '32px', height: '32px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <X size={22} color="#191F28" />
           </button>
         </div>
 
-        {/* 상단 구분선 */}
-        <div style={{ height: '1px', background: '#ECEFF2', margin: '8px 0 16px 0' }} />
+        <div style={{
+          background: '#F8FAFC',
+          border: '1px solid #E2E8F0',
+          borderRadius: '12px',
+          padding: '12px 14px',
+          marginBottom: '20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <div>
+            <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>소속 파트너사</div>
+            <div style={{ fontSize: '14.5px', fontWeight: 800, color: '#0F172A' }}>{user.partnerCompany || '신한DS (원청)'}</div>
+          </div>
+          <button
+            onClick={() => handleMenuClick('회사 바꾸기')}
+            style={{
+              background: '#FFFFFF',
+              border: '1px solid #CBD5E1',
+              borderRadius: '6px',
+              padding: '4px 8px',
+              fontSize: '11px',
+              fontWeight: 700,
+              color: '#334155',
+              cursor: 'pointer'
+            }}
+          >
+            전환
+          </button>
+        </div>
 
-        {/* 2. 섹션: 신한DS (스크린샷 일치) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '24px' }}>
-          <div style={{ fontSize: '14px', fontWeight: 800, color: '#191F28', marginBottom: '10px', paddingLeft: '4px' }}>
-            신한DS
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '20px' }}>
+          <div style={{ fontSize: '14px', fontWeight: 800, color: '#191F28', marginBottom: '6px', paddingLeft: '4px' }}>
+            관리 및 통계
           </div>
 
-          {/* 투입 공백 사전 통보 (부재 일정 공유) */}
+          {onOpenAiStats && (
+            <button 
+              style={{ ...menuItemStyle, color: '#FFFFFF', background: 'linear-gradient(135deg, #1E1B4B 0%, #4338CA 100%)', borderRadius: '10px', boxShadow: '0 2px 8px rgba(67, 56, 202, 0.3)' }} 
+              onClick={() => {
+                onClose();
+                onOpenAiStats();
+              }}
+            >
+              <Sparkles size={19} color="#A5B4FC" strokeWidth={2.2} />
+              <span style={{ fontWeight: 900 }}>✨ AI 통계 & 공정 시뮬레이터</span>
+            </button>
+          )}
+
           {onOpenVacation && (
             <button 
               style={{ ...menuItemStyle, color: '#0052FF', background: '#EFF6FF', borderRadius: '8px' }} 
@@ -170,7 +213,6 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
             </button>
           )}
 
-          {/* 직원 */}
           <button style={menuItemStyle} onClick={() => handleMenuClick('직원')}>
             <Users size={19} color="#4E5968" strokeWidth={1.8} />
             <span>직원</span>

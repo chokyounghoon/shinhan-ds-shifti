@@ -34,6 +34,7 @@ import { CurrentWorkStatusDetailView } from './views/CurrentWorkStatusDetailView
 import { CreateScheduleRequestView } from './views/CreateScheduleRequestView';
 import { EditScheduleRequestView } from './views/EditScheduleRequestView';
 import { AddScheduleTemplateView } from './views/AddScheduleTemplateView';
+import { AiStatsAnalyticsView } from './views/AiStatsAnalyticsView';
 
 // Modals
 import { RequestModal } from './components/modals/RequestModal';
@@ -68,7 +69,8 @@ type PageView =
   | 'create_schedule_request' 
   | 'edit_schedule_request'
   | 'add_schedule_template'
-  | 'vacation_type_select';
+  | 'vacation_type_select'
+  | 'ai_stats';
 
 const SESSION_STORAGE_KEY = 'SGUARD_AUTH_SESSION';
 
@@ -347,6 +349,7 @@ export function App() {
                   onOpenDrawer={() => setIsDrawerOpen(true)}
                   onOpenMessages={() => setIsMessagesModalOpen(true)}
                   onOpenNotifications={() => setIsNotificationModalOpen(true)}
+                  onOpenAiStats={() => setCurrentPage('ai_stats')}
                   onOpenMyPage={() => setIsMyPageOpen(true)}
                   currentUser={currentUser}
                   themeMode={themeMode}
@@ -526,6 +529,15 @@ export function App() {
                   onBack={() => setCurrentPage('home')}
                   themeMode={themeMode}
                   currentUser={currentUser}
+                  onOpenAiStats={() => setCurrentPage('ai_stats')}
+                />
+              )}
+
+              {/* 10-2. AI 도급 공정 통계 & 시뮬레이터 화면 */}
+              {currentPage === 'ai_stats' && (
+                <AiStatsAnalyticsView
+                  onBack={() => setCurrentPage('home')}
+                  themeMode={themeMode}
                 />
               )}
 
@@ -649,6 +661,7 @@ export function App() {
               onOpenEmployees={() => setCurrentPage('employees')}
               onOpenScheduleTemplates={() => setCurrentPage('schedule_templates')}
               onOpenVacation={() => setIsVacationModalOpen(true)}
+              onOpenAiStats={() => setCurrentPage('ai_stats')}
             />
 
             {/* S-GUARD 회원 정보 관리(마이페이지) 모달 (스크린샷 100% 일치) */}
