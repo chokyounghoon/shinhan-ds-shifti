@@ -72,7 +72,21 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [filterCompany, setFilterCompany] = useState<string>('ALL');
   const [searchKeyword, setSearchKeyword] = useState<string>('');
-  const [filterStatus, setFilterStatus] = useState<'ALL' | 'NORMAL' | 'VARIANCE_GAP' | 'PARTNER_CONFIRMED'>('ALL');
+  const [filterStatus, setFilterStatus] = useState<'ALL' | 'NORMAL' | 'VARIANCE_GAP' | 'PARTNER_CONFIRMED' | 'LATE_OR_ABSENT'>('ALL');
+
+  // 🕒 09:00 기준 실시간 시계 & 지각자 관제 타이머
+  const [currentTime, setCurrentTime] = useState<string>(() => {
+    const now = new Date();
+    return now.toTimeString().substring(0, 8);
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = new Date();
+      setCurrentTime(now.toTimeString().substring(0, 8));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // ✨ 신규 직원/인력 등록 모달 상태 (Cloudflare D1 실시간 저장)
   const [isRegisterEmployeeModalOpen, setIsRegisterEmployeeModalOpen] = useState(false);
@@ -264,16 +278,16 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
         { name: '김신한', id: 'PT20260816', company: '유브갓', task: '상담 공정 (수신/제신고)', defaultClockIn: '08:50', status: 'AUTO_SETTLED', hours: 8.0 },
         { name: '박민지', id: 'PT20260819', company: '(주)협력아이티에스', task: 'CTI 연동/분배', defaultClockIn: '08:48', status: 'AUTO_SETTLED', hours: 8.0 },
         { name: '이하은', id: 'PT20260817', company: '유브갓', task: '상담 공정 (모바일배정)', defaultClockIn: '09:15', isSlaBreach: true, variance: 15, reason: '지하철 2호선 신호 장애 지연 소명 접수', status: 'VARIANCE_GAP', hours: 7.5 },
+        { name: '배지훈', id: 'UB0006', company: '유브갓', task: '상담 공정 (VIP상담)', defaultClockIn: '09:22', isSlaBreach: true, variance: 22, reason: '현장 지각 (소명 미제출 🚨)', status: 'VARIANCE_GAP', hours: 7.5 },
+        { name: '강미출', id: 'PT20260820', company: '(주)협력아이티에스', task: '상담 공정 (가맹점정산)', defaultClockIn: '-', isSlaBreach: true, variance: 0, reason: '09:00 기준 미출근 (연락 대기 ⛔)', status: 'UNVERIFIED', hours: 0 },
         { name: '김흥섭', id: 'UB0002', company: '유브갓', task: '상담 공정 (한도심사)', defaultClockIn: '08:50', status: 'AUTO_SETTLED', hours: 8.0 },
         { name: '최진영', id: 'UB0003', company: '유브갓', task: '상담 공정 (해외승인)', defaultClockIn: '08:52', status: 'AUTO_SETTLED', hours: 8.0 },
-        { name: '강동현', id: 'UB0004', company: '유브갓', task: '상담 공정 (가맹점정산)', defaultClockIn: '08:40', status: 'AUTO_SETTLED', hours: 8.0 },
-        { name: '윤서아', id: 'UB0005', company: '유브갓', task: '상담 공정 (발급심사)', defaultClockIn: '08:55', status: 'AUTO_SETTLED', hours: 8.0 },
-        { name: '배지훈', id: 'UB0006', company: '유브갓', task: '상담 공정 (VIP상담)', defaultClockIn: '08:50', status: 'AUTO_SETTLED', hours: 8.0 }
+        { name: '윤서아', id: 'UB0005', company: '유브갓', task: '상담 공정 (발급심사)', defaultClockIn: '08:55', status: 'AUTO_SETTLED', hours: 8.0 }
       ],
       '오토금융': [
         { name: '이제성', id: 'ITS001', company: '(주)협력아이티에스', task: '오토론 기간계 연동', defaultClockIn: '08:50', status: 'AUTO_SETTLED', hours: 8.0 },
         { name: '정재호', id: 'ITS002', company: '(주)협력아이티에스', task: '오토금융 가맹점 데스크', defaultClockIn: '08:45', status: 'AUTO_SETTLED', hours: 8.0 },
-        { name: '박민우', id: 'HD001', company: '현대IT솔루션', task: '오토심사 비대면 인증', defaultClockIn: '08:50', status: 'AUTO_SETTLED', hours: 8.0 },
+        { name: '박민우', id: 'HD001', company: '현대IT솔루션', task: '오토심사 비대면 인증', defaultClockIn: '09:10', isSlaBreach: true, variance: 10, reason: '출근길 교통 체증 지연', status: 'VARIANCE_GAP', hours: 7.8 },
         { name: '한동훈', id: 'HD002', company: '현대IT솔루션', task: '오토리스 정산 배치', defaultClockIn: '08:55', status: 'AUTO_SETTLED', hours: 8.0 }
       ],
       '국제': [
@@ -298,7 +312,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
           clockInTime: m.defaultClockIn,
           clockOutTime: '18:00',
           contractedHours: 8.0,
-          actualInputHours: m.hours || 8.0,
+          actualInputHours: m.hours ?? 8.0,
           taskSummary: m.task,
           varianceMinutes: m.variance || 0,
           isSlaBreach: Boolean(m.isSlaBreach),
@@ -333,8 +347,10 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
       );
     }
 
-    // 📊 상태별 필터
-    if (filterStatus !== 'ALL') {
+    // 📊 상태별 필터 (🚨 09:00 기준 지각/미출근 필터 추가)
+    if (filterStatus === 'LATE_OR_ABSENT') {
+      partRecords = partRecords.filter(r => (r.clockInTime && r.clockInTime > '09:00') || !r.clockInTime || r.clockInTime === '-' || r.isSlaBreach || r.verificationStatus === 'VARIANCE_GAP');
+    } else if (filterStatus !== 'ALL') {
       partRecords = partRecords.filter(r => r.verificationStatus === filterStatus);
     }
 
@@ -517,6 +533,12 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
 
     const currentPartInfo = displayPartList.find(p => p.partName === activePart) || displayPartList[0];
 
+    // 🚨 09:00 기준 정시 출근 / 지각 / 미출근 실시간 분류 및 통계
+    const lateRecords = records.filter(r => r.clockInTime && r.clockInTime > '09:00');
+    const absentRecords = records.filter(r => !r.clockInTime || r.clockInTime === '-' || r.clockInTime === '00:00');
+    const onTimeRecords = records.filter(r => r.clockInTime && r.clockInTime <= '09:00' && r.clockInTime !== '-');
+    const lateOrAbsentTotal = lateRecords.length + absentRecords.length;
+
     return (
       <div style={{
         background: '#060B14',
@@ -683,6 +705,278 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
 
       <div style={{ padding: '14px 16px 8px 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
+        {/* 🚨 [오전 09:00 기준 실시간 지각·미출근 관제 레이더 보드] */}
+        <div style={{
+          background: lateOrAbsentTotal > 0
+            ? 'linear-gradient(135deg, #1C0A10 0%, #2A101C 50%, #0D172A 100%)'
+            : 'linear-gradient(135deg, #0A1C2A 0%, #0F2A3F 100%)',
+          border: lateOrAbsentTotal > 0 ? '1.5px solid #FF3B30' : '1.5px solid #00E676',
+          borderRadius: '16px',
+          padding: '16px 18px',
+          boxShadow: lateOrAbsentTotal > 0 ? '0 8px 24px rgba(255, 59, 48, 0.25)' : '0 8px 20px rgba(0, 230, 118, 0.15)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px'
+        }}>
+          {/* 상단 타이틀 & 실시간 시계 & 09:00 상태 */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '22px' }}>{lateOrAbsentTotal > 0 ? '🚨' : '✅'}</span>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '15px', fontWeight: 900, color: '#FFFFFF', letterSpacing: '-0.3px' }}>
+                    오전 09:00 기준 실시간 지각·미출근 관제 레이더
+                  </span>
+                  {lateOrAbsentTotal > 0 ? (
+                    <span style={{
+                      background: '#FF3B30',
+                      color: '#FFFFFF',
+                      fontSize: '11px',
+                      fontWeight: 900,
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      boxShadow: '0 0 10px rgba(255, 59, 48, 0.6)'
+                    }}>
+                      {lateOrAbsentTotal}명 감지
+                    </span>
+                  ) : (
+                    <span style={{
+                      background: '#00E676',
+                      color: '#060B14',
+                      fontSize: '11px',
+                      fontWeight: 900,
+                      padding: '2px 8px',
+                      borderRadius: '12px'
+                    }}>
+                      전원 정시 출근 완료
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: '11.5px', color: '#90A4AE', marginTop: '2px' }}>
+                  [{activePart} 파트] 도급 SLA 계약 기준 (09:00 마감) 인력 투입 실시간 모니터링
+                </div>
+              </div>
+            </div>
+
+            {/* 실시간 시계 및 09:00 경과 배지 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{
+                background: 'rgba(0, 0, 0, 0.45)',
+                border: '1px solid rgba(0, 229, 255, 0.3)',
+                borderRadius: '8px',
+                padding: '4px 10px',
+                fontSize: '12px',
+                fontWeight: 800,
+                fontFamily: 'monospace',
+                color: '#00E5FF',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}>
+                <Clock size={13} color="#00E5FF" />
+                <span>현재 시각 {currentTime}</span>
+              </div>
+              <span style={{
+                fontSize: '11px',
+                fontWeight: 800,
+                padding: '4px 8px',
+                borderRadius: '8px',
+                background: 'rgba(255, 59, 48, 0.2)',
+                border: '1px solid rgba(255, 59, 48, 0.4)',
+                color: '#FF8A80'
+              }}>
+                09:00 기준 마감
+              </span>
+            </div>
+          </div>
+
+          {/* 4단 핵심 지표 요약 바 */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: '8px',
+            background: 'rgba(0, 0, 0, 0.35)',
+            borderRadius: '12px',
+            padding: '10px 12px'
+          }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', color: '#90A4AE', fontWeight: 700 }}>총 약정 인력</div>
+              <div style={{ fontSize: '18px', fontWeight: 900, color: '#FFFFFF', marginTop: '2px' }}>
+                {records.length}명
+              </div>
+            </div>
+            <div style={{ textAlign: 'center', borderLeft: '1px solid rgba(255, 255, 255, 0.08)' }}>
+              <div style={{ fontSize: '11px', color: '#81C784', fontWeight: 700 }}>정시 출근 (09:00전)</div>
+              <div style={{ fontSize: '18px', fontWeight: 900, color: '#00E676', marginTop: '2px' }}>
+                {onTimeRecords.length}명 <span style={{ fontSize: '11px', fontWeight: 600 }}>({records.length > 0 ? ((onTimeRecords.length / records.length) * 100).toFixed(0) : 100}%)</span>
+              </div>
+            </div>
+            <div style={{ textAlign: 'center', borderLeft: '1px solid rgba(255, 255, 255, 0.08)' }}>
+              <div style={{ fontSize: '11px', color: '#FFB74D', fontWeight: 700 }}>지각 (09:00후)</div>
+              <div style={{ fontSize: '18px', fontWeight: 900, color: lateRecords.length > 0 ? '#FF9100' : '#90A4AE', marginTop: '2px' }}>
+                {lateRecords.length}명
+              </div>
+            </div>
+            <div style={{ textAlign: 'center', borderLeft: '1px solid rgba(255, 255, 255, 0.08)' }}>
+              <div style={{ fontSize: '11px', color: '#FF8A80', fontWeight: 700 }}>미출근 (미인증)</div>
+              <div style={{ fontSize: '18px', fontWeight: 900, color: absentRecords.length > 0 ? '#FF5252' : '#90A4AE', marginTop: '2px' }}>
+                {absentRecords.length}명
+              </div>
+            </div>
+          </div>
+
+          {/* 지각·미출근자 리스트 카드 (한눈에 보기) */}
+          {lateOrAbsentTotal > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '12px', fontWeight: 800, color: '#FFCC80', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>⚠️</span>
+                  <span>09:00 기준 지각 및 미출근 대상자 ({lateOrAbsentTotal}명)</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setFilterStatus(filterStatus === 'LATE_OR_ABSENT' ? 'ALL' : 'LATE_OR_ABSENT')}
+                  style={{
+                    background: filterStatus === 'LATE_OR_ABSENT' ? '#FF3B30' : 'rgba(255, 59, 48, 0.2)',
+                    border: '1px solid #FF3B30',
+                    color: '#FFFFFF',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {filterStatus === 'LATE_OR_ABSENT' ? '✓ 지각자 필터 해제' : '🔍 하단 테이블에 지각자만 보기'}
+                </button>
+              </div>
+
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                gap: '8px'
+              }}>
+                {[...lateRecords, ...absentRecords].map((lr) => {
+                  const isLate = Boolean(lr.clockInTime && lr.clockInTime > '09:00' && lr.clockInTime !== '-');
+                  const varianceMin = lr.varianceMinutes || (isLate ? parseInt(lr.clockInTime.split(':')[1] || '0', 10) : 0);
+
+                  return (
+                    <div
+                      key={lr.id}
+                      style={{
+                        background: '#181220',
+                        border: '1px solid rgba(255, 59, 48, 0.4)',
+                        borderRadius: '12px',
+                        padding: '10px 12px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '14px', fontWeight: 900, color: '#FFFFFF' }}>
+                            {lr.workerName}
+                          </span>
+                          <span style={{
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            color: '#00E5FF',
+                            background: 'rgba(0, 229, 255, 0.12)',
+                            padding: '1px 5px',
+                            borderRadius: '4px'
+                          }}>
+                            {lr.partnerCompany}
+                          </span>
+                        </div>
+
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 900,
+                          color: isLate ? '#FF9100' : '#FF5252',
+                          background: isLate ? 'rgba(255, 145, 0, 0.18)' : 'rgba(255, 82, 82, 0.18)',
+                          border: isLate ? '1px solid rgba(255, 145, 0, 0.4)' : '1px solid rgba(255, 82, 82, 0.4)',
+                          padding: '2px 7px',
+                          borderRadius: '10px'
+                        }}>
+                          {isLate ? `🚨 09:00 초과 (+${varianceMin}분 지각)` : '⛔ 09:00 기준 미출근'}
+                        </span>
+                      </div>
+
+                      {/* 출근 시간 및 공정 */}
+                      <div style={{ fontSize: '11.5px', color: '#CFD8DC', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>🕒 {isLate ? `출근 타임스탬프: ${lr.clockInTime}` : '출근 타임스탬프 없음'}</span>
+                        <span>·</span>
+                        <span style={{ color: '#90A4AE' }}>{lr.taskSummary}</span>
+                      </div>
+
+                      {/* 소명 상태 & 조치 버튼 */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px', paddingTop: '4px', borderTop: '1px dashed rgba(255, 255, 255, 0.08)' }}>
+                        <div style={{ fontSize: '10.5px', color: lr.gapReason ? '#81C784' : '#FF8A80' }}>
+                          {lr.gapReason ? `📝 ${lr.gapReason}` : '🚨 소명 사유 미제출'}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenClarificationModal(lr)}
+                            style={{
+                              background: 'rgba(255, 59, 48, 0.2)',
+                              border: '1px solid #FF3B30',
+                              color: '#FF8A80',
+                              fontSize: '10.5px',
+                              fontWeight: 800,
+                              padding: '3px 7px',
+                              borderRadius: '5px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            소명 요청
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenExceptionModal(lr)}
+                            style={{
+                              background: '#FF6D00',
+                              border: 'none',
+                              color: '#FFFFFF',
+                              fontSize: '10.5px',
+                              fontWeight: 800,
+                              padding: '3px 8px',
+                              borderRadius: '5px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            사유 확인
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div style={{
+              background: 'rgba(0, 230, 118, 0.08)',
+              border: '1px solid rgba(0, 230, 118, 0.25)',
+              borderRadius: '10px',
+              padding: '10px 14px',
+              fontSize: '12px',
+              color: '#A7F3D0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <CheckCircle2 size={16} color="#00E676" />
+              <span>
+                현재 <strong>{activePart} 파트 배정 인력 전원({records.length}명)이 09:00 이전에 정시 출근</strong> 완료하여 공정 지연 결손이 발생하지 않았습니다.
+              </span>
+            </div>
+          )}
+        </div>
+
         {/* 🔍 다차원 도급 공정 검수 검색 필터 패널 (D1 DB 실시간 연동) */}
         <div style={{
           background: '#0D1626',
@@ -829,6 +1123,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
           <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', scrollbarWidth: 'none', paddingTop: '2px' }}>
             {[
               { label: '전체 상태', value: 'ALL' },
+              { label: `🚨 09:00 지각·미출근 (${lateOrAbsentTotal}명)`, value: 'LATE_OR_ABSENT', isSpecial: true },
               { label: '정상 투입', value: 'NORMAL' },
               { label: '소명·지연 대기', value: 'VARIANCE_GAP' },
               { label: '협력사 1차 확정', value: 'PARTNER_CONFIRMED' }
@@ -842,9 +1137,13 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                   borderRadius: '6px',
                   fontSize: '11px',
                   fontWeight: filterStatus === st.value ? 800 : 600,
-                  background: filterStatus === st.value ? '#00E5FF' : 'rgba(255, 255, 255, 0.06)',
-                  color: filterStatus === st.value ? '#060B14' : '#B0BEC5',
-                  border: 'none',
+                  background: filterStatus === st.value 
+                    ? (st.value === 'LATE_OR_ABSENT' ? '#FF3B30' : '#00E5FF')
+                    : (st.value === 'LATE_OR_ABSENT' ? 'rgba(255, 59, 48, 0.15)' : 'rgba(255, 255, 255, 0.06)'),
+                  color: filterStatus === st.value 
+                    ? (st.value === 'LATE_OR_ABSENT' ? '#FFFFFF' : '#060B14')
+                    : (st.value === 'LATE_OR_ABSENT' ? '#FF8A80' : '#B0BEC5'),
+                  border: st.value === 'LATE_OR_ABSENT' ? '1px solid rgba(255, 59, 48, 0.4)' : 'none',
                   cursor: 'pointer',
                   whiteSpace: 'nowrap'
                 }}
@@ -1240,13 +1539,23 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
               const isExcluded = record.verificationStatus === 'EXCLUDED_FROM_BILLING';
               const isAccepted = record.verificationStatus === 'DELAY_REASON_ACCEPTED';
               const isPendingException = record.verificationStatus === 'VARIANCE_GAP';
+              const isLate = Boolean(record.clockInTime && record.clockInTime > '09:00' && record.clockInTime !== '-');
+              const isAbsent = Boolean(!record.clockInTime || record.clockInTime === '-' || record.clockInTime === '00:00');
 
               return (
                 <div
                   key={record.id}
                   style={{
-                    background: isSelected ? '#12243D' : '#0F1A2C',
-                    border: isSelected ? '1px solid #00E5FF' : isPendingException ? '1px solid #FF9100' : '1px solid rgba(255, 255, 255, 0.08)',
+                    background: isSelected ? '#12243D' : isLate ? '#1A0E18' : isAbsent ? '#1C0D12' : '#0F1A2C',
+                    border: isSelected 
+                      ? '1px solid #00E5FF' 
+                      : isLate 
+                      ? '1.5px solid rgba(255, 145, 0, 0.6)' 
+                      : isAbsent 
+                      ? '1.5px solid rgba(255, 59, 48, 0.6)' 
+                      : isPendingException 
+                      ? '1px solid #FF9100' 
+                      : '1px solid rgba(255, 255, 255, 0.08)',
                     borderRadius: '12px',
                     padding: '12px 14px',
                     display: 'flex',
@@ -1273,7 +1582,11 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                     width: '36px',
                     height: '36px',
                     borderRadius: '18px',
-                    background: isPendingException 
+                    background: isLate
+                      ? 'linear-gradient(135deg, #FF9100 0%, #FF3D00 100%)'
+                      : isAbsent
+                      ? 'linear-gradient(135deg, #FF3B30 0%, #B71C1C 100%)'
+                      : isPendingException 
                       ? 'linear-gradient(135deg, #FF9100 0%, #FF6D00 100%)'
                       : 'linear-gradient(135deg, #0052FF 0%, #00C6FF 100%)',
                     display: 'flex',
@@ -1309,7 +1622,37 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                       </div>
 
                       {/* 상태 배지 */}
-                      {isAuto || isSettled ? (
+                      {isLate ? (
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 900,
+                          color: '#FFB74D',
+                          background: 'rgba(255, 145, 0, 0.2)',
+                          border: '1px solid rgba(255, 145, 0, 0.5)',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          <span>🚨 09:00 초과 지각</span>
+                        </span>
+                      ) : isAbsent ? (
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 900,
+                          color: '#FF8A80',
+                          background: 'rgba(255, 59, 48, 0.2)',
+                          border: '1px solid rgba(255, 59, 48, 0.5)',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          <span>⛔ 09:00 기준 미출근</span>
+                        </span>
+                      ) : isAuto || isSettled ? (
                         <span style={{
                           fontSize: '11px',
                           fontWeight: 800,
@@ -1370,11 +1713,23 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                     </div>
 
                     <div style={{ fontSize: '12.5px', color: '#CFD8DC', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <span style={{ color: '#80D8FF', fontWeight: 700 }}>
-                        🕒 출근: {record.clockInTime} ~ 18:00
+                      <span style={{ color: isLate ? '#FF8A80' : isAbsent ? '#FF5252' : '#80D8FF', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        🕒 출근: {record.clockInTime || '미출근'} ~ 18:00
+                        {isLate && (
+                          <span style={{
+                            background: '#FF3B30',
+                            color: '#FFFFFF',
+                            padding: '1px 6px',
+                            borderRadius: '4px',
+                            fontSize: '10.5px',
+                            fontWeight: 900
+                          }}>
+                            +{record.varianceMinutes || parseInt(record.clockInTime.split(':')[1] || '0', 10)}분 지각
+                          </span>
+                        )}
                       </span>
                       <span>실적: <strong>1 M/D ({record.actualInputHours}h)</strong> / 약정 {record.contractedHours}h</span>
-                      {record.varianceMinutes > 0 && (
+                      {record.varianceMinutes > 0 && !isLate && (
                         <span style={{ color: '#FFB74D', fontWeight: 700, fontSize: '11.5px' }}>
                           (지연 +{record.varianceMinutes}분)
                         </span>
