@@ -905,15 +905,37 @@ export class PureDatabaseEngine {
   public setThemeMode(mode: 'ddangyo' | 'shinhan'): void { this.themeMode = mode; }
 
   public getWeeklySchedules(): DaySchedule[] {
-    return [
-      { dayOfWeek: '월', dateStr: '8/10', fullDate: '2026-08-10', statusType: 'VACATION', statusLabel: '체력단련휴가', timeRange: '전일', isToday: false, isVacation: true, title: '체력단련휴.' },
-      { dayOfWeek: '화', dateStr: '8/11', fullDate: '2026-08-11', statusType: 'VACATION', statusLabel: '체력단련휴가', timeRange: '전일', isToday: false, isVacation: true, title: '체력단련휴.' },
-      { dayOfWeek: '수', dateStr: '8/12', fullDate: '2026-08-12', statusType: 'VACATION', statusLabel: '연차휴가', timeRange: '전일', isToday: false, isVacation: true, title: '연차' },
-      { dayOfWeek: '목', dateStr: '8/13', fullDate: '2026-08-13', statusType: 'VACATION', statusLabel: '연차휴가', timeRange: '전일', isToday: false, isVacation: true, title: '연차' },
-      { dayOfWeek: '금', dateStr: '8/14', fullDate: '2026-08-14', statusType: 'VACATION', statusLabel: '연차휴가', timeRange: '전일', isToday: false, isVacation: true, title: '연차' },
-      { dayOfWeek: '토', dateStr: '8/15', fullDate: '2026-08-15', statusType: 'OFF', statusLabel: '휴무', timeRange: '-', isToday: false, isVacation: false, title: '일정 없음' },
-      { dayOfWeek: '오늘', dateStr: '8/16', fullDate: '2026-08-16', statusType: 'OFF', statusLabel: '휴무', timeRange: '-', isToday: true, isVacation: false, title: '일정 없음' }
-    ];
+    const today = new Date();
+    const currentDay = today.getDay(); // 0(Sun) ~ 6(Sat)
+    // Calculate Monday of current week
+    const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + mondayOffset);
+
+    const dayNames = ['월', '화', '수', '목', '금', '토', '일'];
+    const list: DaySchedule[] = [];
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const isToday = d.toDateString() === today.toDateString();
+      const month = d.getMonth() + 1;
+      const date = d.getDate();
+      const isWeekend = i >= 5;
+
+      list.push({
+        dayOfWeek: isToday ? '오늘' : dayNames[i],
+        dateStr: `${month}/${date}`,
+        fullDate: `${d.getFullYear()}-${String(month).padStart(2, '0')}-${String(date).padStart(2, '0')}`,
+        statusType: isWeekend ? 'OFF' : 'WORK',
+        statusLabel: isWeekend ? '휴무' : '도급 1 M/D',
+        timeRange: isWeekend ? '-' : '08:50 ~ 18:00',
+        isToday,
+        isVacation: false,
+        title: isWeekend ? '주말 휴무' : '도급 1 M/D (8.0h)'
+      });
+    }
+    return list;
   }
 
   public getRequests(): AttendanceRequest[] {

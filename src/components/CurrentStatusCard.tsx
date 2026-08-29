@@ -16,9 +16,14 @@ export const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
   onOpenInfo,
   themeMode
 }) => {
-  const [currentYear, setCurrentYear] = useState<number>(2026);
-  const [currentMonth, setCurrentMonth] = useState<number>(8); // 8월 기본값
-  const [selectedDay, setSelectedDay] = useState<number>(17); // 17일 오늘 기본값
+  const now = new Date();
+  const realYear = now.getFullYear();
+  const realMonth = now.getMonth() + 1;
+  const realDay = now.getDate();
+
+  const [currentYear, setCurrentYear] = useState<number>(realYear);
+  const [currentMonth, setCurrentMonth] = useState<number>(realMonth);
+  const [selectedDay, setSelectedDay] = useState<number>(realDay);
   const [isSpinning, setIsSpinning] = useState(false);
   const [punchedDates, setPunchedDates] = useState<Record<number, { time: string; status: string; hours: number }>>({
     3: { time: '08:50', status: 'NORMAL', hours: 8 },
@@ -32,6 +37,15 @@ export const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
     13: { time: '08:45', status: 'NORMAL', hours: 8 },
     14: { time: '08:50', status: 'NORMAL', hours: 8 },
     17: { time: '08:50', status: 'NORMAL', hours: 8 },
+    19: { time: '08:50', status: 'NORMAL', hours: 8 },
+    20: { time: '08:45', status: 'NORMAL', hours: 8 },
+    21: { time: '08:52', status: 'NORMAL', hours: 8 },
+    24: { time: '08:48', status: 'NORMAL', hours: 8 },
+    25: { time: '08:50', status: 'NORMAL', hours: 8 },
+    26: { time: '08:50', status: 'NORMAL', hours: 8 },
+    27: { time: '08:55', status: 'NORMAL', hours: 8 },
+    28: { time: '08:50', status: 'NORMAL', hours: 8 },
+    29: { time: '08:50', status: 'NORMAL', hours: 8 },
   });
 
   // D1 DB에서 당월 출근/투입 기록 실시간 조회
@@ -108,7 +122,7 @@ export const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
   }
 
   // 월간 총 누적 공수 계산
-  const totalWorkedDays = Object.keys(punchedDates).filter(k => parseInt(k, 10) <= 17).length;
+  const totalWorkedDays = Object.keys(punchedDates).filter(k => parseInt(k, 10) <= realDay).length;
   const totalHours = totalWorkedDays * 8;
   const totalMonthWorkingDays = 21; // 8월 평일 21일
 
@@ -246,7 +260,7 @@ export const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
           const day = cell.day;
           const dayOfWeek = (firstDayOfWeek + day - 1) % 7;
           const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-          const isToday = currentYear === 2026 && currentMonth === 8 && day === 17;
+          const isToday = currentYear === realYear && currentMonth === realMonth && day === realDay;
           const isSelected = selectedDay === day;
           const punch = punchedDates[day];
           const isVacation = day === 18; // 8월 18일 연차
