@@ -349,7 +349,7 @@ export function App() {
                   onOpenDrawer={() => setIsDrawerOpen(true)}
                   onOpenMessages={() => setIsMessagesModalOpen(true)}
                   onOpenNotifications={() => setIsNotificationModalOpen(true)}
-                  onOpenAiStats={() => setCurrentPage('ai_stats')}
+                  onOpenAiStats={currentUser.role === 'DS_PRINCIPAL_PM' ? () => setCurrentPage('ai_stats') : undefined}
                   onOpenMyPage={() => setIsMyPageOpen(true)}
                   currentUser={currentUser}
                   themeMode={themeMode}
@@ -529,7 +529,7 @@ export function App() {
                   onBack={() => setCurrentPage('home')}
                   themeMode={themeMode}
                   currentUser={currentUser}
-                  onOpenAiStats={() => setCurrentPage('ai_stats')}
+                  onOpenAiStats={currentUser.role === 'DS_PRINCIPAL_PM' ? () => setCurrentPage('ai_stats') : undefined}
                 />
               )}
 
@@ -661,7 +661,7 @@ export function App() {
               onOpenEmployees={() => setCurrentPage('employees')}
               onOpenScheduleTemplates={() => setCurrentPage('schedule_templates')}
               onOpenVacation={() => setIsVacationModalOpen(true)}
-              onOpenAiStats={() => setCurrentPage('ai_stats')}
+              onOpenAiStats={currentUser.role === 'DS_PRINCIPAL_PM' ? () => setCurrentPage('ai_stats') : undefined}
             />
 
             {/* S-GUARD 회원 정보 관리(마이페이지) 모달 (스크린샷 100% 일치) */}
