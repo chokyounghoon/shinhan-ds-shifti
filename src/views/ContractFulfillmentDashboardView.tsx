@@ -718,60 +718,86 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
           flexDirection: 'column',
           gap: '12px'
         }}>
-          {/* 상단 타이틀 & 실시간 시계 & 09:00 상태 */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '22px' }}>{lateOrAbsentTotal > 0 ? '🚨' : '✅'}</span>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '15px', fontWeight: 900, color: '#FFFFFF', letterSpacing: '-0.3px' }}>
-                    오전 09:00 기준 실시간 지각·미출근 관제 레이더
-                  </span>
-                  {lateOrAbsentTotal > 0 ? (
-                    <span style={{
-                      background: '#FF3B30',
-                      color: '#FFFFFF',
-                      fontSize: '11px',
-                      fontWeight: 900,
-                      padding: '2px 8px',
-                      borderRadius: '12px',
-                      boxShadow: '0 0 10px rgba(255, 59, 48, 0.6)'
-                    }}>
-                      {lateOrAbsentTotal}명 감지
-                    </span>
-                  ) : (
-                    <span style={{
-                      background: '#00E676',
-                      color: '#060B14',
-                      fontSize: '11px',
-                      fontWeight: 900,
-                      padding: '2px 8px',
-                      borderRadius: '12px'
-                    }}>
-                      전원 정시 출근 완료
-                    </span>
-                  )}
-                </div>
-                <div style={{ fontSize: '11.5px', color: '#90A4AE', marginTop: '2px' }}>
-                  [{activePart} 파트] 도급 SLA 계약 기준 (09:00 마감) 인력 투입 실시간 모니터링
-                </div>
+          {/* 상단 타이틀 & 뱃지 (깔끔한 2줄 레이아웃) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {/* 1줄: 아이콘 + 메인 타이틀 + 상태 뱃지 */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0, flex: 1 }}>
+                <span style={{ fontSize: '20px', flexShrink: 0 }}>{lateOrAbsentTotal > 0 ? '🚨' : '✅'}</span>
+                <span style={{
+                  fontSize: '15.5px',
+                  fontWeight: 900,
+                  color: '#FFFFFF',
+                  letterSpacing: '-0.3px',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }}>
+                  09:00 기준 지각·미출근 관제 레이더
+                </span>
               </div>
+
+              {lateOrAbsentTotal > 0 ? (
+                <span style={{
+                  background: 'linear-gradient(135deg, #FF3B30 0%, #FF1744 100%)',
+                  color: '#FFFFFF',
+                  fontSize: '11.5px',
+                  fontWeight: 900,
+                  padding: '3px 10px',
+                  borderRadius: '12px',
+                  boxShadow: '0 0 12px rgba(255, 59, 48, 0.5)',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0
+                }}>
+                  {lateOrAbsentTotal}명 감지
+                </span>
+              ) : (
+                <span style={{
+                  background: 'linear-gradient(135deg, #00E676 0%, #00C853 100%)',
+                  color: '#060B14',
+                  fontSize: '11.5px',
+                  fontWeight: 900,
+                  padding: '3px 10px',
+                  borderRadius: '12px',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0
+                }}>
+                  전원 정시 출근 완료
+                </span>
+              )}
             </div>
 
-            {/* 실시간 시계 및 09:00 경과 배지 */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {/* 2줄: 서브 설명 & 파트 안내 */}
+            <div style={{
+              fontSize: '11.5px',
+              color: '#90A4AE',
+              paddingLeft: '27px',
+              lineHeight: 1.3,
+              marginTop: '-4px'
+            }}>
+              [{activePart} 파트] 도급 SLA 계약 기준 (09:00 마감) 인력 투입 실시간 모니터링
+            </div>
+
+            {/* 3줄: 실시간 시계 & 09:00 마감 기준 바 */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: 'rgba(0, 0, 0, 0.35)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '8px',
+              padding: '6px 10px',
+              marginTop: '2px'
+            }}>
               <div style={{
-                background: 'rgba(0, 0, 0, 0.45)',
-                border: '1px solid rgba(0, 229, 255, 0.3)',
-                borderRadius: '8px',
-                padding: '4px 10px',
                 fontSize: '12px',
                 fontWeight: 800,
                 fontFamily: 'monospace',
                 color: '#00E5FF',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '5px'
+                gap: '5px',
+                whiteSpace: 'nowrap'
               }}>
                 <Clock size={13} color="#00E5FF" />
                 <span>현재 시각 {currentTime}</span>
@@ -779,11 +805,12 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
               <span style={{
                 fontSize: '11px',
                 fontWeight: 800,
-                padding: '4px 8px',
-                borderRadius: '8px',
+                padding: '2px 8px',
+                borderRadius: '6px',
                 background: 'rgba(255, 59, 48, 0.2)',
                 border: '1px solid rgba(255, 59, 48, 0.4)',
-                color: '#FF8A80'
+                color: '#FF8A80',
+                whiteSpace: 'nowrap'
               }}>
                 09:00 기준 마감
               </span>
