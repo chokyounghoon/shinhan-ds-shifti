@@ -397,6 +397,15 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
   // 일반지도 / 위성사진 / 지형도 3단 레이어 전환
   const handleSetMapType = (type: 'ROADMAP' | 'SKYVIEW' | 'TERRAIN') => {
     setMapType(type);
+    if (kakaoMapRef.current && window.kakao?.maps) {
+      if (type === 'ROADMAP') {
+        kakaoMapRef.current.setMapTypeId(window.kakao.maps.MapTypeId.ROADMAP);
+      } else if (type === 'SKYVIEW') {
+        kakaoMapRef.current.setMapTypeId(window.kakao.maps.MapTypeId.HYBRID);
+      } else if (type === 'TERRAIN') {
+        kakaoMapRef.current.setMapTypeId(window.kakao.maps.MapTypeId.TERRAIN);
+      }
+    }
     if (leafletMapRef.current) {
       leafletMapRef.current.eachLayer((layer) => {
         if (layer instanceof L.TileLayer) {
