@@ -56,7 +56,7 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
 
   const activeLocation: WorkLocation = selectedLocation || defaultWorkLocations[0];
   const targetName = activeLocation.name.replace('[좌표] ', '');
-  const targetLat = activeLocation.lat || 37.5663;
+  const targetLat = activeLocation.lat || 37.56575;
   const targetLng = activeLocation.lng || 126.9890;
 
   // 실시간 7중 안티스푸핑 무결성 검증 결과

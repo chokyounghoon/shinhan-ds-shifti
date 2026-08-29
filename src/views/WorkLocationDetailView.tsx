@@ -28,15 +28,15 @@ export const WorkLocationDetailView: React.FC<WorkLocationDetailViewProps> = ({
 
   const locName = location ? location.name.replace('[좌표] ', '') : '파인에비뉴(카드)';
   const locAddress = location ? location.address : '서울 중구 을지로 100 파인에비뉴';
-  const targetLat = location?.lat || 37.5663;
+  const targetLat = location?.lat || 37.56575;
   const targetLng = location?.lng || 126.9890;
   // 각 도급지별 인근 지하철역 및 주요 랜드마크 정보 (정밀 좌표)
   const nearbyLandmarks: { [key: string]: { name: string; type: 'SUBWAY' | 'BUILDING' | 'CAFE'; lat: number; lng: number; tag: string; distance: string }[] } = {
     '파인에비뉴(카드)': [
+      { name: '파인에비뉴 B동', type: 'BUILDING', lat: 37.5657, lng: 126.9889, tag: '신한카드 본사', distance: '도급 약정지 (0m)' },
+      { name: '파인에비뉴 A동', type: 'BUILDING', lat: 37.5660, lng: 126.9893, tag: '비즈니스센터', distance: '도보 30초 (20m)' },
       { name: '을지로3가역 12번출구', type: 'SUBWAY', lat: 37.5662, lng: 126.9897, tag: '2호선·3호선', distance: '도보 1분 (35m)' },
       { name: '을지로3가역 11번출구', type: 'SUBWAY', lat: 37.5661, lng: 126.9886, tag: '2호선·3호선', distance: '도보 1분 (60m)' },
-      { name: '파인에비뉴 B동', type: 'BUILDING', lat: 37.5665, lng: 126.9889, tag: '신한카드 본사', distance: '도급 약정지 (0m)' },
-      { name: '파인에비뉴 A동', type: 'BUILDING', lat: 37.5668, lng: 126.9891, tag: '비즈니스센터', distance: '도보 30초 (40m)' },
       { name: 'IBK기업은행 본점', type: 'BUILDING', lat: 37.5668, lng: 126.9875, tag: '금융본부', distance: '도보 2분 (120m)' }
     ],
     'KT IDC': [

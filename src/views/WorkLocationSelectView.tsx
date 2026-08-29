@@ -15,7 +15,7 @@ export const defaultWorkLocations: WorkLocation[] = [
     id: 'loc-00',
     name: '[좌표] 파인에비뉴(카드)',
     address: '서울 중구 을지로 100 파인에비뉴',
-    lat: 37.5663,
+    lat: 37.56575,
     lng: 126.9890
   },
   {
@@ -29,8 +29,8 @@ export const defaultWorkLocations: WorkLocation[] = [
     id: 'loc-02',
     name: '[좌표] AIA타워',
     address: '서울 중구 통일로2길 16 AIA타워',
-    lat: 37.5612,
-    lng: 126.9689
+    lat: 37.5618,
+    lng: 126.9686
   },
   {
     id: 'loc-03',

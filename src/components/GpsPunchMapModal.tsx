@@ -44,7 +44,7 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
   const [kakaoMapInstance, setKakaoMapInstance] = useState<any>(null);
 
   // 목표 근무지 좌표 (파인에비뉴 등)
-  const targetLat = targetLocation.lat || 37.5663;
+  const targetLat = targetLocation.lat || 37.56575;
   const targetLng = targetLocation.lng || 126.9890;
   const targetName = targetLocation.name.replace('[좌표] ', '');
 
