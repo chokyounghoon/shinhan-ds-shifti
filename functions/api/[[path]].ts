@@ -4002,7 +4002,7 @@ app.put('/sla-clarifications/:id/answer', async (c) => {
 // =========================================================================
 // 9. 사전 공수 결손 통보 (Pre Gap Notices) D1 API
 // =========================================================================
-app.get('/gap-notices', async (c) => {
+const handleGetGapNotices = async (c: any) => {
   try {
     const db = c.env.DB;
     await ensureManpowerTables(db);
@@ -4023,9 +4023,12 @@ app.get('/gap-notices', async (c) => {
   } catch (err: any) {
     return c.json({ success: false, detail: err.message }, 500);
   }
-});
+};
 
-app.post('/gap-notices', async (c) => {
+app.get('/gap-notices', handleGetGapNotices);
+app.get('/pre-gap-notices', handleGetGapNotices);
+
+const handlePostGapNotice = async (c: any) => {
   try {
     const db = c.env.DB;
     await ensureManpowerTables(db);
@@ -4057,7 +4060,10 @@ app.post('/gap-notices', async (c) => {
   } catch (err: any) {
     return c.json({ success: false, detail: err.message }, 500);
   }
-});
+};
+
+app.post('/gap-notices', handlePostGapNotice);
+app.post('/pre-gap-notices', handlePostGapNotice);
 
 app.put('/gap-notices/:id/acknowledge', async (c) => {
   try {
