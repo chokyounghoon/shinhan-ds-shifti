@@ -1497,10 +1497,46 @@ app.put('/clarification-requests/:id/ds-reject', async (c) => {
 // 4-1. 소속사 휴가 및 근태 소명 (attendance_requests) D1 실시간 API
 // ==========================================
 
+const ensureAttendanceRequestsTable = async (db: any) => {
+  try {
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS attendance_requests (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        employee_id TEXT NOT NULL,
+        user_name TEXT NOT NULL,
+        company_name TEXT NOT NULL,
+        request_type TEXT NOT NULL,
+        vacation_type TEXT,
+        hours REAL DEFAULT 8.0,
+        target_date TEXT NOT NULL,
+        start_time TEXT,
+        end_time TEXT,
+        reason TEXT NOT NULL,
+        proof_attachment_url TEXT,
+        status TEXT DEFAULT 'PENDING',
+        approver_id TEXT,
+        approver_name TEXT,
+        review_comment TEXT,
+        reviewed_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_by TEXT DEFAULT 'SYSTEM',
+        updated_at DATETIME,
+        updated_by TEXT DEFAULT 'SYSTEM'
+      )
+    `).run();
+    await ensureAuditColumns(db);
+  } catch (e) {
+    console.warn('ensureAttendanceRequestsTable notice:', e);
+  }
+};
+
 // 1) 휴가/근태 신청 목록 실시간 조회
 app.get('/attendance/requests', async (c) => {
   try {
     const db = c.env.DB;
+    await ensureAttendanceRequestsTable(db);
+
     const employeeId = c.req.query('employee_id');
     const requestType = c.req.query('request_type');
 
@@ -1516,7 +1552,7 @@ app.get('/attendance/requests', async (c) => {
       params.push(requestType);
     }
 
-    query += ' ORDER BY target_date DESC, created_at DESC';
+    query += ' ORDER BY rowid DESC';
 
     const stmt = db.prepare(query);
     const result: any = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
