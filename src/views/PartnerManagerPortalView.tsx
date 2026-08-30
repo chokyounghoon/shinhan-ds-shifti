@@ -285,6 +285,38 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
     }
   };
 
+  // DS PM에 의해 보완요청(반려)된 건을 협력사 관리인이 보완하여 다시 DS PM에게 재상신
+  const handlePartnerReapply = async (clarId: string) => {
+    const memo = window.prompt('DS PM 앞 보완 내용/사유 입력 (필수):', '협력사 관리인 차원에서 사유 및 증빙을 보완하여 DS PM에게 재상신합니다.');
+    if (!memo) return;
+    try {
+      const res = await fetch(`/api/clarification-requests/${clarId}/partner-reapply`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          approver_id: currentUser.employeeId || currentUser.id,
+          approver_name: currentUser.name,
+          memo
+        })
+      });
+      const json = await res.json();
+      setClarToastMsg(`🚀 ${json.message || 'DS PM 앞 재상신 완료'}`);
+      setTimeout(() => setClarToastMsg(null), 3000);
+
+      // 🔔 DS 현장대리인 앞 알림 푸시
+      dbService.addNotification({
+        type: 'INSPECTION_REQUEST',
+        title: `📢 [SLA 소명 재상신] 협력사 보완 소명서 도착`,
+        content: `${selectedPartner} 현장대리인이 보완 사유를 첨부하여 소명서를 신한DS PM에게 재상신했습니다.`,
+        targetRole: 'DS_PRINCIPAL_PM'
+      });
+
+      fetchD1Clarifications();
+    } catch (e) {
+      alert('재상신 처리 중 오류가 발생했습니다.');
+    }
+  };
+
   // [2단계] 협력사 관리자 휴가 1차 결재 및 원청 통보 핸들러 (원클릭 즉시 처리)
   const handlePartnerApproveVacation = async (reqId: string) => {
     const targetReq = allAttendanceRequests.find(r => r.id === reqId);
@@ -1693,27 +1725,62 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
               ))
             )}
 
-            {/* 이미 DS 상신된 소명 이력 */}
+            {/* 이미 DS 상신된 소명 이력 및 DS 반려/보완요청 건 */}
             {d1Clarifications.filter(c => c.status !== 'PENDING_PARTNER').length > 0 && (
               <>
-                <div style={{ fontSize: '13px', fontWeight: 800, color: '#475569', marginTop: '8px' }}>처리 완료 이력</div>
+                <div style={{ fontSize: '13px', fontWeight: 800, color: '#475569', marginTop: '8px' }}>처리 및 보완 관리 이력</div>
                 {d1Clarifications.filter(c => c.status !== 'PENDING_PARTNER').map(clar => {
                   const st = getClarStatusLabel(clar.status);
+                  const isDsRejected = clar.status === 'REJECTED_DS';
                   return (
                     <div key={clar.id} style={{
-                      background: '#F8FAFC',
+                      background: isDsRejected ? '#FEF2F2' : '#F8FAFC',
                       borderRadius: '10px',
                       padding: '12px 14px',
-                      border: '1px solid #E2E8F0',
+                      border: isDsRejected ? '1.5px solid #F87171' : '1px solid #E2E8F0',
                       display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
+                      flexDirection: 'column',
+                      gap: '8px'
                     }}>
-                      <div>
-                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#1E293B' }}>{clar.employee_name} · {clar.incident_date}</div>
-                        <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '2px' }}>{clar.incident_type === 'LATE' ? '지각 투입 소명' : '출근 누락 소명'}</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#1E293B' }}>{clar.employee_name} · {clar.incident_date}</div>
+                          <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>{clar.incident_type === 'LATE' ? '지각 투입 소명' : '출근 누락 소명'}</div>
+                        </div>
+                        <span style={{ fontSize: '11.5px', fontWeight: 800, padding: '3px 9px', borderRadius: '12px', background: st.bg, color: st.color }}>{st.label}</span>
                       </div>
-                      <span style={{ fontSize: '11.5px', fontWeight: 800, padding: '3px 9px', borderRadius: '12px', background: st.bg, color: st.color }}>{st.label}</span>
+
+                      {/* DS PM 반려 사유가 있는 경우 */}
+                      {clar.ds_approval_memo && (
+                        <div style={{ fontSize: '12px', color: '#991B1B', background: '#FEE2E2', padding: '6px 10px', borderRadius: '6px' }}>
+                          <strong>⚠️ 신한DS PM 반려(보완요청) 사유:</strong> {clar.ds_approval_memo}
+                        </div>
+                      )}
+
+                      {/* DS 반려 건인 경우 보완 재상신 버튼 노출 */}
+                      {isDsRejected && (
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2px' }}>
+                          <button
+                            onClick={() => handlePartnerReapply(clar.id)}
+                            style={{
+                              background: 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)',
+                              color: '#FFFFFF',
+                              border: 'none',
+                              borderRadius: '8px',
+                              padding: '6px 14px',
+                              fontSize: '12px',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              boxShadow: '0 2px 6px rgba(2, 132, 199, 0.3)'
+                            }}
+                          >
+                            <span>🚀 DS PM 앞 보완 재상신</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

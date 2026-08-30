@@ -150,6 +150,13 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
   const [selectedIncidentForModal, setSelectedIncidentForModal] = useState<UnclarifiedIncident | null>(null);
   const [isClarificationModalOpen, setIsClarificationModalOpen] = useState(false);
 
+  // 보완 및 재상신 전용 모달 상태
+  const [resubmitModalOpen, setResubmitModalOpen] = useState(false);
+  const [targetReqForResubmit, setTargetReqForResubmit] = useState<any | null>(null);
+  const [resubmitReasonText, setResubmitReasonText] = useState('');
+  const [resubmitDelayMinutes, setResubmitDelayMinutes] = useState(30);
+  const [isSubmittingResubmit, setIsSubmittingResubmit] = useState(false);
+
   // D1 소명/휴가 상태 → 표시용 레이블 변환
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -160,10 +167,67 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
         return { label: '2단계: DS 공정검수 대기', color: '#2563EB', bg: '#EFF6FF' };
       case 'APPROVED': 
         return { label: '최종 승인 완료', color: '#059669', bg: '#ECFDF5' };
+      case 'REJECTED_PARTNER':
+        return { label: '⚠️ 협력사 보완요청 (재상신 가능)', color: '#DC2626', bg: '#FEF2F2' };
+      case 'REJECTED_DS':
+        return { label: '⚠️ DS PM 보완요청 (재상신 가능)', color: '#DC2626', bg: '#FEF2F2' };
       case 'REJECTED': 
-        return { label: '반려됨', color: '#DC2626', bg: '#FEF2F2' };
+        return { label: '⚠️ 보완 및 재상신 필요', color: '#DC2626', bg: '#FEF2F2' };
       default: 
         return { label: '검토 중', color: '#64748B', bg: '#F8FAFC' };
+    }
+  };
+
+  const handleOpenResubmitModal = (req: any) => {
+    setTargetReqForResubmit(req);
+    setResubmitReasonText(req.reason || '');
+    setResubmitDelayMinutes(30);
+    setResubmitModalOpen(true);
+  };
+
+  const handleExecuteResubmit = async () => {
+    if (!targetReqForResubmit) return;
+    if (!resubmitReasonText.trim()) {
+      alert('보완 소명 사유를 입력해주세요.');
+      return;
+    }
+    setIsSubmittingResubmit(true);
+    try {
+      const isClar = targetReqForResubmit.id.startsWith('clar-');
+      const url = isClar 
+        ? `/api/clarification-requests/${targetReqForResubmit.id}/resubmit`
+        : `/api/attendance/requests/${targetReqForResubmit.id}/resubmit`;
+
+      const payload = isClar ? {
+        employee_id: currentEmpId,
+        employee_name: currentUserName,
+        reason_text: resubmitReasonText,
+        delay_minutes: resubmitDelayMinutes,
+        category: 'TRAFFIC'
+      } : {
+        employee_id: currentEmpId,
+        user_name: currentUserName,
+        reason: resubmitReasonText
+      };
+
+      const res = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        setToastMsg('🎉 [보완 재상신 완료] 소명서가 보완되어 협력사 관리인에게 다시 1차 승인 상신되었습니다.');
+        setTimeout(() => setToastMsg(null), 4000);
+        setResubmitModalOpen(false);
+        fetchClarifications();
+      } else {
+        alert('재상신 처리 중 오류가 발생했습니다.');
+      }
+    } catch (e) {
+      alert('서버 통신 실패');
+    } finally {
+      setIsSubmittingResubmit(false);
     }
   };
 
@@ -482,10 +546,11 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
             })
             .map(req => {
               const st = getStatusBadge(req.status);
+              const isRejected = req.status === 'REJECTED' || req.status === 'REJECTED_PARTNER' || req.status === 'REJECTED_DS';
               return (
                 <div key={req.id} style={{
-                  background: '#FFFFFF',
-                  border: '1px solid #E2E8F0',
+                  background: isRejected ? '#FFF5F5' : '#FFFFFF',
+                  border: isRejected ? '1.5px solid #FEB2B2' : '1px solid #E2E8F0',
                   borderRadius: '12px',
                   padding: '14px 16px',
                   boxShadow: '0 1px 4px rgba(0,0,0,0.04)'
@@ -504,6 +569,42 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
                   <div style={{ fontSize: '12px', color: '#64748B', background: '#F8FAFC', padding: '6px 10px', borderRadius: '6px', marginBottom: '8px' }}>
                     <strong>신청 사유:</strong> {req.reason}
                   </div>
+
+                  {/* 반려/보완 요청 사유 및 재상신 버튼 */}
+                  {isRejected && (
+                    <div style={{
+                      background: '#FEF2F2',
+                      border: '1px solid #FCA5A5',
+                      borderRadius: '8px',
+                      padding: '10px 12px',
+                      marginBottom: '10px'
+                    }}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#991B1B', marginBottom: '6px' }}>
+                        ⚠️ 보완 요청 사유: 관리자 검토 결과 사유 또는 증빙이 보완되어야 합니다.
+                      </div>
+                      <button
+                        onClick={() => handleOpenResubmitModal(req)}
+                        style={{
+                          width: '100%',
+                          background: 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)',
+                          color: '#FFFFFF',
+                          border: 'none',
+                          borderRadius: '8px',
+                          padding: '9px 0',
+                          fontSize: '13px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          boxShadow: '0 2px 6px rgba(220, 38, 38, 0.3)'
+                        }}
+                      >
+                        <span>✍️ 사유 보완 후 다시 상신하기 (재상신)</span>
+                      </button>
+                    </div>
+                  )}
                   
                   {/* 2단계 결재 진행 게이지 */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
@@ -511,10 +612,10 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
                       padding: '3px 8px',
                       borderRadius: '4px',
                       fontWeight: 700,
-                      background: req.partnerApproved ? '#ECFDF5' : '#FEF3C7',
-                      color: req.partnerApproved ? '#059669' : '#B45309'
+                      background: req.partnerApproved ? '#ECFDF5' : isRejected ? '#FEE2E2' : '#FEF3C7',
+                      color: req.partnerApproved ? '#059669' : isRejected ? '#DC2626' : '#B45309'
                     }}>
-                      ① 협력사 검수 {req.partnerApproved ? '✓완료' : '대기중'}
+                      ① 협력사 검수 {req.partnerApproved ? '✓완료' : isRejected ? '보완요청' : '대기중'}
                     </span>
                     <span style={{ color: '#CBD5E1' }}>›</span>
                     <span style={{
@@ -652,6 +753,114 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
         onClarificationSubmitted={handleClarificationSubmitted}
         themeMode={themeMode}
       />
+
+      {/* 8. 반려 건 보완 및 재상신 모달 */}
+      {resubmitModalOpen && targetReqForResubmit && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '16px'
+        }}>
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: '16px',
+            padding: '20px',
+            width: '100%',
+            maxWidth: '420px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <AlertTriangle size={18} color="#DC2626" />
+                <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#1E293B', margin: 0 }}>
+                  소명 사유 보완 및 재상신
+                </h3>
+              </div>
+              <button 
+                onClick={() => setResubmitModalOpen(false)}
+                style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
+              >
+                <X size={18} color="#94A3B8" />
+              </button>
+            </div>
+
+            <div style={{ fontSize: '12.5px', color: '#64748B', marginBottom: '12px' }}>
+              반려된 소명 내용이나 사유, 지연 시간을 보완하여 다시 협력사 관리인에게 1차 승인 단계로 상신합니다.
+            </div>
+
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                대상 일자
+              </label>
+              <div style={{ background: '#F8FAFC', padding: '8px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: 700, color: '#0F172A', border: '1px solid #E2E8F0' }}>
+                {targetReqForResubmit.targetDate} ({targetReqForResubmit.typeLabel})
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                보완 소명 사유 (구체적 기재)
+              </label>
+              <textarea
+                value={resubmitReasonText}
+                onChange={e => setResubmitReasonText(e.target.value)}
+                placeholder="지연/결손 발생 경위 및 보완 증빙 사유를 상세히 작성해주세요."
+                rows={4}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  borderRadius: '8px',
+                  border: '1px solid #CBD5E1',
+                  fontSize: '13px',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => setResubmitModalOpen(false)}
+                style={{
+                  flex: 1,
+                  padding: '10px 0',
+                  borderRadius: '8px',
+                  border: '1px solid #CBD5E1',
+                  background: '#FFFFFF',
+                  color: '#475569',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                취소
+              </button>
+              <button
+                onClick={handleExecuteResubmit}
+                disabled={isSubmittingResubmit}
+                style={{
+                  flex: 2,
+                  padding: '10px 0',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)',
+                  color: '#FFFFFF',
+                  fontSize: '13px',
+                  fontWeight: 800,
+                  cursor: 'pointer'
+                }}
+              >
+                {isSubmittingResubmit ? '재상신 중...' : '🚀 보완 소명서 재상신하기'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @keyframes fadeInUp {

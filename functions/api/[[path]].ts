@@ -1430,7 +1430,7 @@ app.put('/clarification-requests/:id/partner-approve', async (c) => {
   }
 });
 
-// 1차 반려: 협력사 현장대리인 → REJECTED
+// 1차 반려: 협력사 현장대리인 → REJECTED_PARTNER (근로자에게 보완 및 재상신 기회 부여)
 app.put('/clarification-requests/:id/partner-reject', async (c) => {
   try {
     const id = c.req.param('id');
@@ -1438,24 +1438,42 @@ app.put('/clarification-requests/:id/partner-reject', async (c) => {
     await ensureClarificationTable(db);
     const body = await c.req.json();
     const now = getKst();
+    const memo = body.memo || '소명 사유 불충분으로 반려되었습니다. 사유/증빙을 보완하여 재상신해 주세요.';
 
     await db.prepare(`
       UPDATE clarification_requests
-      SET status = 'REJECTED',
+      SET status = 'REJECTED_PARTNER',
           partner_approver_id = ?,
           partner_approver_name = ?,
           partner_approved_at = ?,
-          partner_approval_memo = ?
-      WHERE id = ? AND status = 'PENDING_PARTNER'
+          partner_approval_memo = ?,
+          updated_at = ?,
+          updated_by = ?
+      WHERE id = ?
     `).bind(
       body.approver_id || '',
       body.approver_name || '협력사 현장대리인',
       now,
-      body.memo || '소명 사유 불충분으로 반려. 재소명 후 재상신 바랍니다.',
+      memo,
+      now,
+      body.approver_name || '협력사 현장대리인',
       id
     ).run();
 
-    return c.json({ success: true, message: '소명서가 반려 처리되었습니다.' });
+    // 근로자 앞 보완 요청 알림 생성
+    try {
+      await db.prepare(`
+        INSERT INTO app_notifications
+        (id, type, title, content, target_role, part_name, is_read, created_at, updated_at, created_by, updated_by)
+        VALUES (?, 'APPROVAL_REJECTED', '⚠️ [소명 보완요청] 협력사 관리인 반려', ?, 'PARTNER_WORKER', '상담', 0, ?, ?, 'SYSTEM', 'SYSTEM')
+      `).bind(
+        `noti-rej-${Date.now()}`,
+        `소명서가 보완 요청되었습니다: "${memo}". 내용을 보완하여 다시 재상신할 수 있습니다.`,
+        now, now
+      ).run();
+    } catch (_) {}
+
+    return c.json({ success: true, message: '소명서가 보완 요청(반려) 처리되었습니다. 직원이 보완 후 재상신할 수 있습니다.' });
   } catch (err: any) {
     return c.json({ success: false, detail: err.message }, 500);
   }
@@ -1476,13 +1494,17 @@ app.put('/clarification-requests/:id/ds-approve', async (c) => {
           ds_approver_id = ?,
           ds_approver_name = ?,
           ds_approved_at = ?,
-          ds_approval_memo = ?
+          ds_approval_memo = ?,
+          updated_at = ?,
+          updated_by = ?
       WHERE id = ? AND status = 'PENDING_DS'
     `).bind(
       body.approver_id || '',
       body.approver_name || '신한DS 현장대리인',
       now,
       body.memo || '소명 내용 검토 완료. 해당 공수를 정상 인정 처리합니다.',
+      now,
+      body.approver_name || '신한DS 현장대리인',
       id
     ).run();
 
@@ -1492,8 +1514,107 @@ app.put('/clarification-requests/:id/ds-approve', async (c) => {
   }
 });
 
-// 2차 반려: DS 현장대리인 → REJECTED
+// 2차 반려: DS 현장대리인 → REJECTED_DS (협력사 관리인에게 1단계 하향 조치 및 보완 요청)
 app.put('/clarification-requests/:id/ds-reject', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const db = c.env.DB;
+    await ensureClarificationTable(db);
+    const body = await c.req.json();
+    const now = getKst();
+    const memo = body.memo || '신한DS PM 검토 결과 보완이 필요합니다. 협력사 관리인이 검토/보완하여 재상신 바랍니다.';
+
+    await db.prepare(`
+      UPDATE clarification_requests
+      SET status = 'REJECTED_DS',
+          ds_approver_id = ?,
+          ds_approver_name = ?,
+          ds_approved_at = ?,
+          ds_approval_memo = ?,
+          updated_at = ?,
+          updated_by = ?
+      WHERE id = ? AND status = 'PENDING_DS'
+    `).bind(
+      body.approver_id || '',
+      body.approver_name || '신한DS 현장대리인',
+      now,
+      memo,
+      now,
+      body.approver_name || '신한DS 현장대리인',
+      id
+    ).run();
+
+    // 협력사 관리인 앞 알림
+    try {
+      await db.prepare(`
+        INSERT INTO app_notifications
+        (id, type, title, content, target_role, part_name, is_read, created_at, updated_at, created_by, updated_by)
+        VALUES (?, 'APPROVAL_REJECTED', '⚠️ [DS PM 보완요청] 소명서 보완 필요', ?, 'PARTNER_MANAGER', '상담', 0, ?, ?, 'SYSTEM', 'SYSTEM')
+      `).bind(
+        `noti-dsrej-${Date.now()}`,
+        `DS PM이 소명서를 보완 요청했습니다: "${memo}". 보완 후 DS PM에게 재상신할 수 있습니다.`,
+        now, now
+      ).run();
+    } catch (_) {}
+
+    return c.json({ success: true, message: 'DS PM이 보완 요청하였습니다. 협력사 관리인 단계로 하향되어 재조치할 수 있습니다.' });
+  } catch (err: any) {
+    return c.json({ success: false, detail: err.message }, 500);
+  }
+});
+
+// 3. 직원의 소명서 보완 및 재상신 (REJECTED_PARTNER/REJECTED → PENDING_PARTNER)
+app.put('/clarification-requests/:id/resubmit', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const db = c.env.DB;
+    await ensureClarificationTable(db);
+    const body = await c.req.json();
+    const now = getKst();
+    const empName = body.employee_name || '직원';
+
+    await db.prepare(`
+      UPDATE clarification_requests
+      SET status = 'PENDING_PARTNER',
+          reason_text = ?,
+          delay_minutes = ?,
+          category = ?,
+          ai_tag = ?,
+          updated_at = ?,
+          updated_by = ?
+      WHERE id = ?
+    `).bind(
+      body.reason_text || '',
+      Number(body.delay_minutes) || 0,
+      body.category || 'OTHER',
+      body.ai_tag || null,
+      now,
+      empName,
+      id
+    ).run();
+
+    // 협력사 관리인 앞 재상신 알림
+    try {
+      await db.prepare(`
+        INSERT INTO app_notifications
+        (id, type, title, content, target_role, part_name, is_read, created_at, updated_at, created_by, updated_by)
+        VALUES (?, 'APPROVAL_REQUEST', ?, ?, 'PARTNER_MANAGER', '상담', 0, ?, ?, ?, ?)
+      `).bind(
+        `noti-re-clar-${Date.now()}`,
+        `📢 [소명 재상신] ${empName}님 보완 소명서 도착`,
+        `${empName}님이 반려 사유를 보완하여 소명서를 재상신했습니다. 1차 검토가 필요합니다.`,
+        now, now, empName, empName
+      ).run();
+    } catch (_) {}
+
+    return c.json({ success: true, message: '보완된 소명서가 협력사 관리인에게 다시 재상신되었습니다.' });
+  } catch (err: any) {
+    return c.json({ success: false, detail: err.message }, 500);
+  }
+});
+
+// 4. 협력사 관리인의 DS 재상신 (REJECTED_DS → PENDING_DS)
+app.put('/clarification-requests/:id/partner-reapply', async (c) => {
   try {
     const id = c.req.param('id');
     const db = c.env.DB;
@@ -1503,21 +1624,30 @@ app.put('/clarification-requests/:id/ds-reject', async (c) => {
 
     await db.prepare(`
       UPDATE clarification_requests
-      SET status = 'REJECTED',
-          ds_approver_id = ?,
-          ds_approver_name = ?,
-          ds_approved_at = ?,
-          ds_approval_memo = ?
-      WHERE id = ? AND status = 'PENDING_DS'
+      SET status = 'PENDING_DS',
+          partner_approval_memo = ?,
+          partner_approved_at = ?,
+          updated_at = ?,
+          updated_by = ?
+      WHERE id = ?
     `).bind(
-      body.approver_id || '',
-      body.approver_name || '신한DS 현장대리인',
+      body.memo || '협력사 관리인 재검토 및 보완 완료. DS PM 앞 재상신합니다.',
       now,
-      body.memo || 'DS 최종 검토 결과 소명 불인정. 해당 공수 결손 처리됩니다.',
+      now,
+      body.approver_name || '협력사 현장대리인',
       id
     ).run();
 
-    return c.json({ success: true, message: '최종 반려 처리되었습니다. 해당 공수 결손이 확정됩니다.' });
+    // DS PM 앞 재상신 알림
+    try {
+      await db.prepare(`
+        INSERT INTO app_notifications
+        (id, user_id, title, content, type, target_role, is_read, created_at)
+        VALUES (?, 'DS_PRINCIPAL_PM', '📢 [SLA 소명 재상신] 협력사 보완 소명서 도착', '협력사 관리인이 반려 사유를 보완하여 DS PM에게 재상신했습니다.', 'APPROVAL_REQUEST', 'DS_PRINCIPAL_PM', 0, ?)
+      `).bind(`noti-re-ds-${Date.now()}`, now).run();
+    } catch (_) {}
+
+    return c.json({ success: true, message: '보완된 소명서가 신한DS PM에게 다시 재상신되었습니다.' });
   } catch (err: any) {
     return c.json({ success: false, detail: err.message }, 500);
   }
@@ -1791,7 +1921,7 @@ app.put('/attendance/requests/:id/partner-reject', async (c) => {
     const now = getKst();
 
     const approverName = body.approver_name || '협력사 현장관리인';
-    const memo = body.memo || '소속사 사정으로 인한 휴가 반려';
+    const memo = body.memo || '소속사 사정으로 인한 휴가 보완요청(반려)';
 
     await db.prepare(`
       UPDATE attendance_requests
@@ -1804,7 +1934,45 @@ app.put('/attendance/requests/:id/partner-reject', async (c) => {
       WHERE id = ?
     `).bind(approverName, memo, now, now, approverName, id).run();
 
-    return c.json({ success: true, message: '소속사에서 휴가 신청이 반려되었습니다.' });
+    return c.json({ success: true, message: '소속사에서 휴가 신청이 보완요청(반려)되었습니다. 직원이 보완 후 재상신할 수 있습니다.' });
+  } catch (err: any) {
+    return c.json({ success: false, detail: err.message }, 500);
+  }
+});
+
+// 3-2-2) [휴가 재상신] 근로자가 보완 후 다시 1차 승인 대기로 상신
+app.put('/attendance/requests/:id/resubmit', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    const db = c.env.DB;
+    const now = getKst();
+    const empName = body.user_name || body.employee_id || '직원';
+
+    await db.prepare(`
+      UPDATE attendance_requests
+      SET status = 'PENDING',
+          vacation_type = COALESCE(?, vacation_type),
+          reason = ?,
+          updated_at = ?,
+          updated_by = ?
+      WHERE id = ?
+    `).bind(body.vacation_type || null, body.reason || '', now, empName, id).run();
+
+    // 협력사 관리인 앞 알림
+    try {
+      await db.prepare(`
+        INSERT INTO app_notifications
+        (id, type, title, content, target_role, part_name, is_read, created_at, updated_at, created_by, updated_by)
+        VALUES (?, 'APPROVAL_REQUEST', '📢 [휴가 재상신] 보완된 휴가 신청서 도착', ?, 'PARTNER_MANAGER', '상담', 0, ?, ?, ?, ?)
+      `).bind(
+        `noti-revac-${Date.now()}`,
+        `${empName}님이 반려 사유를 보완하여 휴가 신청서를 재상신했습니다.`,
+        now, now, empName, empName
+      ).run();
+    } catch (_) {}
+
+    return c.json({ success: true, message: '휴가 신청서가 보완되어 협력사 관리인에게 다시 재상신되었습니다.' });
   } catch (err: any) {
     return c.json({ success: false, detail: err.message }, 500);
   }
