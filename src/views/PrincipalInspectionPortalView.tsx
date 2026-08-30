@@ -259,10 +259,17 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
         }
       });
 
-      // 🕒 신청일시(created_at) 기준 최신순(내림차순) 정렬
-      combined.sort((a, b) => (b.created_at || b.target_date || '').localeCompare(a.created_at || a.target_date || ''));
+      // 🕒 신청일시(created_at) 기준 최신순(내림차순) 정렬 후 동일 인력+동일 일자 최종 1건만 유지
+      const sorted = combined.sort((a, b) => (b.created_at || b.target_date || '').localeCompare(a.created_at || a.target_date || ''));
+      const seenVacDates = new Set<string>();
+      const deduplicatedVacations = sorted.filter(item => {
+        const key = `${(item.user_name || item.employee_id || '').trim()}_${(item.target_date || '').trim()}`;
+        if (seenVacDates.has(key)) return false;
+        seenVacDates.add(key);
+        return true;
+      });
 
-      setPendingDsVacations(combined);
+      setPendingDsVacations(deduplicatedVacations);
     } catch (e) {
       console.warn('DS 공백 사전통보 조회 실패:', e);
     }

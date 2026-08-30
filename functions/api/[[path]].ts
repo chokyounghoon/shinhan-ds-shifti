@@ -1776,12 +1776,25 @@ app.get('/attendance/requests', async (c) => {
     }
     // PARTNER_WORKER(개인): employee_id 필터로만 충분
 
-    query += ' ORDER BY rowid DESC';
+    query += ' ORDER BY created_at DESC, rowid DESC';
 
     const stmt = db.prepare(query);
     const result: any = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
+    const rows: any[] = result.results || [];
 
-    return c.json({ success: true, data: result.results || [] });
+    // 🌟 동일 일자 + 동일 근로자의 휴가/근태 신청은 항상 최신(최종건) 1건만 유지 (중복 제거)
+    const seen = new Set<string>();
+    const deduplicated = rows.filter(item => {
+      const emp = (item.employee_id || item.user_id || item.user_name || '').toUpperCase().trim();
+      const targetDate = (item.target_date || '').trim();
+      const reqType = (item.request_type || 'VACATION').toUpperCase().trim();
+      const key = `${emp}_${targetDate}_${reqType}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    return c.json({ success: true, data: deduplicated });
   } catch (err: any) {
     return c.json({ success: false, detail: err.message }, 500);
   }
@@ -1806,18 +1819,31 @@ app.get('/attendance/request', async (c) => {
       params.push(requestType);
     }
 
-    query += ' ORDER BY target_date DESC, created_at DESC';
+    query += ' ORDER BY created_at DESC, rowid DESC';
 
     const stmt = db.prepare(query);
     const result: any = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
+    const rows: any[] = result.results || [];
 
-    return c.json({ success: true, data: result.results || [] });
+    // 동일 일자 + 동일 근로자 최신 1건만 반환
+    const seen = new Set<string>();
+    const deduplicated = rows.filter(item => {
+      const emp = (item.employee_id || item.user_id || item.user_name || '').toUpperCase().trim();
+      const targetDate = (item.target_date || '').trim();
+      const reqType = (item.request_type || 'VACATION').toUpperCase().trim();
+      const key = `${emp}_${targetDate}_${reqType}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    return c.json({ success: true, data: deduplicated });
   } catch (err: any) {
     return c.json({ success: false, detail: err.message }, 500);
   }
 });
 
-// 2) 휴가/근태 신청 등록 (POST)
+// 2) 휴가/근태 신청 등록 및 동일 일자 수정 (POST)
 app.post('/attendance/requests', async (c) => {
   try {
     const body = await c.req.json();
@@ -1825,7 +1851,6 @@ app.post('/attendance/requests', async (c) => {
     await ensureAuditColumns(db);
     const now = getKst();
 
-    const id = body.id || `req-vac-${Date.now()}`;
     const empId = body.employee_id || body.user_id || 'S01832';
     const userName = body.user_name || body.userName || '김신한';
     const compName = body.company_name || body.companyName || body.partner_company || '유브갓';
@@ -1840,38 +1865,111 @@ app.post('/attendance/requests', async (c) => {
     const approverName = body.approver_name || body.approverName || `${compName} 현장관리인`;
     const creator = body.created_by || userName || empId;
 
-    await db.prepare(`
-      INSERT INTO attendance_requests
-      (id, user_id, employee_id, user_name, company_name, partner_company, request_type, vacation_type, target_date, start_date, end_date, hours, reason, status, approver_name, created_at, updated_at, created_by, updated_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(
-      id, empId, empId, userName, compName, compName, reqType, vacType, targetDate, startDate, endDate, hours, reason, status, approverName, now, now, creator, creator
-    ).run();
+    // 🔍 1. 동일 근로자 + 동일 일자 + 동일 요청유형의 기존 신청 건이 있는지 조회
+    const existingCheckStmt = db.prepare(`
+      SELECT id, status, created_at FROM attendance_requests
+      WHERE (UPPER(employee_id) = UPPER(?) OR UPPER(user_name) = UPPER(?))
+        AND target_date = ?
+        AND request_type = ?
+      ORDER BY rowid DESC LIMIT 1
+    `);
+    const existingResult: any = await existingCheckStmt.bind(empId, userName, targetDate, reqType).first();
 
-    // 🔔 1단계: D1 app_notifications에 협력사 관리인 앞 알림 즉시 생성
-    const notiId = `noti-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
-    try {
+    let isUpdate = false;
+    let targetId = body.id || `req-vac-${Date.now()}`;
+
+    if (existingResult && existingResult.id) {
+      // 🔄 2-A. 기존 신청 건이 존재하므로 "수정(Update)" 처리
+      isUpdate = true;
+      targetId = existingResult.id;
+
       await db.prepare(`
-        INSERT INTO app_notifications
-        (id, type, title, content, target_role, part_name, is_read, created_at, updated_at, created_by, updated_by)
-        VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
+        UPDATE attendance_requests
+        SET vacation_type = ?,
+            hours = ?,
+            start_date = ?,
+            end_date = ?,
+            reason = ?,
+            status = 'PENDING',
+            approver_name = ?,
+            partner_approved_at = NULL,
+            ds_approved_at = NULL,
+            updated_at = ?,
+            updated_by = ?
+        WHERE id = ?
       `).bind(
-        notiId,
-        'APPROVAL_REQUEST',
-        `📢 [결재 요청] ${userName}님 ${vacType || reqType} 신청`,
-        `${userName}님이 ${vacType || reqType} (${targetDate}) 결재를 요청했습니다. 협력사 관리인 1차 결재가 필요합니다.`,
-        'PARTNER_MANAGER',
-        '상담',
-        now,
-        now,
-        creator,
-        creator
+        vacType, hours, startDate, endDate, reason, approverName, now, creator, targetId
       ).run();
-    } catch (ne) {
-      console.warn('Notification auto insert notice:', ne);
-    }
 
-    return c.json({ success: true, message: '휴가/근태 신청이 D1 DB에 정상 등록되었습니다.', id });
+      // 🔔 수정 알림: 협력사 관리인 앞 내용 변경 통보
+      const notiId = `noti-mod-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+      try {
+        await db.prepare(`
+          INSERT INTO app_notifications
+          (id, type, title, content, target_role, part_name, is_read, created_at, updated_at, created_by, updated_by)
+          VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
+        `).bind(
+          notiId,
+          'APPROVAL_REQUEST',
+          `🔄 [휴가 변경/수정] ${userName}님 ${vacType} 신청 내용 변경`,
+          `${userName}님이 ${targetDate} 휴가 신청을 '${vacType}' (${hours}시간, 사유: ${reason})으로 수정했습니다. 협력사 관리인 1차 결재가 필요합니다.`,
+          'PARTNER_MANAGER',
+          '상담',
+          now,
+          now,
+          creator,
+          creator
+        ).run();
+      } catch (ne) {
+        console.warn('Notification update insert notice:', ne);
+      }
+
+      return c.json({
+        success: true,
+        isUpdate: true,
+        message: `동일 일자(${targetDate})의 기존 휴가 신청 내역이 최신 내용으로 수정되었습니다.`,
+        id: targetId
+      });
+    } else {
+      // 📝 2-B. 신규 신청 건 INSERT
+      await db.prepare(`
+        INSERT INTO attendance_requests
+        (id, user_id, employee_id, user_name, company_name, partner_company, request_type, vacation_type, target_date, start_date, end_date, hours, reason, status, approver_name, created_at, updated_at, created_by, updated_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        targetId, empId, empId, userName, compName, compName, reqType, vacType, targetDate, startDate, endDate, hours, reason, status, approverName, now, now, creator, creator
+      ).run();
+
+      // 🔔 신규 알림: 협력사 관리인 앞 1차 결재 요청 알림 생성
+      const notiId = `noti-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+      try {
+        await db.prepare(`
+          INSERT INTO app_notifications
+          (id, type, title, content, target_role, part_name, is_read, created_at, updated_at, created_by, updated_by)
+          VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
+        `).bind(
+          notiId,
+          'APPROVAL_REQUEST',
+          `📢 [결재 요청] ${userName}님 ${vacType || reqType} 신청`,
+          `${userName}님이 ${vacType || reqType} (${targetDate}) 결재를 요청했습니다. 협력사 관리인 1차 결재가 필요합니다.`,
+          'PARTNER_MANAGER',
+          '상담',
+          now,
+          now,
+          creator,
+          creator
+        ).run();
+      } catch (ne) {
+        console.warn('Notification auto insert notice:', ne);
+      }
+
+      return c.json({
+        success: true,
+        isUpdate: false,
+        message: '휴가 신청이 D1 DB에 정상 등록되었습니다.',
+        id: targetId
+      });
+    }
   } catch (err: any) {
     return c.json({ success: false, detail: err.message }, 500);
   }

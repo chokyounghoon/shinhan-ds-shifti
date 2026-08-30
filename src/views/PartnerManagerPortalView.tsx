@@ -493,8 +493,15 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
       }
     });
 
-    // 🕒 신청일시(createdAt) 기준 최신순(내림차순) 정렬
-    return combined.sort((a, b) => (b.createdAt || b.gapPeriod || '').localeCompare(a.createdAt || a.gapPeriod || ''));
+    // 🕒 신청일시(createdAt) 기준 최신순(내림차순) 정렬 후 동일 인력+동일 일자 최종 1건만 유지
+    const sorted = combined.sort((a, b) => (b.createdAt || b.gapPeriod || '').localeCompare(a.createdAt || a.gapPeriod || ''));
+    const seenWorkerDates = new Set<string>();
+    return sorted.filter(item => {
+      const key = `${(item.workerName || '').trim()}_${(item.gapPeriod || '').trim()}`;
+      if (seenWorkerDates.has(key)) return false;
+      seenWorkerDates.add(key);
+      return true;
+    });
   }, [allAttendanceRequests, allGapNotices, selectedPartner, myWorkers]);
 
   // D1 소명 상태 레이블

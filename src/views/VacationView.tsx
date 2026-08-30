@@ -154,7 +154,19 @@ export const VacationView: React.FC<VacationViewProps> = ({
         }
       });
 
-      setVacationList(listFromD1);
+      // 🌟 동일 일자(rawDate) 중복 방지: 최신순 정렬 후 날짜별 최종 1건만 추출
+      const seenDates = new Set<string>();
+      const deduplicatedList = listFromD1
+        .sort((a, b) => (b.createdAt || b.rawDate).localeCompare(a.createdAt || a.rawDate))
+        .filter(item => {
+          const key = (item.rawDate || '').trim();
+          if (!key) return true;
+          if (seenDates.has(key)) return false;
+          seenDates.add(key);
+          return true;
+        });
+
+      setVacationList(deduplicatedList);
 
       // 3. D1 DB 휴가 잔여 일수 조회
       const balRes = await fetch(`/api/vacation/balances?employee_id=${encodeURIComponent(empId)}`);

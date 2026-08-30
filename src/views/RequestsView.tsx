@@ -153,7 +153,12 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
       dsApproverName: '신한DS 현장대리인(PM)',
       updatedAt: v.updated_at
     }))
-  ].sort((a, b) => (b.createdAt || b.targetDate || '').localeCompare(a.createdAt || a.targetDate || ''));
+  ].sort((a, b) => (b.createdAt || b.targetDate || '').localeCompare(a.createdAt || a.targetDate || ''))
+   .filter((item, idx, arr) => {
+     // 동일 일자 + 동일 카테고리(휴가/소명) 건은 가장 최신(첫 번째) 1건만 노출
+     const key = `${item.itemCategory}_${(item.targetDate || '').trim()}`;
+     return arr.findIndex(x => `${x.itemCategory}_${(x.targetDate || '').trim()}` === key) === idx;
+   });
 
   const pendingCount = unifiedRequests.filter(r => r.isPending).length;
   const completedCount = unifiedRequests.filter(r => r.isCompleted).length;

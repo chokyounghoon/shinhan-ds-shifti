@@ -153,8 +153,9 @@ export const VacationRegistrationModal: React.FC<VacationRegistrationModalProps>
       });
 
       // D1 DB attendance_requests 테이블로 실시간 POST (status: PENDING)
+      let isUpdate = false;
       try {
-        await fetch('/api/attendance/requests', {
+        const res = await fetch('/api/attendance/requests', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -175,18 +176,32 @@ export const VacationRegistrationModal: React.FC<VacationRegistrationModalProps>
             approver_name: `${partnerCompany} 현장관리인`
           })
         });
+        if (res.ok) {
+          const json = await res.json();
+          isUpdate = Boolean(json.isUpdate);
+        }
       } catch (e) {
         console.warn('D1 vacation request sync error:', e);
       }
 
       // 🔔 알림센터에 미확인 알림 푸시 (협력사 관리인 앞)
-      dbService.addNotification({
-        type: 'APPROVAL_REQUEST',
-        title: `📢 [결재 요청] ${targetWorker}님 ${vacationType} 신청`,
-        content: `${targetWorker}님이 ${vacationType} (${dateRange}) 결재를 요청했습니다. 협력사 관리인의 1차 승인이 필요합니다.`,
-        targetRole: 'PARTNER_MANAGER',
-        partName: currentUser.partName || '상담'
-      });
+      if (isUpdate) {
+        dbService.addNotification({
+          type: 'APPROVAL_REQUEST',
+          title: `🔄 [휴가 변경/수정] ${targetWorker}님 ${vacationType} 신청 내용 변경`,
+          content: `${targetWorker}님이 ${dateRange} 휴가 신청을 '${vacationType}' (${hours}시간)으로 수정했습니다. 협력사 관리인의 1차 결재가 필요합니다.`,
+          targetRole: 'PARTNER_MANAGER',
+          partName: currentUser.partName || '상담'
+        });
+      } else {
+        dbService.addNotification({
+          type: 'APPROVAL_REQUEST',
+          title: `📢 [결재 요청] ${targetWorker}님 ${vacationType} 신청`,
+          content: `${targetWorker}님이 ${vacationType} (${dateRange}) 결재를 요청했습니다. 협력사 관리인의 1차 승인이 필요합니다.`,
+          targetRole: 'PARTNER_MANAGER',
+          partName: currentUser.partName || '상담'
+        });
+      }
 
       // 화면 전역 실시간 갱신 이벤트 발행
       if (typeof window !== 'undefined') {
@@ -194,7 +209,12 @@ export const VacationRegistrationModal: React.FC<VacationRegistrationModalProps>
       }
 
       onSuccess(vacationType, dateRange);
-      alert(`🎉 [협력사 관리인 앞 휴가 신청 접수 완료 (1단계)]\n• 발신(신청자): ${targetWorker} (${empId})\n• 수신: [${partnerCompany}] 현장관리인 귀하\n• 대상 인력: ${targetWorker} (${dateRange})\n• 신청 유형: ${vacationType} (${hours}시간)\n• D1 DB: attendance_requests 테이블에 저장 완료 (상태: 1차 결재 대기)\n\n🛡️ [도급 승인 체계 (2단계 프로세스)]\n1. [1차] 협력사 현장관리인이 사유를 검토 후 [1차 승인]을 진행합니다.\n2. [2차] 승인된 공백 내역이 신한DS 현장대리인(PM)에게 전달되어 최종 공정 검수를 거치게 됩니다.`);
+
+      if (isUpdate) {
+        alert(`🔄 [동일 일자 휴가 신청 내용 수정 완료]\n• 발신(신청자): ${targetWorker} (${empId})\n• 수신: [${partnerCompany}] 현장관리인 귀하\n• 대상 일정: ${dateRange}\n• 변경된 유형: ${vacationType} (${hours}시간)\n• 변경 사유: ${reason}\n\n💡 [안내] 동일 일자에 등록된 기존 휴가 신청서가 최신 내용으로 정상 갱신되었으며, 협력사 관리인에게 1차 결재가 재상신되었습니다.`);
+      } else {
+        alert(`🎉 [협력사 관리인 앞 휴가 신청 접수 완료 (1단계)]\n• 발신(신청자): ${targetWorker} (${empId})\n• 수신: [${partnerCompany}] 현장관리인 귀하\n• 대상 인력: ${targetWorker} (${dateRange})\n• 신청 유형: ${vacationType} (${hours}시간)\n• D1 DB: attendance_requests 테이블에 저장 완료 (상태: 1차 결재 대기)\n\n🛡️ [도급 승인 체계 (2단계 프로세스)]\n1. [1차] 협력사 현장관리인이 사유를 검토 후 [1차 승인]을 진행합니다.\n2. [2차] 승인된 공백 내역이 신한DS 현장대리인(PM)에게 전달되어 최종 공정 검수를 거치게 됩니다.`);
+      }
       onClose();
     }
   };

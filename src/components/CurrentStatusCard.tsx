@@ -92,9 +92,7 @@ export const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
       if (vacRes.ok) {
         const vacJson = await vacRes.json();
         const vacs = vacJson.data || [];
-        const newVacMap: Record<number, { type: string; status: string; hours: number; reason: string }> = {
-          18: { type: '연차', status: 'APPROVED', hours: 8, reason: '하계 정기 연차' }
-        };
+        const newVacMap: Record<number, { type: string; status: string; hours: number; reason: string }> = {};
 
         vacs.forEach((vac: any) => {
           if (vac.status === 'REJECTED' || vac.status === 'REJECTED_PARTNER') return;

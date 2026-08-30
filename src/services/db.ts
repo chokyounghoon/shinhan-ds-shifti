@@ -977,7 +977,23 @@ export class PureDatabaseEngine {
       createdAt: req.createdAt || getKstNowString(),
       approvalMemo: req.approvalMemo
     };
-    this.requests.unshift(fullReq);
+
+    // 🌟 동일 일자 + 동일 근로자 + 동일 요청유형이 이미 존재하면 수정(Update) 처리
+    const existingIdx = this.requests.findIndex(r => 
+      (r.userId === fullReq.userId || r.userName === fullReq.userName) &&
+      r.targetDate === fullReq.targetDate &&
+      r.requestType === fullReq.requestType
+    );
+
+    if (existingIdx >= 0) {
+      this.requests[existingIdx] = {
+        ...this.requests[existingIdx],
+        ...fullReq,
+        id: this.requests[existingIdx].id // 기존 ID 유지
+      };
+    } else {
+      this.requests.unshift(fullReq);
+    }
   }
 
   public updateRequestStatus(id: string, status: 'PENDING' | 'PENDING_DS' | 'APPROVED' | 'REJECTED', memo?: string): void {
