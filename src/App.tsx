@@ -128,39 +128,51 @@ export function App() {
   const [notifications, setNotifications] = useState<DbAppNotification[]>([]);
   const [messagesList, setMessagesList] = useState<DbAppMessage[]>([]);
 
-  // 🛡️ 노란봉투법/파견법 준수: 각 단계에 맞는 사용자/관리인에게만 실시간 알림 건수 및 목록 표시
-  const filteredNotifications = notifications.filter(n => {
-    const role = (currentUser?.role as string) || 'PARTNER_WORKER';
-    const targetRole = n.targetRole || (n as any).target_role || 'ALL';
+  // 🛡️ 노란봉투법/파견법 준수: 각 역할에 맞는 알림만 엄격히 격리 필터링하는 헬퍼
+  const filterNotificationsByRole = (rawNotis: DbAppNotification[], userRole: string) => {
+    return rawNotis.filter(n => {
+      const targetRole = n.targetRole || (n as any).target_role || 'ALL';
 
-    if (role === 'PARTNER_WORKER' || role === 'PARTNER_EMPLOYEE') {
-      // 일반 직원은 관리인용 결재 요청 알림 제외, 본인 대상(PARTNER_WORKER, ALL) 알림만 수신
-      if (targetRole === 'PARTNER_MANAGER' || targetRole === 'PARTNER_PART_LEADER' || targetRole === 'DS_PRINCIPAL_PM') return false;
-      if (n.type === 'APPROVAL_REQUEST' || n.type === 'INSPECTION_REQUEST') return false;
-      return true;
-    } else if (role === 'PARTNER_PART_LEADER' || role === 'PARTNER_SITE_MANAGER' || role === 'PARTNER_MANAGER' || (currentUser as any)?.isPartnerManager) {
-      // 협력사 관리인은 1차 결재 요청 및 DS PM의 보완요청, 소속사 알림만 수신 (원청 2차 검수 알림 제외)
-      if (targetRole === 'DS_PRINCIPAL_PM') return false;
-      if (n.type === 'INSPECTION_REQUEST') return false;
-      return targetRole === 'PARTNER_MANAGER' || targetRole === 'PARTNER_PART_LEADER' || targetRole === 'ALL';
-    } else if (role === 'DS_PRINCIPAL_PM' || role === 'PRINCIPAL_INSPECTOR' || role === 'DS_DIRECTOR' || role === 'DS_PM') {
-      // 🛡️ 신한DS 현장대리인(PM): 협력사 관리인이 1차 승인 완료하여 올라온 2차 검수 요청(INSPECTION_REQUEST) 및 SLA/정산/최종결과 알림만 수신
-      // ❌ 직원이 협력사 관리인에게 상신한 1차 휴가 신청, 근태 신청, 소명 접수 알림은 절대 차단 (법적 지휘명령 분리)
-      if (targetRole === 'PARTNER_MANAGER' || targetRole === 'PARTNER_PART_LEADER' || targetRole === 'PARTNER_WORKER' || targetRole === 'PARTNER_SITE_MANAGER') return false;
-      if (n.type === 'APPROVAL_REQUEST' || n.type === 'GAP_NOTICE') return false;
-      if (n.title?.includes('[결재 요청]') || n.title?.includes('[근태 신청]') || n.title?.includes('[휴가 신청]') || n.title?.includes('[소명 접수]') || n.content?.includes('1차 결재') || n.content?.includes('1차 승인이 필요')) return false;
-      
-      // 오직 협력사 1차 승인 완료된 2차 검수 요청(INSPECTION_REQUEST) 또는 공정 SLA/정산 알림만 통과
-      if (n.type === 'INSPECTION_REQUEST') return true;
-      if (targetRole === 'DS_PRINCIPAL_PM' || targetRole === 'DS_PM') return true;
-      if (targetRole === 'ALL') {
-        return n.type === 'SLA_ALERT' || n.type === 'CONTRACT_SETTLE' || n.type === 'APPROVAL_COMPLETED';
+      if (userRole === 'PARTNER_WORKER' || userRole === 'PARTNER_EMPLOYEE') {
+        // 일반 직원은 관리자용 결재요청/검수요청 제외, 본인 대상 알림만 수신
+        if (targetRole === 'PARTNER_MANAGER' || targetRole === 'PARTNER_PART_LEADER' || targetRole === 'DS_PRINCIPAL_PM') return false;
+        if (n.type === 'APPROVAL_REQUEST' || n.type === 'INSPECTION_REQUEST') return false;
+        return true;
+      } else if (userRole === 'PARTNER_PART_LEADER' || userRole === 'PARTNER_SITE_MANAGER' || userRole === 'PARTNER_MANAGER' || (currentUser as any)?.isPartnerManager) {
+        // 협력사 관리인은 1차 결재 요청 및 DS PM의 보완요청, 소속사 알림만 수신 (원청 2차 검수 알림 제외)
+        if (targetRole === 'DS_PRINCIPAL_PM') return false;
+        if (n.type === 'INSPECTION_REQUEST') return false;
+        return targetRole === 'PARTNER_MANAGER' || targetRole === 'PARTNER_PART_LEADER' || targetRole === 'ALL';
+      } else if (userRole === 'DS_PRINCIPAL_PM' || userRole === 'PRINCIPAL_INSPECTOR' || userRole === 'DS_DIRECTOR' || userRole === 'DS_PM') {
+        // 🛡️ 신한DS 현장대리인(PM): 협력사 관리인이 1차 승인 완료하여 상신된 2차 검수 요청(INSPECTION_REQUEST) 및 SLA/정산 알림만 수신
+        // ❌ 직원이 협력사 관리인에게 상신한 1차 휴가 신청, 근태 신청, 소명 접수 알림은 절대 차단 (법적 지휘명령 분리)
+        if (targetRole === 'PARTNER_MANAGER' || targetRole === 'PARTNER_PART_LEADER' || targetRole === 'PARTNER_WORKER' || targetRole === 'PARTNER_SITE_MANAGER') return false;
+        if (n.type === 'APPROVAL_REQUEST' || n.type === 'GAP_NOTICE') return false;
+        if (
+          n.title?.includes('[결재 요청]') || 
+          n.title?.includes('[근태 신청]') || 
+          n.title?.includes('[휴가 신청]') || 
+          n.title?.includes('[소명 접수]') || 
+          n.title?.includes('[휴가 변경/수정]') ||
+          n.title?.includes('[소명 재상신]') ||
+          n.content?.includes('1차 결재') || 
+          n.content?.includes('1차 승인이 필요') ||
+          n.content?.includes('협력사 관리인')
+        ) return false;
+        
+        // 오직 협력사 1차 승인 완료된 2차 검수 요청(INSPECTION_REQUEST) 또는 공정 SLA/정산/최종결과만 통과
+        if (n.type === 'INSPECTION_REQUEST') return true;
+        if (targetRole === 'DS_PRINCIPAL_PM' || targetRole === 'DS_PM') return true;
+        if (targetRole === 'ALL') {
+          return n.type === 'SLA_ALERT' || n.type === 'CONTRACT_SETTLE' || n.type === 'APPROVAL_COMPLETED';
+        }
+        return false;
       }
-      return false;
-    }
-    return true;
-  }).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      return true;
+    }).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  };
 
+  const filteredNotifications = filterNotificationsByRole(notifications, (currentUser?.role as string) || 'PARTNER_WORKER');
   const unreadNotificationCount = filteredNotifications.filter(n => !n.isRead).length;
   const unreadMessageCount = messagesList.filter(m => !m.isRead).length;
 
@@ -181,9 +193,12 @@ export function App() {
         dbService.fetchManpowerFromD1(part)
       ]);
 
-      // 🔔 새롭게 수신된 미확인 알림이 있는 경우 웹 푸시(Web Push) 발송
+      // 🔔 현재 로그인 사용자 역할에 맞는 알림만 정확히 필터링
+      const myFilteredNotis = filterNotificationsByRole(notis, role);
+
+      // 🔔 새롭게 수신된 미확인 알림이 있는 경우에만 웹 푸시(Web Push) 발송
       if (prevNotiIdsRef.current.size > 0) {
-        const newlyArrived = notis.filter(n => !n.isRead && !prevNotiIdsRef.current.has(n.id));
+        const newlyArrived = myFilteredNotis.filter(n => !n.isRead && !prevNotiIdsRef.current.has(n.id));
         newlyArrived.forEach(noti => {
           sendWebPushNotification(noti.title, {
             body: noti.content,
@@ -192,7 +207,7 @@ export function App() {
         });
       }
 
-      prevNotiIdsRef.current = new Set(notis.map(n => n.id));
+      prevNotiIdsRef.current = new Set(myFilteredNotis.map(n => n.id));
       setNotifications(notis);
       setMessagesList(msgs);
     };
