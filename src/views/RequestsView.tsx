@@ -28,24 +28,55 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
   const [requestList, setRequestList] = useState<AttendanceRequest[]>(requests);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [d1Clarifications, setD1Clarifications] = useState<any[]>([]);
+  const [d1Vacations, setD1Vacations] = useState<any[]>([]);
   const [isLoadingClarifications, setIsLoadingClarifications] = useState(false);
 
   // 현재 로그인 사용자 정보
   const currentUser = dbService.getCurrentUser();
   const empId = currentUser?.employeeId || currentUser?.id || '';
 
-  // D1에서 본인 소명 목록 조회
+  // D1에서 본인 소명 및 휴가 신청 목록 실시간 조회
   const fetchClarifications = async () => {
     if (!empId) return;
     setIsLoadingClarifications(true);
     try {
-      const res = await fetch(`/api/clarification-requests?role=PARTNER_WORKER&employee_id=${encodeURIComponent(empId)}`);
-      if (res.ok) {
-        const json = await res.json();
+      const [clarRes, vacRes] = await Promise.all([
+        fetch(`/api/clarification-requests?role=PARTNER_WORKER&employee_id=${encodeURIComponent(empId)}`),
+        fetch(`/api/attendance/requests?employee_id=${encodeURIComponent(empId)}`)
+      ]);
+      
+      if (clarRes.ok) {
+        const json = await clarRes.json();
         setD1Clarifications(json.data || []);
       }
+      if (vacRes.ok) {
+        const vacJson = await vacRes.json();
+        if (vacJson.data && Array.isArray(vacJson.data)) {
+          setD1Vacations(vacJson.data);
+          // requestList와 동기화
+          const mapped: AttendanceRequest[] = vacJson.data.map((v: any) => ({
+            id: v.id,
+            userId: v.user_id || v.employee_id,
+            userName: v.user_name,
+            requestType: v.request_type || 'VACATION',
+            targetDate: v.target_date,
+            startTime: v.start_time,
+            endTime: v.end_time,
+            reason: v.reason,
+            status: v.status || 'PENDING',
+            approverName: v.approver_name,
+            createdAt: v.created_at,
+            hours: v.hours
+          }));
+          setRequestList(prev => {
+            const ids = new Set(mapped.map(m => m.id));
+            const existing = prev.filter(p => !ids.has(p.id));
+            return [...mapped, ...existing];
+          });
+        }
+      }
     } catch (e) {
-      console.warn('소명 조회 실패:', e);
+      console.warn('소명 및 휴가 조회 실패:', e);
     } finally {
       setIsLoadingClarifications(false);
     }
@@ -53,6 +84,15 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
 
   useEffect(() => {
     fetchClarifications();
+
+    const handleUpdate = () => fetchClarifications();
+    window.addEventListener('attendance_request_updated', handleUpdate);
+    window.addEventListener('notification_updated', handleUpdate);
+
+    return () => {
+      window.removeEventListener('attendance_request_updated', handleUpdate);
+      window.removeEventListener('notification_updated', handleUpdate);
+    };
   }, [empId]);
 
   // 미소명 지각 및 출근 미체크 내역 (휴가 제외, 근무 일정 대비 결손 발생 건)
@@ -92,17 +132,24 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
     return rUserId === currentEmpId || (currentUserName && rName === currentUserName);
   };
 
+  const myRequests = requestList.filter(isMyRequest);
   const pendingRequests = requestList.filter(r => isMyRequest(r) && ((r.status as any) === 'PENDING' || (r.status as any) === 'PENDING_PARTNER' || (r.status as any) === 'PENDING_DS'));
   const completedRequests = requestList.filter(r => isMyRequest(r) && (r.status === 'APPROVED' || r.status === 'REJECTED'));
 
   // D1 소명 상태 → 표시용 레이블 변환
   const getClarStatusLabel = (status: string) => {
     switch (status) {
-      case 'PENDING_PARTNER': return { label: '협력사 검수 대기', color: '#D97706', bg: '#FEF3C7' };
-      case 'PENDING_DS': return { label: 'DS 최종 승인 대기', color: '#2563EB', bg: '#EFF6FF' };
-      case 'APPROVED': return { label: '최종 승인 완료', color: '#059669', bg: '#ECFDF5' };
-      case 'REJECTED': return { label: '반려됨', color: '#DC2626', bg: '#FEF2F2' };
-      default: return { label: '검토 중', color: '#64748B', bg: '#F8FAFC' };
+      case 'PENDING_PARTNER':
+      case 'PENDING':
+        return { label: '1단계: 협력사 검토중', color: '#D97706', bg: '#FEF3C7' };
+      case 'PENDING_DS': 
+        return { label: '2단계: DS 공정검수 대기', color: '#2563EB', bg: '#EFF6FF' };
+      case 'APPROVED': 
+        return { label: '최종 승인 완료', color: '#059669', bg: '#ECFDF5' };
+      case 'REJECTED': 
+        return { label: '반려됨', color: '#DC2626', bg: '#FEF2F2' };
+      default: 
+        return { label: '검토 중', color: '#64748B', bg: '#F8FAFC' };
     }
   };
 
@@ -169,7 +216,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
           <Search size={16} color="#8B95A1" />
           <input
             type="text"
-            placeholder="검색"
+            placeholder="휴가, 소명, 사유 검색"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             style={{
@@ -184,19 +231,20 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
         </div>
 
         <button 
-          onClick={() => alert('요청 필터: 기간별, 유형별(휴가/연장/근무일정), 승인상태별')}
-          style={{ color: '#4E5968', display: 'flex', alignItems: 'center', padding: '4px' }}
+          onClick={fetchClarifications}
+          style={{ color: '#4E5968', display: 'flex', alignItems: 'center', padding: '6px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', cursor: 'pointer' }}
+          title="새로고침"
         >
-          <Filter size={20} />
+          <RefreshCw size={17} className={isLoadingClarifications ? 'animate-spin' : ''} />
         </button>
       </div>
 
-      {/* 2. 상단 4개 서브탭 (대기중 0 / 내 요청 0 / 완료 8 / 참조) (스크린샷 일치) */}
+      {/* 2. 상단 4개 서브탭 (대기중 / 내 요청 / 완료 / 참조) */}
       <div style={{ display: 'flex', borderBottom: '1px solid #ECEFF2', background: '#FFFFFF' }}>
         {[
-          { id: 'pending', label: '대기중', count: pendingRequests.length },
-          { id: 'my', label: '내 요청', count: 0 },
-          { id: 'completed', label: '완료', count: completedRequests.length },
+          { id: 'pending', label: '대기중', count: pendingRequests.length + d1Clarifications.filter(c => c.status !== 'APPROVED' && c.status !== 'REJECTED').length },
+          { id: 'my', label: '내 요청', count: myRequests.length + d1Clarifications.length },
+          { id: 'completed', label: '완료', count: completedRequests.length + d1Clarifications.filter(c => c.status === 'APPROVED' || c.status === 'REJECTED').length },
           { id: 'ref', label: '참조', count: undefined }
         ].map(tab => {
           const isActive = activeTab === tab.id;
@@ -392,65 +440,80 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
         )}
       </div>
 
-      {/* 4. 소명 목록 (D1 실시간) */}
+      {/* 4. 소명 및 휴가 요청 목록 (D1 실시간 연동) */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {/* D1 소명 요청 목록 */}
-        {(activeTab === 'pending' || activeTab === 'my') && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '0 16px 8px' }}>
-            {/* D1 실시간 소명 이력 */}
-            {d1Clarifications.length > 0 && (
-              <React.Fragment>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 800, color: '#475569' }}>검수 대기중인 소명/신청 ({d1Clarifications.filter(c => c.status !== 'APPROVED' && c.status !== 'REJECTED').length}건)</span>
-                  <button onClick={fetchClarifications} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px', color: '#64748B', fontSize: '11px' }}>
-                    <RefreshCw size={12} /><span>새로고침</span>
-                  </button>
-                </div>
-                {d1Clarifications.map(clar => {
-                  const st = getClarStatusLabel(clar.status);
-                  return (
-                    <div key={clar.id} style={{
-                      background: '#FFFFFF',
-                      border: '1px solid #E2E8F0',
-                      borderRadius: '12px',
-                      padding: '14px 16px',
-                      boxShadow: '0 1px 4px rgba(0,0,0,0.04)'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                        <span style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A' }}>
-                          {clar.incident_type === 'LATE' ? '지각 투입 소명' : clar.incident_type === 'MISSING_PUNCH' ? '출근 누락 소명' : '소명 신청'}
-                        </span>
-                        <span style={{ fontSize: '11.5px', fontWeight: 800, padding: '3px 9px', borderRadius: '12px', background: st.bg, color: st.color }}>
-                          {st.label}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '12.5px', color: '#475569', marginBottom: '4px' }}>
-                        대상 일자: <strong>{clar.incident_date}</strong> {clar.scheduled_time ? `(약정: ${clar.scheduled_time})` : ''}
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#64748B', background: '#F8FAFC', padding: '6px 10px', borderRadius: '6px', marginBottom: '6px' }}>
-                        {clar.reason_text}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
-                        <span style={{ padding: '2px 7px', borderRadius: '4px', fontWeight: 700,
-                          background: clar.status === 'PENDING_PARTNER' ? '#FEF3C7' : '#ECFDF5',
-                          color: clar.status === 'PENDING_PARTNER' ? '#B45309' : '#059669' }}>
-                          1단계: 협력사 검수 {clar.partner_approved_at ? '✓완료' : '대기중'}
-                        </span>
-                        <span style={{ color: '#CBD5E1' }}>›</span>
-                        <span style={{ padding: '2px 7px', borderRadius: '4px', fontWeight: 700,
-                          background: clar.status === 'PENDING_DS' ? '#EFF6FF' : clar.status === 'APPROVED' ? '#ECFDF5' : '#F8FAFC',
-                          color: clar.status === 'PENDING_DS' ? '#2563EB' : clar.status === 'APPROVED' ? '#059669' : '#94A3B8' }}>
-                          2단계: DS 최종 승인 {clar.ds_approved_at ? '✓완료' : '대기중'}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </React.Fragment>
-            )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '0 16px 16px' }}>
+          {/* 목록 상단 카운트 & 새로고침 */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', marginTop: '6px' }}>
+            <span style={{ fontSize: '12.5px', fontWeight: 800, color: '#334155' }}>
+              {activeTab === 'pending' ? '대기중인 소명/휴가 신청' : activeTab === 'my' ? '내가 신청한 전체 소명/휴가 내역' : activeTab === 'completed' ? '처리 완료된 내역' : '참조 및 공람 내역'}
+            </span>
+            <button onClick={fetchClarifications} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px', color: '#64748B', fontSize: '11px', fontWeight: 700 }}>
+              <RefreshCw size={12} className={isLoadingClarifications ? 'animate-spin' : ''} /><span>새로고침</span>
+            </button>
+          </div>
 
-            {/* 기존 requestList (비소명 요청) */}
-            {pendingRequests.filter(r => !(r as any).incidentType).map(req => {
+          {/* 1) D1 소명 목록 필터링 */}
+          {d1Clarifications
+            .filter(clar => {
+              if (activeTab === 'pending') return clar.status !== 'APPROVED' && clar.status !== 'REJECTED';
+              if (activeTab === 'completed') return clar.status === 'APPROVED' || clar.status === 'REJECTED';
+              if (activeTab === 'my') return true; // 내 요청에는 전체 표시
+              return true;
+            })
+            .filter(clar => {
+              if (!searchQuery) return true;
+              return (clar.reason_text || '').includes(searchQuery) || (clar.incident_date || '').includes(searchQuery);
+            })
+            .map(clar => {
+              const st = getClarStatusLabel(clar.status);
+              return (
+                <div key={clar.id} style={{
+                  background: '#FFFFFF',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: '12px',
+                  padding: '14px 16px',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.04)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A' }}>
+                      {clar.incident_type === 'LATE' ? '🚨 지각 투입 소명' : clar.incident_type === 'MISSING_PUNCH' ? '🚨 출근 누락 소명' : '소명 신청'}
+                    </span>
+                    <span style={{ fontSize: '11.5px', fontWeight: 800, padding: '3px 9px', borderRadius: '12px', background: st.bg, color: st.color }}>
+                      {st.label}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '12.5px', color: '#475569', marginBottom: '4px' }}>
+                    대상 일자: <strong>{clar.incident_date}</strong> {clar.scheduled_time ? `(약정: ${clar.scheduled_time})` : ''}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#64748B', background: '#F8FAFC', padding: '6px 10px', borderRadius: '6px', marginBottom: '8px' }}>
+                    <strong>소명 사유:</strong> {clar.reason_text}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
+                    <span style={{ padding: '2px 7px', borderRadius: '4px', fontWeight: 700,
+                      background: (clar.status === 'PENDING_PARTNER' || clar.status === 'PENDING') ? '#FEF3C7' : '#ECFDF5',
+                      color: (clar.status === 'PENDING_PARTNER' || clar.status === 'PENDING') ? '#B45309' : '#059669' }}>
+                      ① 협력사 검수 {(clar.partner_approved_at || clar.status !== 'PENDING_PARTNER') ? '✓완료' : '대기중'}
+                    </span>
+                    <span style={{ color: '#CBD5E1' }}>›</span>
+                    <span style={{ padding: '2px 7px', borderRadius: '4px', fontWeight: 700,
+                      background: clar.status === 'PENDING_DS' ? '#EFF6FF' : clar.status === 'APPROVED' ? '#ECFDF5' : '#F8FAFC',
+                      color: clar.status === 'PENDING_DS' ? '#2563EB' : clar.status === 'APPROVED' ? '#059669' : '#94A3B8' }}>
+                      ② DS 최종 승인 {clar.ds_approved_at ? '✓완료' : '대기중'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+
+          {/* 2) 휴가 및 기타 신청 목록 (D1 attendance_requests + 로컬) */}
+          {(activeTab === 'pending' ? pendingRequests : activeTab === 'completed' ? completedRequests : myRequests)
+            .filter(r => !(r as any).incidentType)
+            .filter(req => {
+              if (!searchQuery) return true;
+              return (req.reason || '').includes(searchQuery) || (req.targetDate || '').includes(searchQuery) || (req.userName || '').includes(searchQuery);
+            })
+            .map(req => {
               const isPending1 = (req.status as any) === 'PENDING';
               const isPendingDs = (req.status as any) === 'PENDING_DS';
               const isApproved = req.status === 'APPROVED';
@@ -463,14 +526,13 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
                     border: '1px solid #ECEFF2',
                     borderRadius: '12px',
                     padding: '14px 16px',
-                    marginBottom: '10px',
                     background: '#FFFFFF',
                     boxShadow: '0 1px 4px rgba(0,0,0,0.03)'
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                     <span style={{ fontSize: '14px', fontWeight: 800, color: '#191F28' }}>
-                      {(req as any).title || (req.requestType === 'VACATION' ? '투입 공백 사전 통보' : req.requestType === 'OVERTIME' ? '연장 투입' : '근무 일정')}
+                      {(req as any).title || (req.requestType === 'VACATION' ? '🏖️ 휴가 신청 (사전 공백 통보)' : req.requestType === 'OVERTIME' ? '⏱️ 연장 투입' : '📅 근무 일정')}
                     </span>
                     <span style={{
                       fontSize: '11px',
@@ -484,10 +546,10 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
                     </span>
                   </div>
                   <div style={{ fontSize: '13px', color: '#4E5968', fontWeight: 600 }}>
-                    대상 일자: {req.targetDate} {req.startTime ? `(${req.startTime})` : ''}
+                    대상 일자: <strong>{req.targetDate}</strong> {req.startTime ? `(${req.startTime})` : ''}
                   </div>
                   <div style={{ fontSize: '12px', color: '#64748B', marginTop: '6px', background: '#F8FAFC', padding: '6px 10px', borderRadius: '6px' }}>
-                    <strong>사유:</strong> {req.reason}
+                    <strong>신청 사유:</strong> {req.reason}
                   </div>
 
                   {/* 3단계 스텝 게이지 */}
@@ -538,14 +600,13 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
               );
             })}
 
-            {d1Clarifications.length === 0 && pendingRequests.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: '#94A3B8', fontSize: '13px' }}>
-                <CheckCircle2 size={36} color="#10B981" style={{ margin: '0 auto 8px auto', display: 'block' }} />
-                접수된 소명 또는 요청 건이 없습니다.
-              </div>
-            )}
-          </div>
-        )}
+          {d1Clarifications.length === 0 && myRequests.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: '#94A3B8', fontSize: '13px' }}>
+              <CheckCircle2 size={36} color="#10B981" style={{ margin: '0 auto 8px auto', display: 'block' }} />
+              접수된 소명 또는 휴가 요청 건이 없습니다.
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 5. 플로팅 스피드 다이얼 메뉴 (스크린샷 100% 일치) */}
