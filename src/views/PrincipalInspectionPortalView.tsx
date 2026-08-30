@@ -27,6 +27,7 @@ import { AiOfficialNoticeGeneratorModal } from '../components/modals/AiOfficialN
 import { AiAnomalyRadarModal } from '../components/modals/AiAnomalyRadarModal';
 import { AiLaborInspectorSimulatorModal } from '../components/modals/AiLaborInspectorSimulatorModal';
 import { DsDemandClarificationModal } from '../components/modals/DsDemandClarificationModal';
+import { YellowEnvelopeComplianceModal } from '../components/modals/YellowEnvelopeComplianceModal';
 import { AttendanceReportView } from './AttendanceReportView';
 import { ContractFulfillmentDashboardView } from './ContractFulfillmentDashboardView';
 
@@ -93,6 +94,7 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
   const [isAuditReportModalOpen, setIsAuditReportModalOpen] = useState(false);
   const [pendingInspId, setPendingInspId] = useState<string | null>(null);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | undefined>(undefined);
+  const [isYellowEnvelopeModalOpen, setIsYellowEnvelopeModalOpen] = useState(false);
   
   const currentRole = dbService.getCurrentUser()?.role;
   const isDirector = currentRole === 'DS_DIRECTOR';
@@ -502,6 +504,54 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingBottom: '90px' }}>
+
+      {/* ⚖️ [노란봉투법(노조법 제2조) 및 적법 도급 법적 컴플라이언스 인증 배너] */}
+      <div
+        onClick={() => setIsYellowEnvelopeModalOpen(true)}
+        style={{
+          padding: '13px 16px',
+          borderRadius: '14px',
+          background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
+          border: '1.5px solid #F59E0B',
+          color: '#FFFFFF',
+          display: 'flex',
+          gap: '12px',
+          alignItems: 'center',
+          cursor: 'pointer',
+          boxShadow: '0 4px 14px rgba(15, 23, 42, 0.25)',
+          transition: 'transform 0.15s ease'
+        }}
+      >
+        <div style={{
+          width: '38px',
+          height: '38px',
+          borderRadius: '10px',
+          background: 'rgba(245, 158, 11, 0.2)',
+          color: '#FBBF24',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0
+        }}>
+          <Scale size={20} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: '#FBBF24' }}>
+              [법적 컴플라이언스 인증]
+            </span>
+            <span style={{ fontSize: '11px', color: '#38BDF8', fontWeight: 800 }}>
+              100% 적합 ➔
+            </span>
+          </div>
+          <h4 style={{ margin: '0 0 2px', fontSize: '13.5px', fontWeight: 800, color: '#FFFFFF' }}>
+            노란봉투법(노조법 제2조) 및 적법 도급 검증 완료
+          </h4>
+          <p style={{ margin: 0, fontSize: '11px', color: '#94A3B8', lineHeight: 1.35 }}>
+            지휘명령 분리, 인사노무 자율권, D1 감사 원장 및 기성 검수 체계 완비
+          </p>
+        </div>
+      </div>
 
       {/* 🌟 1. 신한DS 포털 5대 상단 메뉴 탭 바 (투입현황 / 검수포털 / 실적리포트 / 승인관리 / 법적증빙) */}
       <div style={{
@@ -2198,6 +2248,13 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
           }}
         />
       )}
+
+      {/* ⚖️ 노란봉투법 및 적법 도급 컴플라이언스 진단 결과 모달 */}
+      <YellowEnvelopeComplianceModal
+        isOpen={isYellowEnvelopeModalOpen}
+        onClose={() => setIsYellowEnvelopeModalOpen(false)}
+        themeMode={themeMode}
+      />
     </div>
   );
 };
