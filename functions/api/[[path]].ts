@@ -3070,7 +3070,7 @@ app.get('/manpower', async (c) => {
       query += " AND partner_company = ?";
       params.push(company);
     }
-    query += " ORDER BY COALESCE(created_at, reg_dt) DESC, record_id DESC";
+    query += " ORDER BY rowid DESC";
 
     const stmt = db.prepare(query);
     const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
@@ -3101,16 +3101,16 @@ app.get('/manpower', async (c) => {
       for (const rec of defaultRecords) {
         await db.prepare(`
           INSERT OR IGNORE INTO manpower_inputs
-          (record_id, employee_id, worker_name, part_name, partner_company, work_date, contracted_hours, actual_input_hours, clock_in_time, clock_out_time, task_summary, variance_minutes, is_sla_breach, verification_status, reg_id, reg_dt, created_at, updated_at, created_by, updated_by)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SYSTEM', ?, ?, ?, 'SYSTEM', 'SYSTEM')
+          (record_id, employee_id, worker_name, part_name, partner_company, work_date, contracted_hours, actual_input_hours, clock_in_time, clock_out_time, task_summary, variance_minutes, is_sla_breach, verification_status, created_at, updated_at, created_by, updated_by)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SYSTEM', 'SYSTEM')
         `).bind(
           rec.record_id, rec.employee_id, rec.worker_name, rec.part_name, rec.partner_company, rec.work_date,
           rec.contracted_hours, rec.actual_input_hours, rec.clock_in_time, rec.clock_out_time, rec.task_summary,
-          rec.variance_minutes, rec.is_sla_breach, rec.verification_status, now, now, now
+          rec.variance_minutes, rec.is_sla_breach, rec.verification_status, now, now
         ).run();
       }
 
-      const refetched = await db.prepare("SELECT * FROM manpower_inputs ORDER BY COALESCE(created_at, reg_dt) DESC").all();
+      const refetched = await db.prepare("SELECT * FROM manpower_inputs ORDER BY rowid DESC").all();
       return c.json({ success: true, data: refetched.results || [] });
     }
 
