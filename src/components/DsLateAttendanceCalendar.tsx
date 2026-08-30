@@ -970,38 +970,38 @@ export const DsLateAttendanceCalendar: React.FC<DsLateAttendanceCalendarProps> =
                 해당 일자에는 지각자가 없습니다 (정상 투입).
               </div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
+              <div style={{ overflowX: 'auto', width: '100%', WebkitOverflowScrolling: 'touch', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                <table style={{ width: '100%', minWidth: '780px', borderCollapse: 'collapse', fontSize: '12.5px', whiteSpace: 'nowrap' }}>
                   <thead>
                     <tr style={{ background: '#F1F5F9', color: '#334155', textAlign: 'left', borderBottom: '2px solid #CBD5E1' }}>
-                      <th style={{ padding: '9px 10px', fontWeight: 800 }}>협력사</th>
-                      <th style={{ padding: '9px 10px', fontWeight: 800 }}>성명 (사번)</th>
-                      <th style={{ padding: '9px 10px', fontWeight: 800 }}>소속 공정</th>
-                      <th style={{ padding: '9px 10px', fontWeight: 800 }}>실제 타각 (결손)</th>
-                      <th style={{ padding: '9px 10px', fontWeight: 800 }}>소명 처리 상태</th>
-                      <th style={{ padding: '9px 10px', fontWeight: 800 }}>소명 사유 및 증빙</th>
-                      <th style={{ padding: '9px 10px', fontWeight: 800, textAlign: 'center' }}>조치 / 관리</th>
+                      <th style={{ padding: '11px 12px', fontWeight: 800, whiteSpace: 'nowrap' }}>협력사</th>
+                      <th style={{ padding: '11px 12px', fontWeight: 800, whiteSpace: 'nowrap' }}>성명 (사번)</th>
+                      <th style={{ padding: '11px 12px', fontWeight: 800, whiteSpace: 'nowrap' }}>소속 공정</th>
+                      <th style={{ padding: '11px 12px', fontWeight: 800, whiteSpace: 'nowrap' }}>실제 타각 (결손)</th>
+                      <th style={{ padding: '11px 12px', fontWeight: 800, whiteSpace: 'nowrap' }}>소명 처리 상태</th>
+                      <th style={{ padding: '11px 12px', fontWeight: 800, minWidth: '220px' }}>소명 사유 및 증빙</th>
+                      <th style={{ padding: '11px 12px', fontWeight: 800, textAlign: 'center', whiteSpace: 'nowrap' }}>조치 / 관리</th>
                     </tr>
                   </thead>
                   <tbody>
                     {selectedDayLateList.map((item, idx) => (
                       <tr key={item.id || idx} style={{ borderBottom: '1px solid #E2E8F0', background: idx % 2 === 0 ? '#FFFFFF' : '#FAFAFA' }}>
-                        <td style={{ padding: '10px', fontWeight: 700 }}>
-                          <span style={{ background: '#E2E8F0', color: '#334155', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 800 }}>
+                        <td style={{ padding: '11px 12px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                          <span style={{ background: '#E2E8F0', color: '#334155', padding: '3px 7px', borderRadius: '4px', fontSize: '11px', fontWeight: 800 }}>
                             {item.companyName}
                           </span>
                         </td>
-                        <td style={{ padding: '10px', fontWeight: 800, color: '#0F172A' }}>
-                          {item.workerName}
-                          <span style={{ fontSize: '11px', color: '#64748B', display: 'block', fontWeight: 500 }}>{item.employeeId}</span>
+                        <td style={{ padding: '11px 12px', fontWeight: 800, color: '#0F172A', whiteSpace: 'nowrap' }}>
+                          <span>{item.workerName}</span>
+                          <span style={{ fontSize: '11px', color: '#64748B', marginLeft: '4px', fontWeight: 500 }}>({item.employeeId})</span>
                         </td>
-                        <td style={{ padding: '10px', color: '#475569', fontWeight: 600 }}>{item.partName}</td>
-                        <td style={{ padding: '10px' }}>
-                          <div style={{ color: '#DC2626', fontWeight: 800 }}>{item.clockInTime}</div>
-                          <div style={{ fontSize: '11px', color: '#EF4444', fontWeight: 700 }}>({item.delayMinutes}분 결손)</div>
+                        <td style={{ padding: '11px 12px', color: '#475569', fontWeight: 600, whiteSpace: 'nowrap' }}>{item.partName}</td>
+                        <td style={{ padding: '11px 12px', whiteSpace: 'nowrap' }}>
+                          <span style={{ color: '#DC2626', fontWeight: 800 }}>{item.clockInTime}</span>
+                          <span style={{ fontSize: '11px', color: '#EF4444', fontWeight: 700, marginLeft: '4px' }}>({item.delayMinutes}분 결손)</span>
                         </td>
-                        <td style={{ padding: '10px' }}>{getStatusBadge(item.clarificationStatus)}</td>
-                        <td style={{ padding: '10px', maxWidth: '240px' }}>
+                        <td style={{ padding: '11px 12px', whiteSpace: 'nowrap' }}>{getStatusBadge(item.clarificationStatus)}</td>
+                        <td style={{ padding: '11px 12px', minWidth: '220px', maxWidth: '300px', whiteSpace: 'normal' }}>
                           {item.clarificationReason ? (
                             <div>
                               <div style={{ fontSize: '12px', color: '#1E293B', fontWeight: 600, lineHeight: 1.35 }}>"{item.clarificationReason}"</div>
@@ -1013,7 +1013,7 @@ export const DsLateAttendanceCalendar: React.FC<DsLateAttendanceCalendarProps> =
                             <span style={{ fontSize: '11.5px', color: '#94A3B8', fontStyle: 'italic' }}>소명서 미제출</span>
                           )}
                         </td>
-                        <td style={{ padding: '10px', textAlign: 'center' }}>
+                        <td style={{ padding: '11px 12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                           {item.clarificationStatus === 'PENDING_DS' ? (
                             <button
                               type="button"
@@ -1024,7 +1024,7 @@ export const DsLateAttendanceCalendar: React.FC<DsLateAttendanceCalendarProps> =
                                   alert(`✅ [DS 최종 승인] ${item.workerName}님의 소명서가 승인되었습니다.`);
                                 }
                               }}
-                              style={{ background: '#0052FF', color: '#FFFFFF', border: 'none', padding: '6px 10px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 800, cursor: 'pointer' }}
+                              style={{ background: '#0052FF', color: '#FFFFFF', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 800, cursor: 'pointer' }}
                             >
                               최종 승인
                             </button>
@@ -1045,12 +1045,12 @@ export const DsLateAttendanceCalendar: React.FC<DsLateAttendanceCalendarProps> =
                                   alert(`📨 [소명 요구 공문 발송] ${item.companyName} 현장대리인 앞으로 ${item.workerName}님의 지각 소명서 제출 요구가 발송되었습니다.`);
                                 }
                               }}
-                              style={{ background: '#FEE2E2', color: '#B91C1C', border: '1px solid #FECACA', padding: '6px 10px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 800, cursor: 'pointer' }}
+                              style={{ background: '#FEE2E2', color: '#B91C1C', border: '1px solid #FECACA', padding: '6px 12px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 800, cursor: 'pointer' }}
                             >
                               소명 요구
                             </button>
                           ) : item.clarificationStatus === 'APPROVED' ? (
-                            <span style={{ fontSize: '11px', color: '#16A34A', fontWeight: 800 }}>✓ 승인 완료</span>
+                            <span style={{ fontSize: '11.5px', color: '#16A34A', fontWeight: 800 }}>✓ 승인 완료</span>
                           ) : (
                             <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>검토 대기</span>
                           )}
@@ -1064,7 +1064,7 @@ export const DsLateAttendanceCalendar: React.FC<DsLateAttendanceCalendarProps> =
           </div>
         )}
 
-        {/* 2. 휴가자 목록 테이블 */}
+        {/* 2. 휴가자 목록 테이블 (가로 스크롤 및 한 줄 정렬) */}
         {(activeSubTab === 'ALL' || activeSubTab === 'VACATION') && (
           <div>
             {activeSubTab === 'ALL' && (
@@ -1086,52 +1086,52 @@ export const DsLateAttendanceCalendar: React.FC<DsLateAttendanceCalendarProps> =
                 해당 일자에는 휴가자가 없습니다.
               </div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
+              <div style={{ overflowX: 'auto', width: '100%', WebkitOverflowScrolling: 'touch', borderRadius: '8px', border: '1px solid #BAE6FD' }}>
+                <table style={{ width: '100%', minWidth: '820px', borderCollapse: 'collapse', fontSize: '12.5px', whiteSpace: 'nowrap' }}>
                   <thead>
                     <tr style={{ background: '#F0F9FF', color: '#0369A1', textAlign: 'left', borderBottom: '2px solid #BAE6FD' }}>
-                      <th style={{ padding: '9px 10px', fontWeight: 800 }}>협력사</th>
-                      <th style={{ padding: '9px 10px', fontWeight: 800 }}>성명 (사번)</th>
-                      <th style={{ padding: '9px 10px', fontWeight: 800 }}>소속 공정</th>
-                      <th style={{ padding: '9px 10px', fontWeight: 800 }}>휴가 구분</th>
-                      <th style={{ padding: '9px 10px', fontWeight: 800 }}>공수 영향</th>
-                      <th style={{ padding: '9px 10px', fontWeight: 800 }}>결재 상태</th>
-                      <th style={{ padding: '9px 10px', fontWeight: 800 }}>휴가 사유 및 통보 내역</th>
-                      <th style={{ padding: '9px 10px', fontWeight: 800, textAlign: 'center' }}>DS 확인</th>
+                      <th style={{ padding: '11px 12px', fontWeight: 800, whiteSpace: 'nowrap' }}>협력사</th>
+                      <th style={{ padding: '11px 12px', fontWeight: 800, whiteSpace: 'nowrap' }}>성명 (사번)</th>
+                      <th style={{ padding: '11px 12px', fontWeight: 800, whiteSpace: 'nowrap' }}>소속 공정</th>
+                      <th style={{ padding: '11px 12px', fontWeight: 800, whiteSpace: 'nowrap' }}>휴가 구분</th>
+                      <th style={{ padding: '11px 12px', fontWeight: 800, whiteSpace: 'nowrap' }}>공수 영향</th>
+                      <th style={{ padding: '11px 12px', fontWeight: 800, whiteSpace: 'nowrap' }}>결재 상태</th>
+                      <th style={{ padding: '11px 12px', fontWeight: 800, minWidth: '240px' }}>휴가 사유 및 통보 내역</th>
+                      <th style={{ padding: '11px 12px', fontWeight: 800, textAlign: 'center', whiteSpace: 'nowrap' }}>DS 확인</th>
                     </tr>
                   </thead>
                   <tbody>
                     {selectedDayVacationList.map((item, idx) => (
                       <tr key={item.id || idx} style={{ borderBottom: '1px solid #E2E8F0', background: idx % 2 === 0 ? '#FFFFFF' : '#FAFAFA' }}>
-                        <td style={{ padding: '10px', fontWeight: 700 }}>
-                          <span style={{ background: '#E0F2FE', color: '#0369A1', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 800 }}>
+                        <td style={{ padding: '11px 12px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                          <span style={{ background: '#E0F2FE', color: '#0369A1', padding: '3px 7px', borderRadius: '4px', fontSize: '11px', fontWeight: 800 }}>
                             {item.companyName}
                           </span>
                         </td>
-                        <td style={{ padding: '10px', fontWeight: 800, color: '#0F172A' }}>
-                          {item.workerName}
-                          <span style={{ fontSize: '11px', color: '#64748B', display: 'block', fontWeight: 500 }}>{item.employeeId}</span>
+                        <td style={{ padding: '11px 12px', fontWeight: 800, color: '#0F172A', whiteSpace: 'nowrap' }}>
+                          <span>{item.workerName}</span>
+                          <span style={{ fontSize: '11px', color: '#64748B', marginLeft: '4px', fontWeight: 500 }}>({item.employeeId})</span>
                         </td>
-                        <td style={{ padding: '10px', color: '#475569', fontWeight: 600 }}>{item.partName}</td>
-                        <td style={{ padding: '10px', fontWeight: 800, color: '#0284C7' }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                        <td style={{ padding: '11px 12px', color: '#475569', fontWeight: 600, whiteSpace: 'nowrap' }}>{item.partName}</td>
+                        <td style={{ padding: '11px 12px', fontWeight: 800, color: '#0284C7', whiteSpace: 'nowrap' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', background: '#FEF3C7', color: '#B45309', padding: '2px 8px', borderRadius: '6px', fontSize: '11.5px' }}>
                             <Plane size={12} /> {item.vacationType}
                           </span>
                         </td>
-                        <td style={{ padding: '10px', fontWeight: 800, color: '#64748B' }}>
+                        <td style={{ padding: '11px 12px', fontWeight: 800, color: '#475569', whiteSpace: 'nowrap' }}>
                           {item.manDays} M/D
                         </td>
-                        <td style={{ padding: '10px' }}>{getVacationStatusBadge(item.status)}</td>
-                        <td style={{ padding: '10px', maxWidth: '240px' }}>
-                          <div style={{ fontSize: '12px', color: '#1E293B', fontWeight: 600 }}>"{item.reason}"</div>
+                        <td style={{ padding: '11px 12px', whiteSpace: 'nowrap' }}>{getVacationStatusBadge(item.status)}</td>
+                        <td style={{ padding: '11px 12px', minWidth: '240px', maxWidth: '340px', whiteSpace: 'normal' }}>
+                          <div style={{ fontSize: '12px', color: '#1E293B', fontWeight: 600, lineHeight: 1.35 }}>"{item.reason}"</div>
                           {item.partnerApproverName && (
-                            <div style={{ fontSize: '10.5px', color: '#0369A1', marginTop: '2px' }}>
-                              협력사 승인: {item.partnerApproverName}
+                            <div style={{ fontSize: '10.5px', color: '#0369A1', marginTop: '2px', fontWeight: 600 }}>
+                              ✓ 협력사 승인: {item.partnerApproverName}
                             </div>
                           )}
                         </td>
-                        <td style={{ padding: '10px', textAlign: 'center' }}>
-                          <span style={{ fontSize: '11.5px', color: '#16A34A', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                        <td style={{ padding: '11px 12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                          <span style={{ fontSize: '11.5px', color: '#16A34A', background: '#DCFCE7', padding: '3px 8px', borderRadius: '6px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                             <CheckCircle2 size={13} /> 공백 검수완료
                           </span>
                         </td>
