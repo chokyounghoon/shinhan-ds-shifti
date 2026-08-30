@@ -108,7 +108,9 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
     }
   };
 
-  // 2. Cloudflare D1 organizations 원격 파트 정보 실시간 조회 (DB 기준 동적 파트)
+  const [dbOrgTeams, setDbOrgTeams] = useState<string[]>(['카드개발']);
+
+  // 2. Cloudflare D1 organizations 원격 파트 및 팀 정보 실시간 조회 (DB 기준 동적 파트/팀)
   const fetchRemoteOrgs = async () => {
     try {
       const res = await fetch('/api/organizations');
@@ -118,7 +120,9 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
           const parts = json.data
             .map((item: any) => (item.part_name || '').trim())
             .filter(Boolean);
+          const teams = Array.from(new Set(json.data.map((item: any) => (item.team_name || '').trim()).filter(Boolean)));
           setDbOrgParts(parts);
+          if (teams.length > 0) setDbOrgTeams(teams as string[]);
         }
       }
     } catch (err) {
@@ -152,7 +156,13 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
     fetchRemoteCompanies();
   }, []);
 
-  // 3. DB 기준으로만 존재하는 파트 목록 동적 계산 (하드코딩 완전 배제)
+  // 3. DB 기준으로만 존재하는 팀 및 파트 목록 동적 계산 (하드코딩 완전 배제)
+  const availableTeams = useMemo(() => {
+    const fromUsers = employees.map(e => (e.team || '').trim()).filter(Boolean);
+    const combined = Array.from(new Set([...dbOrgTeams, ...fromUsers]));
+    return combined.length > 0 ? combined : ['카드개발'];
+  }, [dbOrgTeams, employees]);
+
   const availableParts = useMemo(() => {
     const fromUsers = employees.map(e => (e.part || '').trim()).filter(Boolean);
     const combined = new Set([...dbOrgParts, ...fromUsers]);
@@ -960,11 +970,9 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
                       }}
                     />
                   ) : (
-                    <input
-                      type="text"
+                    <select
                       value={editingEmp.team}
                       onChange={e => setEditingEmp({ ...editingEmp, team: e.target.value })}
-                      placeholder="예: 카드개발팀, 상담운영팀"
                       style={{
                         width: '100%',
                         padding: '8px 10px',
@@ -974,7 +982,11 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
                         background: '#FFFFFF',
                         boxSizing: 'border-box'
                       }}
-                    />
+                    >
+                      {availableTeams.map(t => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
                   )}
                 </div>
 

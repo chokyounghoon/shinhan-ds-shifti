@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   ShieldCheck, 
   CheckCircle2, 
@@ -91,12 +91,13 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
   // ✨ 신규 직원/인력 등록 모달 상태 (Cloudflare D1 실시간 저장)
   const [isRegisterEmployeeModalOpen, setIsRegisterEmployeeModalOpen] = useState(false);
   const [isRegisteringEmp, setIsRegisteringEmp] = useState(false);
+  const [rawOrgList, setRawOrgList] = useState<{ id: string; team_name: string; part_name: string; company_name: string }[]>([]);
   const [registerEmployeeForm, setRegisterEmployeeForm] = useState({
     employeeId: '',
     name: '',
     company: '유브갓',
     customCompany: '',
-    team: '카드개발팀',
+    team: '카드개발',
     part: currentUser.partName || '상담',
     position: '선임',
     role: 'PARTNER_WORKER' as 'PARTNER_WORKER' | 'PARTNER_MANAGER' | 'DS_PM',
@@ -104,6 +105,24 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
     email: '',
     status: '정상투입'
   });
+
+  // D1 조직 테이블 기반 고유 팀 목록
+  const dbOrgTeams = useMemo(() => {
+    const teams = Array.from(new Set(rawOrgList.map(o => (o.team_name || '').trim()).filter(Boolean)));
+    return teams.length > 0 ? teams : ['카드개발'];
+  }, [rawOrgList]);
+
+  // D1 조직 테이블 기반 선택된 팀의 파트 목록 (또는 전체 파트)
+  const availableOrgParts = useMemo(() => {
+    if (!registerEmployeeForm.team) {
+      const parts = Array.from(new Set(rawOrgList.map(o => (o.part_name || '').trim()).filter(Boolean)));
+      return parts.length > 0 ? parts : ['상담', '오토금융', '국제'];
+    }
+    const matched = rawOrgList.filter(o => o.team_name === registerEmployeeForm.team).map(o => o.part_name).filter(Boolean);
+    if (matched.length > 0) return matched;
+    const allParts = Array.from(new Set(rawOrgList.map(o => (o.part_name || '').trim()).filter(Boolean)));
+    return allParts.length > 0 ? allParts : ['상담', '오토금융', '국제'];
+  }, [rawOrgList, registerEmployeeForm.team]);
   
   // D1 DB에서 실제 등록된 파트 목록 및 사용자 목록 조회
   useEffect(() => {
@@ -114,6 +133,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
         if (orgRes.ok) {
           const json = await orgRes.json();
           if (json.data && Array.isArray(json.data) && json.data.length > 0) {
+            setRawOrgList(json.data);
             const mapped: OrgPartInfo[] = json.data.map((item: any) => ({
               id: item.id,
               partName: item.part_name,
@@ -2737,7 +2757,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                 </div>
               )}
 
-              {/* 4. 소속 팀 & 배정 파트 */}
+              {/* 4. 소속 팀 & 배정 파트 (D1 조직 테이블 연동) */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
                   <label style={{ fontSize: '11.5px', color: '#90A4AE', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
@@ -2751,14 +2771,26 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                       style={{ ...formInputStyle, background: 'rgba(255, 255, 255, 0.04)', color: '#64748B', cursor: 'not-allowed' }}
                     />
                   ) : (
-                    <input
-                      type="text"
-                      placeholder="예: 카드개발팀, 상담운영팀"
+                    <select
                       value={registerEmployeeForm.team}
-                      onChange={e => setRegisterEmployeeForm({ ...registerEmployeeForm, team: e.target.value })}
+                      onChange={e => {
+                        const newTeam = e.target.value;
+                        const partsForTeam = rawOrgList.filter(o => o.team_name === newTeam).map(o => o.part_name).filter(Boolean);
+                        setRegisterEmployeeForm({
+                          ...registerEmployeeForm,
+                          team: newTeam,
+                          part: partsForTeam[0] || registerEmployeeForm.part
+                        });
+                      }}
                       style={formInputStyle}
                       required
-                    />
+                    >
+                      {dbOrgTeams.map((t: string) => (
+                        <option key={t} value={t} style={{ background: '#0D1726', color: '#FFFFFF' }}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
                   )}
                 </div>
                 <div>
@@ -2777,10 +2809,11 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                       value={registerEmployeeForm.part}
                       onChange={e => setRegisterEmployeeForm({ ...registerEmployeeForm, part: e.target.value })}
                       style={formInputStyle}
+                      required
                     >
-                      {displayPartList.map(p => (
-                        <option key={p.id || p.partName} value={p.partName} style={{ background: '#0D1726', color: '#FFFFFF' }}>
-                          {p.partName} 파트
+                      {availableOrgParts.map((p: string) => (
+                        <option key={p} value={p} style={{ background: '#0D1726', color: '#FFFFFF' }}>
+                          {p} 파트
                         </option>
                       ))}
                     </select>
