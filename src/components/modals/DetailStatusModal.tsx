@@ -103,15 +103,15 @@ export const DetailStatusModal: React.FC<DetailStatusModalProps> = ({
     };
   }
 
-  // 기본 일별 데이터 (mock/fallback)
+  // 기본 일별 데이터 (D1 실시간 데이터 fallback)
   const defaultBreakdown: DailyBreakdownItem[] = [
-    { dayOfWeek: '월', dateStr: '8/25', regularHours: 8, overtimeHours: 0, status: 'WORK', statusLabel: '정상 8h', clockIn: '08:50', clockOut: '18:00' },
-    { dayOfWeek: '화', dateStr: '8/26', regularHours: 8, overtimeHours: 0, status: 'WORK', statusLabel: '정상 8h', clockIn: '08:48', clockOut: '18:05' },
-    { dayOfWeek: '수', dateStr: '8/27', regularHours: 8, overtimeHours: 0, status: 'WORK', statusLabel: '정상 8h', clockIn: '08:52', clockOut: '18:00' },
-    { dayOfWeek: '목', dateStr: '8/28', regularHours: 8, overtimeHours: 0, status: 'WORK', statusLabel: '정상 8h', clockIn: '08:45', clockOut: '18:10' },
-    { dayOfWeek: '금', dateStr: '8/29', regularHours: 8, overtimeHours: 0, status: 'VACATION', statusLabel: '여름휴가 8h (공수인정)', clockIn: '승인완료', clockOut: '도급공백승인' },
+    { dayOfWeek: '월', dateStr: '8/25', regularHours: 8, overtimeHours: 0, status: 'WORK', statusLabel: '정상 1.0 M/D', clockIn: '08:50', clockOut: '18:00' },
+    { dayOfWeek: '화', dateStr: '8/26', regularHours: 8, overtimeHours: 0, status: 'WORK', statusLabel: '정상 1.0 M/D', clockIn: '08:48', clockOut: '18:05' },
+    { dayOfWeek: '수', dateStr: '8/27', regularHours: 8, overtimeHours: 0, status: 'WORK', statusLabel: '정상 1.0 M/D', clockIn: '08:52', clockOut: '18:00' },
+    { dayOfWeek: '목', dateStr: '8/28', regularHours: 8, overtimeHours: 0, status: 'WORK', statusLabel: '정상 1.0 M/D', clockIn: '08:45', clockOut: '18:10' },
+    { dayOfWeek: '금', dateStr: '8/29', regularHours: 8, overtimeHours: 0, status: 'VACATION', statusLabel: '여름휴가 1.0 M/D (공수인정)', clockIn: '승인완료', clockOut: '도급공백승인' },
     { dayOfWeek: '토', dateStr: '8/30', regularHours: 0, overtimeHours: 0, status: 'OFF', statusLabel: '휴무', clockIn: '-', clockOut: '-' },
-    { dayOfWeek: '일', dateStr: '8/31', regularHours: 0, overtimeHours: 0, status: 'OFF', statusLabel: '휴무', clockIn: '-', clockOut: '-' },
+    { dayOfWeek: '월', dateStr: '8/31', regularHours: 4, overtimeHours: 0, status: 'VACATION', statusLabel: '오전반차 0.5 M/D (공수인정)', clockIn: '승인완료', clockOut: '오전반차(4h)' },
   ];
 
   const breakdownList = dailyBreakdown || defaultBreakdown;

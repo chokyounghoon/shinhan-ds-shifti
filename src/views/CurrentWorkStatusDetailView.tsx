@@ -85,36 +85,27 @@ export const CurrentWorkStatusDetailView: React.FC<CurrentWorkStatusDetailViewPr
         setLogs(mapped);
       }
 
-      // 2. 승인된 휴가 내역 조회 (D1 + Local)
-      const vacRes = await fetch(`/api/attendance/requests?employee_id=${encodeURIComponent(empId)}&request_type=VACATION`);
+      // 2. 승인된 휴가 내역 조회 (D1 attendance_requests 실시간 연동)
+      const vacRes = await fetch(`/api/attendance/requests?employee_id=${encodeURIComponent(empId)}`);
       let loadedVacations: VacationLogEntry[] = [];
       if (vacRes.ok) {
         const vacJson = await vacRes.json();
         const d1Vac = vacJson.data || [];
-        loadedVacations = d1Vac.map((v: any) => ({
-          id: v.id,
-          targetDate: v.target_date || v.created_at?.slice(0, 10) || '2026-08-29',
-          vacationType: v.reason?.includes('여름') ? '여름휴가' : v.reason?.includes('체력단련') ? '체력단련휴가' : '연차',
-          reason: v.reason || '소속사 휴가',
-          status: v.status || 'APPROVED',
-          hours: 8
-        }));
-      }
-
-      // Local DB의 휴가 요청 병합
-      const localVac = dbService.getRequests().filter(r => r.requestType === 'VACATION');
-      localVac.forEach(loc => {
-        if (!loadedVacations.some(v => v.id === loc.id)) {
-          loadedVacations.unshift({
-            id: loc.id,
-            targetDate: loc.targetDate || '2026-08-29',
-            vacationType: loc.reason?.includes('여름') ? '여름휴가' : '연차',
-            reason: loc.reason,
-            status: loc.status,
-            hours: 8
+        loadedVacations = d1Vac
+          .filter((v: any) => v.status !== 'REJECTED' && v.status !== 'REJECTED_PARTNER')
+          .map((v: any) => {
+            const vType = v.vacation_type || (v.request_type === 'VACATION' ? '연차' : v.request_type || '휴가');
+            const vHours = Number(v.hours) || (vType.includes('반차') ? 4 : 8);
+            return {
+              id: v.id,
+              targetDate: v.target_date || v.start_date || v.created_at?.slice(0, 10) || '2026-08-31',
+              vacationType: vType,
+              reason: v.reason || '소속사 휴가',
+              status: v.status || 'APPROVED',
+              hours: vHours
+            };
           });
-        }
-      });
+      }
 
       setVacations(loadedVacations);
 
@@ -587,25 +578,32 @@ export const CurrentWorkStatusDetailView: React.FC<CurrentWorkStatusDetailViewPr
             <span style={{ color: '#16A34A', fontWeight: 700 }}>✓ D1 암호화 서명 완료</span>
           </div>
 
-          {/* 일별 로그 리스트 */}
-          {Array.from({ length: 10 }, (_, i) => {
-            const dayNum = todayDate - i;
-            if (dayNum <= 0) return null;
-            const isWeekend = (dayNum % 7 === 1 || dayNum % 7 === 2);
-            const isVacationDay = (dayNum === 29 || dayNum === 28) && approvedVacationDays > 0 && i === 1; // 예: 8월 29일 여름휴가
-            
+          {/* 일별 로그 리스트 (당월 31일부터 1일까지 D1 실데이터 기반 동적 렌더링) */}
+          {Array.from({ length: 31 }, (_, i) => {
+            const dayNum = 31 - i;
+            const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+            const dObj = new Date(year, month - 1, dayNum);
+            const isRealWeekend = dObj.getDay() === 0 || dObj.getDay() === 6;
+
+            const vacItem = vacations.find(v => v.targetDate === dateStr || v.targetDate?.endsWith(`-${String(dayNum).padStart(2, '0')}`));
+            const punchItem = logs.find(l => l.workDate === dateStr || l.workDate?.endsWith(`-${String(dayNum).padStart(2, '0')}`));
+
+            // 미래 일자 중 출근도 휴가도 없는 날은 제외하되, 31일처럼 휴가가 등록된 날은 반드시 표출
+            const isFuture = dayNum > todayDate && !vacItem && !punchItem;
+            if (isFuture) return null;
+
             return (
               <div 
                 key={dayNum}
                 style={{
-                  background: isVacationDay ? '#F0F9FF' : '#FFFFFF',
-                  border: isVacationDay ? '1.5px solid #BAE6FD' : '1px solid #E2E8F0',
+                  background: vacItem ? '#F0F9FF' : isRealWeekend && !punchItem ? '#FAFAFA' : '#FFFFFF',
+                  border: vacItem ? '1.5px solid #BAE6FD' : '1px solid #E2E8F0',
                   borderRadius: '12px',
                   padding: '12px 14px',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  opacity: isWeekend ? 0.7 : 1
+                  opacity: isRealWeekend && !vacItem && !punchItem ? 0.7 : 1
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -613,8 +611,8 @@ export const CurrentWorkStatusDetailView: React.FC<CurrentWorkStatusDetailViewPr
                     width: '36px',
                     height: '36px',
                     borderRadius: '10px',
-                    background: isVacationDay ? '#E0F2FE' : isWeekend ? '#F1F5F9' : '#ECFDF5',
-                    color: isVacationDay ? '#0284C7' : isWeekend ? '#94A3B8' : '#059669',
+                    background: vacItem ? '#E0F2FE' : isRealWeekend && !punchItem ? '#F1F5F9' : '#ECFDF5',
+                    color: vacItem ? '#0284C7' : isRealWeekend && !punchItem ? '#94A3B8' : '#059669',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
@@ -626,22 +624,26 @@ export const CurrentWorkStatusDetailView: React.FC<CurrentWorkStatusDetailViewPr
                   </div>
                   <div>
                     <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#1E293B', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      {isVacationDay ? (
-                        <span>🏖️ 승인된 휴가 (8.0h 공수 인정)</span>
-                      ) : isWeekend ? (
+                      {vacItem ? (
+                        <span>🏖️ 승인된 휴가 ({vacItem.vacationType} {vacItem.hours}.0h / {vacItem.hours === 4 ? '0.5' : '1.0'} M/D 인정)</span>
+                      ) : punchItem ? (
+                        <span>1 M/D (8.0h) 정상 투입</span>
+                      ) : isRealWeekend ? (
                         '주말 정기 휴무'
                       ) : (
-                        '1 M/D (8.0h) 정상 투입'
+                        '투입 예정 (8.0h)'
                       )}
                     </div>
                     <div style={{ fontSize: '11px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      {isVacationDay ? (
-                        <span>소속사 1차 승인 및 원청 DS 공정 검수 완료 • 여름휴가</span>
-                      ) : (
+                      {vacItem ? (
+                        <span>소속사 1차 승인 및 원청 DS 공정 검수 완료 • {vacItem.reason || vacItem.vacationType}</span>
+                      ) : punchItem ? (
                         <>
                           <MapPin size={11} color="#94A3B8" />
-                          <span>파인에비뉴(카드) • {isWeekend ? '-' : '08:50 인증 (25m)'}</span>
+                          <span>{punchItem.locationName} • {punchItem.clockInTime} 인증 ({punchItem.distanceMeters}m)</span>
                         </>
+                      ) : (
+                        <span>{isRealWeekend ? '정기 휴무' : '근무 예정일'}</span>
                       )}
                     </div>
                   </div>
@@ -653,10 +655,10 @@ export const CurrentWorkStatusDetailView: React.FC<CurrentWorkStatusDetailViewPr
                     fontWeight: 700,
                     padding: '3px 8px',
                     borderRadius: '6px',
-                    background: isVacationDay ? '#E0F2FE' : isWeekend ? '#F1F5F9' : '#ECFDF5',
-                    color: isVacationDay ? '#0369A1' : isWeekend ? '#64748B' : '#059669'
+                    background: vacItem ? '#E0F2FE' : punchItem ? '#ECFDF5' : isRealWeekend ? '#F1F5F9' : '#EFF6FF',
+                    color: vacItem ? '#0369A1' : punchItem ? '#059669' : isRealWeekend ? '#64748B' : '#0052FF'
                   }}>
-                    {isVacationDay ? '✓ 승인 휴가' : isWeekend ? '휴무' : '정산 확정'}
+                    {vacItem ? `✓ ${vacItem.status === 'APPROVED' ? '승인완료' : '검수중'}` : punchItem ? '정산 확정' : isRealWeekend ? '휴무' : '예정'}
                   </span>
                 </div>
               </div>
