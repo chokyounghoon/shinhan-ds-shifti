@@ -621,15 +621,35 @@ app.post('/users', async (c) => {
     const name = body.name ? body.name.trim() : null;
     const email = body.email ? body.email.trim() : null;
     const phone = body.phone !== undefined ? body.phone : null;
-    const company = body.company || body.partnerCompany || null;
-    const team = body.team || body.deptName || null;
-    const part = body.part || body.partName || null;
-    const position = body.position || null;
-    const role = body.role || null;
-    const isPartnerManager = body.is_partner_manager !== undefined ? (body.is_partner_manager ? 1 : 0) : (body.isPartnerManager !== undefined ? (body.isPartnerManager ? 1 : 0) : null);
-    const deviceType = body.deviceType || body.device_type || null;
+    let company = body.company || body.partnerCompany || null;
+    const team = body.team || body.deptName || '상담팀';
+    const part = body.part || body.partName || '상담';
+    const position = body.position || '선임';
+    const deviceType = body.deviceType || body.device_type || 'Android';
     const profilePicture = body.profile_picture || body.avatarUrl || body.profileImage || null;
     const actorId = body.updated_by || body.created_by || empId || 'SYSTEM';
+
+    // 역할 정규화
+    let finalRole = 'PARTNER_WORKER';
+    let isPartnerManager = 0;
+    let isAdmin = 0;
+
+    if (body.role === 'DS_PM' || body.role === 'DS_PRINCIPAL_PM') {
+      finalRole = 'DS_PRINCIPAL_PM';
+      company = '신한DS';
+      isAdmin = 1;
+      isPartnerManager = 0;
+    } else if (body.role === 'PARTNER_MANAGER' || body.role === 'PARTNER_PART_LEADER') {
+      finalRole = 'PARTNER_PART_LEADER';
+      company = (company && company !== '신한DS') ? company : '유브갓';
+      isAdmin = 0;
+      isPartnerManager = 1;
+    } else {
+      finalRole = 'PARTNER_WORKER';
+      company = (company && company !== '신한DS') ? company : '유브갓';
+      isAdmin = 0;
+      isPartnerManager = 0;
+    }
 
     // 기존 사용자 조회
     const existing: any = await db.prepare("SELECT * FROM users WHERE UPPER(employee_id) = UPPER(?)").bind(empId).first();
@@ -644,15 +664,16 @@ app.post('/users', async (c) => {
           team = COALESCE(?, team),
           part = COALESCE(?, part),
           position = COALESCE(?, position),
-          role = COALESCE(?, role),
-          is_partner_manager = COALESCE(?, is_partner_manager),
+          role = ?,
+          is_partner_manager = ?,
+          is_admin = ?,
           device_type = COALESCE(?, device_type),
           profile_picture = COALESCE(?, profile_picture),
           updated_at = ?,
           updated_by = ?
         WHERE UPPER(employee_id) = UPPER(?)
       `).bind(
-        name, email, phone, company, team, part, position, role, isPartnerManager, deviceType, profilePicture, now, actorId, empId
+        name, email, phone, company, team, part, position, finalRole, isPartnerManager, isAdmin, deviceType, profilePicture, now, actorId, empId
       ).run();
     } else {
       await db.prepare(`
@@ -664,20 +685,59 @@ app.post('/users', async (c) => {
         name || empId,
         email || `${empId.toLowerCase()}@shinhands.co.kr`,
         phone || '',
-        company || '신한DS',
-        team || '카드개발팀',
-        part || '카드IS',
-        position || '연구원',
-        role || 'PARTNER_WORKER',
-        isPartnerManager || 0,
-        role === 'DS_PRINCIPAL_PM' ? 1 : 0,
-        deviceType || 'Android',
+        company,
+        team,
+        part,
+        position,
+        finalRole,
+        isPartnerManager,
+        isAdmin,
+        deviceType,
         profilePicture,
         now,
         now,
         actorId,
         actorId
       ).run();
+
+      // 🔄 신규 등록 사용자가 협력사 직원인 경우 8월 기본 스케줄 및 주간 통계 자동 생성
+      if (finalRole === 'PARTNER_WORKER') {
+        try {
+          for (let d = 1; d <= 31; d++) {
+            const dateStr = `2026-08-${String(d).padStart(2, '0')}`;
+            const dObj = new Date(2026, 7, d);
+            const isWeekend = dObj.getDay() === 0 || dObj.getDay() === 6;
+            const isHoliday = (d === 15);
+            const sType = isHoliday ? 'HOLIDAY' : isWeekend ? 'OFF_DAY' : 'NORMAL';
+            const sTitle = isHoliday ? '광복절 공휴일' : isWeekend ? '주말 휴무' : '정상근무 (1.0 M/D)';
+
+            await db.prepare(`
+              INSERT OR IGNORE INTO work_schedules
+              (id, user_id, employee_id, schedule_date, schedule_type, title, is_vacation, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(
+              `sch-${empId}-202608${String(d).padStart(2, '0')}`,
+              empId, empId, dateStr, sType, sTitle, isHoliday ? 1 : 0, now, now
+            ).run();
+          }
+
+          // 주차별 통계 초기 생성
+          const weekStarts = ['2026-08-03', '2026-08-10', '2026-08-17', '2026-08-24', '2026-08-31'];
+          const weekEnds = ['2026-08-09', '2026-08-16', '2026-08-23', '2026-08-30', '2026-09-06'];
+          for (let w = 0; w < weekStarts.length; w++) {
+            await db.prepare(`
+              INSERT OR IGNORE INTO weekly_work_stats
+              (id, employee_id, week_start_date, week_end_date, regular_work_minutes, overtime_minutes, night_minutes, holiday_minutes, total_work_minutes, remaining_limit_minutes, created_at, updated_at)
+              VALUES (?, ?, ?, ?, 2400, 0, 0, 0, 2400, 720, ?, ?)
+            `).bind(
+              `stat-${empId}-${weekStarts[w].replace(/-/g, '')}`,
+              empId, weekStarts[w], weekEnds[w], now, now
+            ).run();
+          }
+        } catch (initErr) {
+          console.warn('Auto schedule/stat seed error for new user:', initErr);
+        }
+      }
     }
 
     const updatedUser = await db.prepare("SELECT * FROM users WHERE UPPER(employee_id) = UPPER(?)").bind(empId).first();
