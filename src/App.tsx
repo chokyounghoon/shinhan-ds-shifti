@@ -127,28 +127,27 @@ export function App() {
   const [notifications, setNotifications] = useState<DbAppNotification[]>([]);
   const [messagesList, setMessagesList] = useState<DbAppMessage[]>([]);
 
-  // 역할별 알림 필터링:
-  // - PARTNER_WORKER(개인): 관리자용 승인 요청(APPROVAL_REQUEST, INSPECTION_REQUEST) 제외, 본인 대상 승인완료/반려/공지만 노출
-  // - PARTNER_PART_LEADER / PARTNER_MANAGER: 협력사 관리자용 알림 (1차 결재 요청 전용)
-  // - DS_PRINCIPAL_PM / DS_DIRECTOR: 원청 DS PM용 알림 (협력사 1차 승인 완료된 공정 검수 통보만 노출, 1차 결재 요청은 절대 차단)
+  // 🛡️ 노란봉투법/파견법 준수: 각 단계에 맞는 사용자/관리인에게만 실시간 알림 건수 및 목록 표시
   const filteredNotifications = notifications.filter(n => {
     const role = (currentUser?.role as string) || 'PARTNER_WORKER';
     const targetRole = n.targetRole || (n as any).target_role || 'ALL';
 
     if (role === 'PARTNER_WORKER' || role === 'PARTNER_EMPLOYEE') {
+      // 일반 직원은 관리인용 결재 요청 알림 제외, 본인 대상(PARTNER_WORKER, ALL) 알림만 수신
       if (targetRole === 'PARTNER_MANAGER' || targetRole === 'PARTNER_PART_LEADER' || targetRole === 'DS_PRINCIPAL_PM') return false;
       if (n.type === 'APPROVAL_REQUEST' || n.type === 'INSPECTION_REQUEST') return false;
       return true;
     } else if (role === 'PARTNER_PART_LEADER' || role === 'PARTNER_SITE_MANAGER' || role === 'PARTNER_MANAGER' || (currentUser as any)?.isPartnerManager) {
+      // 협력사 관리인은 1차 결재 요청 및 DS PM의 보완요청, 소속사 알림만 수신 (원청 2차 검수 알림 제외)
       if (targetRole === 'DS_PRINCIPAL_PM') return false;
       if (n.type === 'INSPECTION_REQUEST') return false;
-      return true;
+      return targetRole === 'PARTNER_MANAGER' || targetRole === 'PARTNER_PART_LEADER' || targetRole === 'ALL';
     } else if (role === 'DS_PRINCIPAL_PM' || role === 'PRINCIPAL_INSPECTOR' || role === 'DS_DIRECTOR') {
-      // 🛡️ DS PM에게는 협력사 1차 결재 단계의 알림을 절대 노출하지 않음
+      // 🛡️ 신한DS PM은 협력사 1차 승인이 완료되어 올라온 2차 검수 요청(INSPECTION_REQUEST)만 수신 (1차 결재 요청은 절대 차단)
       if (targetRole === 'PARTNER_MANAGER' || targetRole === 'PARTNER_PART_LEADER' || targetRole === 'PARTNER_WORKER') return false;
       if (n.type === 'APPROVAL_REQUEST') return false;
       if (n.title?.includes('[결재 요청]') || n.content?.includes('1차 결재')) return false;
-      return true;
+      return targetRole === 'DS_PRINCIPAL_PM' || targetRole === 'ALL';
     }
     return true;
   });

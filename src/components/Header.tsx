@@ -76,72 +76,43 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="top-header-right" style={{
         display: 'flex',
         alignItems: 'center',
-        gap: '6px',
+        gap: '8px',
         flexShrink: 0
       }}>
-        {/* 메시지 / 도급 소통 아이콘 (실시간 뱃지) */}
-        <button 
-          onClick={onOpenMessages} 
-          className="icon-btn-badge"
-          aria-label="도급 메시지함"
-          title={`미확인 메시지 ${unreadMessageCount}건`}
-          style={{ width: '34px', height: '34px', position: 'relative' }}
-        >
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <MessageSquare size={22} strokeWidth={1.8} color={unreadMessageCount > 0 ? '#0052FF' : '#333D4B'} />
-            <span 
-              className="badge-count" 
-              style={{ 
-                top: '-5px', 
-                right: '-8px',
-                background: unreadMessageCount > 0 ? '#0052FF' : '#64748B',
-                color: '#FFFFFF',
-                fontSize: '10.5px',
-                fontWeight: 800,
-                minWidth: '17px',
-                height: '17px',
-                borderRadius: '9px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: unreadMessageCount > 0 ? '0 2px 5px rgba(0,82,255,0.4)' : 'none'
-              }}
-            >
-              {unreadMessageCount}
-            </span>
-          </div>
-        </button>
-
-        {/* 실시간 공정/SLA 알림 벨 아이콘 */}
+        {/* 실시간 공정/SLA 알림 벨 아이콘 (0건일 때는 뱃지 미노출, 역할별 건수만 표시) */}
         <button 
           onClick={onOpenNotifications} 
           className="icon-btn-badge"
           aria-label="알림 센터"
           title={`미확인 알림 ${unreadNotificationCount}건`}
-          style={{ width: '34px', height: '34px', position: 'relative' }}
+          style={{ width: '34px', height: '34px', position: 'relative', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Bell size={22} strokeWidth={1.8} color={unreadNotificationCount > 0 ? '#EF4444' : '#333D4B'} />
-            <span 
-              className="badge-count" 
-              style={{ 
-                top: '-5px', 
-                right: '-8px',
-                background: unreadNotificationCount > 0 ? '#EF4444' : '#64748B',
-                color: '#FFFFFF',
-                fontSize: '10.5px',
-                fontWeight: 800,
-                minWidth: '17px',
-                height: '17px',
-                borderRadius: '9px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: unreadNotificationCount > 0 ? '0 2px 5px rgba(239,68,68,0.4)' : 'none'
-              }}
-            >
-              {unreadNotificationCount}
-            </span>
+            {unreadNotificationCount > 0 && (
+              <span 
+                className="badge-count" 
+                style={{ 
+                  position: 'absolute',
+                  top: '-5px', 
+                  right: '-8px',
+                  background: '#EF4444',
+                  color: '#FFFFFF',
+                  fontSize: '10.5px',
+                  fontWeight: 800,
+                  minWidth: '17px',
+                  height: '17px',
+                  borderRadius: '9px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 5px rgba(239,68,68,0.4)',
+                  padding: '0 3px'
+                }}
+              >
+                {unreadNotificationCount}
+              </span>
+            )}
           </div>
         </button>
 

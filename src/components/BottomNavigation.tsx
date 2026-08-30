@@ -36,9 +36,11 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
       >
         <div style={{ position: 'relative' }}>
           <FolderClosed size={22} strokeWidth={activeTab === 'request' ? 2.5 : 1.8} />
-          <span className="badge-count" style={{ top: '-4px', right: '-8px' }}>
-            {requestCount}
-          </span>
+          {requestCount > 0 && (
+            <span className="badge-count" style={{ top: '-4px', right: '-8px' }}>
+              {requestCount}
+            </span>
+          )}
         </div>
         <span>투입소명</span>
       </button>
