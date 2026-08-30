@@ -11,9 +11,8 @@ export interface CommuteLogEntry {
   position: string;
   workDate: string;
   dateGroupLabel: string;
-  totalGroupHours: string;
-  clockInTime: string;
-  clockOutTime: string;
+  totalGroupManDays: string;
+  manDays: number;
   locationName?: string;
   isVerified?: boolean;
 }
@@ -36,7 +35,7 @@ export const LogsView: React.FC<LogsViewProps> = ({
   const [d1Logs, setD1Logs] = useState<CommuteLogEntry[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Cloudflare D1 DB에서 실시간 출퇴근/투입 기록 조회
+  // Cloudflare D1 DB에서 실시간 출퇴근/투입 기록 조회 (노란봉투법 M/D 기반)
   const fetchD1CommuteLogs = async () => {
     setIsLoading(true);
     try {
@@ -57,14 +56,12 @@ export const LogsView: React.FC<LogsViewProps> = ({
           position: r.position || user.position || '수석',
           workDate: r.work_date,
           dateGroupLabel: `${r.work_date} (도급 투입 확정)`,
-          totalGroupHours: '8시간 0분 (1 M/D)',
-          clockInTime: r.clock_in_time || '08:50',
-          clockOutTime: r.clock_out_time || '18:00',
+          totalGroupManDays: '1.0 M/D (정상 투입)',
+          manDays: 1.0,
           locationName: r.location_name || '파인에비뉴(카드)',
           isVerified: true
         }));
 
-        // 만약 오늘 출근 기록이 D1에 있고 기존 목록과 병합
         setD1Logs(mapped);
       }
     } catch (e) {
@@ -88,9 +85,8 @@ export const LogsView: React.FC<LogsViewProps> = ({
       position: user.position || '수석',
       workDate: '2026-08-17',
       dateGroupLabel: '2026년 8월 17일, 월 (당일 투입)',
-      totalGroupHours: '8시간 0분 (1 M/D)',
-      clockInTime: '08:50',
-      clockOutTime: '18:00',
+      totalGroupManDays: '1.0 M/D (정상 투입)',
+      manDays: 1.0,
       locationName: '파인에비뉴(카드)',
       isVerified: true
     }
@@ -108,17 +104,18 @@ export const LogsView: React.FC<LogsViewProps> = ({
     return true;
   });
 
-  // 날짜별 그룹핑
+  // 날짜별 그룹핑 (노란봉투법 M/D 기반 집계)
   const groupedByDate = visibleEntries.reduce((acc, cur) => {
     if (!acc[cur.dateGroupLabel]) {
       acc[cur.dateGroupLabel] = {
-        totalHours: cur.totalGroupHours,
+        totalManDays: 0,
         items: []
       };
     }
     acc[cur.dateGroupLabel].items.push(cur);
+    acc[cur.dateGroupLabel].totalManDays += (cur.manDays ?? 1.0);
     return acc;
-  }, {} as Record<string, { totalHours: string; items: CommuteLogEntry[] }>);
+  }, {} as Record<string, { totalManDays: number; items: CommuteLogEntry[] }>);
 
   return (
     <div style={{ background: '#FFFFFF', minHeight: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
@@ -234,11 +231,11 @@ export const LogsView: React.FC<LogsViewProps> = ({
         </div>
       )}
 
-      {/* 3. 일자별 출퇴근 기록 목록 (스크린샷 100% 일치) */}
+      {/* 3. 일자별 출퇴근 기록 목록 (노란봉투법 M/D 기반) */}
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, paddingBottom: '90px' }}>
         {Object.entries(groupedByDate).map(([dateLabel, group]) => (
           <div key={dateLabel} style={{ display: 'flex', flexDirection: 'column' }}>
-            {/* 일자 헤더 바 (2026년 8월 1일, 토 2시간 9분) */}
+            {/* 일자 헤더 바 (노란봉투법 M/D 기반: 2026년 8월 17일, 월 (당일 투입) 1.0 M/D) */}
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
@@ -251,10 +248,10 @@ export const LogsView: React.FC<LogsViewProps> = ({
               color: '#191F28'
             }}>
               <span>{dateLabel}</span>
-              <span>{group.totalHours}</span>
+              <span style={{ fontSize: '13px', fontWeight: 800 }}>{group.totalManDays.toFixed(1)} M/D</span>
             </div>
 
-            {/* 해당 일자의 출퇴근 기록 항목들 (스크린샷 일치) */}
+            {/* 해당 일자의 출퇴근 기록 항목들 (출퇴근 시간정보 배제, M/D 투입 확정 뱃지) */}
             {group.items.map(item => (
               <div
                 key={item.id}
@@ -268,9 +265,22 @@ export const LogsView: React.FC<LogsViewProps> = ({
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                  {/* 시간 (출근/퇴근) */}
-                  <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#191F28', textAlign: 'center', minWidth: '45px', lineHeight: 1.2 }}>
-                    {item.clockInTime}<br />{item.clockOutTime}
+                  {/* 정상투입 및 M/D 뱃지 (출퇴근 시간정보 제거) */}
+                  <div style={{ minWidth: '55px', textAlign: 'center' }}>
+                    <span style={{
+                      background: '#E6F9F6',
+                      color: '#00A896',
+                      padding: '3px 6px',
+                      borderRadius: '5px',
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      display: 'block'
+                    }}>
+                      정상투입
+                    </span>
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#4E5968', marginTop: '2px', display: 'block' }}>
+                      {item.manDays ?? 1.0} M/D
+                    </span>
                   </div>
 
                   {/* 민트 바 */}
@@ -293,7 +303,7 @@ export const LogsView: React.FC<LogsViewProps> = ({
                     width: '20px',
                     height: '20px',
                     borderRadius: '50%',
-                    background: '#CED4DA',
+                    background: '#00C7AE',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
