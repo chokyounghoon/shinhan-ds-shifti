@@ -120,40 +120,6 @@ export const VacationView: React.FC<VacationViewProps> = ({
         });
       }
 
-      // 2. local dbService와 병합 (내 휴가 요청 건만 실시간 필터링)
-      const currentEmpId = empId.toUpperCase().trim();
-      const currentUserName = user?.name?.trim() || '';
-      const localRequests = dbService.getRequests().filter(r => {
-        if (r.requestType !== 'VACATION') return false;
-        const rUserId = (r.userId || (r as any).employeeId || '').toUpperCase().trim();
-        const rName = (r.userName || '').trim();
-        return rUserId === currentEmpId || rUserId === (user.id || '').toUpperCase().trim() || (currentUserName && rName === currentUserName);
-      });
-      localRequests.forEach(loc => {
-        if (!listFromD1.some(d1 => d1.id === loc.id)) {
-          const targetDateStr = loc.targetDate || '2026-08-30';
-          let dateLabel = targetDateStr;
-          try {
-            const d = new Date(targetDateStr);
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            const dd = String(d.getDate()).padStart(2, '0');
-            const dow = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()] || '평일';
-            dateLabel = `${mm}/${dd}\n${dow}요일`;
-          } catch (_) {}
-
-          listFromD1.unshift({
-            id: loc.id,
-            dateLabel,
-            rawDate: targetDateStr,
-            vacationType: loc.reason.includes('체력단련') ? '체력단련휴가' : '연차',
-            timeRange: loc.timeRange || '09:00 - 18:00',
-            memo: loc.reason,
-            status: loc.status,
-            createdAt: (loc as any).createdAt
-          });
-        }
-      });
-
       // 🌟 동일 일자(rawDate) 중복 방지: 최신순 정렬 후 날짜별 최종 1건만 추출
       const seenDates = new Set<string>();
       const deduplicatedList = listFromD1

@@ -46,20 +46,26 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
       const empIdUpper = (empId || '').toUpperCase().trim();
       const empIdLower = (empId || '').toLowerCase().trim();
 
-      const [clarRes, vacRes, vacResLower] = await Promise.all([
+      const [clarRes, vacRes, vacResLower, logsRes] = await Promise.all([
         fetch(`/api/clarification-requests?role=PARTNER_WORKER&employee_id=${encodeURIComponent(empIdUpper)}`),
         fetch(`/api/attendance/requests?employee_id=${encodeURIComponent(empIdUpper)}`),
-        fetch(`/api/attendance/requests?employee_id=${encodeURIComponent(empIdLower)}`)
+        fetch(`/api/attendance/requests?employee_id=${encodeURIComponent(empIdLower)}`),
+        fetch(`/api/commute/logs?employee_id=${encodeURIComponent(empIdUpper)}`)
       ]);
       
       let clarData: any[] = [];
       let vacData: any[] = [];
+      let commuteLogs: any[] = [];
 
       if (clarRes.ok) {
         const json = await clarRes.json();
         clarData = json.data || [];
         setD1Clarifications(clarData);
-        console.log('[투입소명] 소명 조회 결과:', clarData.length, '건', empIdUpper);
+      }
+
+      if (logsRes.ok) {
+        const j = await logsRes.json();
+        commuteLogs = j.data || [];
       }
       
       // 대문자 결과와 소문자 결과 병합 (중복 제거)
@@ -80,7 +86,6 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
       }
       vacData = mergedVac;
       setD1Vacations(vacData);
-      console.log('[투입소명] 휴가 조회 결과:', vacData.length, '건', empIdUpper, '/', empIdLower);
     } catch (e) {
       console.warn('소명 및 휴가 조회 실패:', e);
     } finally {
@@ -167,31 +172,8 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
   // D1에 이미 소명이 제출된 일자 목록
   const clarifiedDates = new Set(d1Clarifications.map(c => c.incident_date));
 
-  // 미소명 결손 내역 (이미 D1에 소명 신청된 날짜는 자동으로 제외!)
-  const rawIncidents: UnclarifiedIncident[] = [
-    {
-      id: 'inc-01',
-      incidentDate: '2026-08-28',
-      type: 'LATE',
-      typeLabel: '지각 투입',
-      delayMinutes: 45,
-      varianceTime: '45분 결손 (0.75h)',
-      scheduledTime: '09:00',
-      actualTime: '09:45',
-      defaultReason: '출근 시간대 지하철 2호선 신호 고장으로 인한 45분 지연 투입 (간편지연증명서 구비)'
-    },
-    {
-      id: 'inc-02',
-      incidentDate: '2026-08-26',
-      type: 'MISSING_PUNCH',
-      typeLabel: '출퇴근 미등록 (결근 결손)',
-      varianceTime: '8.0시간 결손',
-      scheduledTime: '09:00 ~ 18:00',
-      actualTime: '미인증',
-      defaultReason: '사옥 3층 출입 게이트 통과 후 사내 Wi-Fi 인식 지연으로 GPS 출근 태그 누락'
-    }
-  ];
-
+  // 미소명 결손 내역 (D1 DB 기준, 이미 소명 신청된 날짜는 제외)
+  const rawIncidents: UnclarifiedIncident[] = [];
   const unclarifiedIncidents = rawIncidents.filter(inc => !clarifiedDates.has(inc.incidentDate));
 
   const [selectedIncidentForModal, setSelectedIncidentForModal] = useState<UnclarifiedIncident | null>(null);

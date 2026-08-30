@@ -234,33 +234,8 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
         );
       }
 
-      // dbService 로컬 PENDING_DS 건도 병합
-      const localPendingDs = dbService.getRequests()
-        .filter(r => r.requestType === 'VACATION' && r.status === 'PENDING_DS')
-        .map(r => ({
-          id: r.id,
-          employee_id: r.userId,
-          user_name: r.userName,
-          company_name: '유브갓',
-          request_type: 'VACATION',
-          vacation_type: r.reason?.includes('여름') ? '여름휴가' : r.reason?.includes('기타') ? '기타' : '연차',
-          target_date: r.targetDate,
-          hours: r.hours || 8,
-          reason: r.reason,
-          status: 'PENDING_DS',
-          approver_name: r.partnerApproverName || '유브갓 현장대리인',
-          created_at: (r as any).createdAt || '2026-08-30 09:00:00'
-        }));
-
-      const combined = [...d1Vacations];
-      localPendingDs.forEach(l => {
-        if (!combined.some(c => c.id === l.id)) {
-          combined.unshift(l);
-        }
-      });
-
       // 🕒 신청일시(created_at) 기준 최신순(내림차순) 정렬 후 동일 인력+동일 일자 최종 1건만 유지
-      const sorted = combined.sort((a, b) => (b.created_at || b.target_date || '').localeCompare(a.created_at || a.target_date || ''));
+      const sorted = d1Vacations.sort((a: any, b: any) => (b.created_at || b.target_date || '').localeCompare(a.created_at || a.target_date || ''));
       const seenVacDates = new Set<string>();
       const deduplicatedVacations = sorted.filter(item => {
         const key = `${(item.user_name || item.employee_id || '').trim()}_${(item.target_date || '').trim()}`;

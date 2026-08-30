@@ -461,36 +461,9 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
         source: 'GAP_NOTICE'
       }));
 
-    // 3) dbService local requests fallback
-    const localVacations = dbService.getRequests()
-      .filter(r => r.requestType === 'VACATION')
-      .map(r => ({
-        id: r.id,
-        partnerCompany: selectedPartner,
-        workerName: r.userName,
-        gapType: r.reason?.includes('체력단련') ? '체력단련휴가' : '연차휴가',
-        gapPeriod: r.targetDate,
-        gapHours: r.hours || 8,
-        reason: r.reason,
-        status: r.status || 'PENDING',
-        createdAt: (r as any).createdAt || '2026-08-30 09:00:00',
-        partnerApprovedAt: (r as any).partnerApprovedAt,
-        dsApprovedAt: (r as any).dsApprovedAt,
-        updatedAt: (r as any).updatedAt,
-        source: 'LOCAL'
-      }));
-
     const combined = [...fromAttendance];
     fromNotices.forEach(n => {
       if (!combined.some(c => c.id === n.id)) combined.push(n);
-    });
-    localVacations.forEach(l => {
-      const existingIdx = combined.findIndex(c => c.id === l.id);
-      if (existingIdx >= 0) {
-        combined[existingIdx] = { ...combined[existingIdx], ...l };
-      } else {
-        combined.unshift(l);
-      }
     });
 
     // 🕒 신청일시(createdAt) 기준 최신순(내림차순) 정렬 후 동일 인력+동일 일자 최종 1건만 유지

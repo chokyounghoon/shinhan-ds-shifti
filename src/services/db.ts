@@ -165,56 +165,9 @@ export class PureDatabaseEngine {
   }
 
   private initDefaultPartnerRoster(): void {
-    const todayStr = new Date().toISOString().substring(0, 10);
-    this.manpowerInputs = [
-      { 
-        recordId: 'rec-i-01', 
-        employeeId: 'UB0001', 
-        workerName: '송무준', 
-        partName: '상담', 
-        partnerCompany: '유브갓', 
-        workDate: todayStr, 
-        contractedHours: 8.0, 
-        actualInputHours: 8.0, 
-        clockInTime: '08:50', 
-        clockOutTime: '18:00', 
-        taskSummary: '상담 시스템 기간계 계정계 승인 코어 모듈 유지보수', 
-        varianceMinutes: 0, 
-        isSlaBreach: false, 
-        verificationStatus: 'AUTO_SETTLED', 
-        regId: 'SYSTEM', 
-        regDt: `${todayStr} 08:50:00` 
-      }
-    ];
-
-    this.auditTrails = [
-      {
-        id: 1,
-        recordId: 'rec-i-01',
-        actorId: 'SYSTEM',
-        actorName: '도급 인력 투입 관제 엔진',
-        actorRole: '시스템 자동화',
-        action: '도급비 산정을 위한 투입 실적 확정 (시스템 자동 검수)',
-        systemLabel: '도급 계약 이행 확인',
-        details: `${todayStr} 송무준 (유브갓) 정상 투입 실적(8.0h) 계약 기준 자동 정산 확정`,
-        createdAt: `${todayStr} 09:00:00`
-      }
-    ];
-
-    this.preGapNotices = [
-      {
-        id: 'gap-01',
-        partnerCompany: '유브갓',
-        workerName: '송무준',
-        partName: '상담',
-        gapPeriod: `${todayStr} 09:00 ~ 13:00`,
-        gapHours: 4.0,
-        gapType: '오전반차 (협력사 자체 승인)',
-        reason: '소속사(유브갓) 복무규정에 따른 하계 정기 연차 승인 건',
-        status: 'DISPATCHED',
-        createdAt: `${todayStr} 09:30:00`
-      }
-    ];
+    this.manpowerInputs = [];
+    this.auditTrails = [];
+    this.preGapNotices = [];
   }
 
   public clearAll(): void {
@@ -939,23 +892,7 @@ export class PureDatabaseEngine {
     return list;
   }
 
-  private requests: AttendanceRequest[] = [
-    {
-      id: 'req-01',
-      userId: 'usr-001',
-      userName: '조경훈',
-      userDept: '카드개발팀',
-      partnerApproverName: '최영호 (유브갓 현장대리인)',
-      requestType: 'VACATION',
-      targetDate: '2026-08-12 ~ 2026-08-14',
-      timeRange: '전일',
-      hours: 24,
-      reason: '하계 정기 연차 휴가 (소속사 복무규정 준수)',
-      status: 'APPROVED',
-      createdAt: '2026-08-01 09:30',
-      approvalMemo: '소속사 현장대리인 승인 완료'
-    }
-  ];
+  private requests: AttendanceRequest[] = [];
 
   public getRequests(): AttendanceRequest[] {
     return [...this.requests];
