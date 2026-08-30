@@ -158,6 +158,15 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
     fetchD1MasterData();
   }, [currentUser.partName]);
 
+  // 🌟 DS현장대리인은 본인 담당 파트(상담)로 자동 고정
+  useEffect(() => {
+    const isDirector = currentUser?.role === 'DS_DIRECTOR';
+    const targetPart = currentUser?.partName || '상담';
+    if (!isDirector && targetPart && activePart !== targetPart) {
+      setActivePart(targetPart);
+    }
+  }, [currentUser?.role, currentUser?.partName]);
+
   // 신규 직원/인력 Cloudflare D1 등록 제출 핸들러
   const handleRegisterEmployeeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -523,13 +532,22 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
   };
 
 
-    const displayPartList: OrgPartInfo[] = dbPartList.length > 0
+    const isDirector = currentUser?.role === 'DS_DIRECTOR';
+    const userAssignedPart = currentUser?.partName || '상담';
+
+    const allBaseParts: OrgPartInfo[] = dbPartList.length > 0
       ? dbPartList
       : [
           { id: 'org-counsel-01', partName: '상담', leaderName: '조경훈', memberCount: 5, companyName: '신한DS', locationName: '파인에비뉴(카드)' },
           { id: 'org-auto-01', partName: '오토금융', leaderName: '김종현', memberCount: 10, companyName: '신한DS', locationName: '파인에비뉴(카드)' },
           { id: 'org-global-01', partName: '국제', leaderName: '박남호', memberCount: 1, companyName: '신한DS', locationName: '파인에비뉴(카드)' }
         ];
+
+    // 🌟 DS현장대리인은 본인 담당 파트(1개)만 단독 노출, DS총괄관리자만 전사 모든 파트 노출
+    const matchedParts = allBaseParts.filter(p => p.partName === userAssignedPart);
+    const displayPartList: OrgPartInfo[] = isDirector
+      ? allBaseParts
+      : (matchedParts.length > 0 ? matchedParts : [{ id: 'org-counsel-01', partName: userAssignedPart, leaderName: currentUser?.name || '조경훈', memberCount: 5, companyName: '신한DS', locationName: '파인에비뉴(카드)' }]);
 
     const currentPartInfo = displayPartList.find(p => p.partName === activePart) || displayPartList[0];
 
@@ -559,30 +577,34 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              background: 'rgba(0, 229, 255, 0.12)',
-              border: '1px solid rgba(0, 229, 255, 0.35)',
+              background: isDirector ? 'rgba(168, 85, 247, 0.15)' : 'rgba(0, 229, 255, 0.12)',
+              border: isDirector ? '1px solid rgba(168, 85, 247, 0.4)' : '1px solid rgba(0, 229, 255, 0.35)',
               padding: '3px 10px',
               borderRadius: '16px',
               fontSize: '11px',
               fontWeight: 800,
-              color: '#00E5FF'
+              color: isDirector ? '#C084FC' : '#00E5FF'
             }}>
-              <ShieldCheck size={13} color="#00E5FF" />
-              <span>{displayPartList.length}개 도급 공정 파트 관제 시스템</span>
+              <ShieldCheck size={13} color={isDirector ? '#C084FC' : '#00E5FF'} />
+              <span>
+                {isDirector 
+                  ? `[전사 총괄 관제] ${allBaseParts.length}개 전체 파트 통합 모니터링` 
+                  : `[현장대리인 전담] ${userAssignedPart} 파트 단독 관제`}
+              </span>
             </div>
 
             <span style={{ fontSize: '12px', color: '#90A4AE', fontWeight: 600 }}>
-              {currentPartInfo?.leaderName ? `${currentPartInfo.leaderName} PM` : currentUser.name}
+              {isDirector ? '조경훈 총괄부서장' : (currentPartInfo?.leaderName ? `${currentPartInfo.leaderName} PM` : `${currentUser.name} PM`)}
             </span>
           </div>
 
           {/* 파트명 */}
           <div>
             <div style={{ fontSize: '12px', color: '#80D8FF', fontWeight: 700 }}>
-              전담 관제 파트 ({currentPartInfo?.memberCount || 5}인 규모 도급 인력)
+              {isDirector ? `전사 ${displayPartList.length}개 도급 공정 파트` : `전담 관제 파트 (${currentPartInfo?.memberCount || 5}인 규모 도급 인력)`}
             </div>
             <h1 style={{ fontSize: '24px', fontWeight: 900, color: '#FFFFFF', margin: '2px 0 0 0', letterSpacing: '-0.5px' }}>
-              파트명({activePart})
+              {isDirector ? `전체 파트 관제 (${activePart})` : `파트명(${activePart})`}
             </h1>
           </div>
 
@@ -611,7 +633,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                   cursor: 'pointer'
                 }}
               >
-                {p.partName} {p.partName === (currentUser.partName || '상담') && <span style={{ color: '#80D8FF' }}>★</span>}
+                {p.partName} {p.partName === userAssignedPart && <span style={{ color: '#80D8FF' }}>★</span>}
               </button>
             ))}
           </div>
@@ -827,26 +849,38 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
             padding: '10px 12px'
           }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '11px', color: '#90A4AE', fontWeight: 700 }}>총 약정 인력</div>
-              <div style={{ fontSize: '18px', fontWeight: 900, color: '#FFFFFF', marginTop: '2px' }}>
+              <div style={{ fontSize: '11px', color: '#90A4AE', fontWeight: 700, lineHeight: 1.3 }}>
+                <div>총 약정 인력</div>
+                <div style={{ fontSize: '9.5px', color: '#78909C', fontWeight: 600 }}>(도급 기준)</div>
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: 900, color: '#FFFFFF', marginTop: '3px' }}>
                 {records.length}명
               </div>
             </div>
             <div style={{ textAlign: 'center', borderLeft: '1px solid rgba(255, 255, 255, 0.08)' }}>
-              <div style={{ fontSize: '11px', color: '#81C784', fontWeight: 700 }}>정시 출근 (09:00전)</div>
-              <div style={{ fontSize: '18px', fontWeight: 900, color: '#00E676', marginTop: '2px' }}>
-                {onTimeRecords.length}명 <span style={{ fontSize: '11px', fontWeight: 600 }}>({records.length > 0 ? ((onTimeRecords.length / records.length) * 100).toFixed(0) : 100}%)</span>
+              <div style={{ fontSize: '11px', color: '#81C784', fontWeight: 800, lineHeight: 1.3 }}>
+                <div>정시 출근</div>
+                <div style={{ fontSize: '9.5px', color: '#A5D6A7', fontWeight: 600 }}>(09:00 전)</div>
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: 900, color: '#00E676', marginTop: '3px' }}>
+                {onTimeRecords.length}명 <span style={{ fontSize: '10.5px', fontWeight: 600 }}>({records.length > 0 ? ((onTimeRecords.length / records.length) * 100).toFixed(0) : 100}%)</span>
               </div>
             </div>
             <div style={{ textAlign: 'center', borderLeft: '1px solid rgba(255, 255, 255, 0.08)' }}>
-              <div style={{ fontSize: '11px', color: '#FFB74D', fontWeight: 700 }}>지각 (09:00후)</div>
-              <div style={{ fontSize: '18px', fontWeight: 900, color: lateRecords.length > 0 ? '#FF9100' : '#90A4AE', marginTop: '2px' }}>
+              <div style={{ fontSize: '11px', color: '#FFB74D', fontWeight: 800, lineHeight: 1.3 }}>
+                <div>지각</div>
+                <div style={{ fontSize: '9.5px', color: '#FFE082', fontWeight: 600 }}>(09:00 후)</div>
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: 900, color: lateRecords.length > 0 ? '#FF9100' : '#90A4AE', marginTop: '3px' }}>
                 {lateRecords.length}명
               </div>
             </div>
             <div style={{ textAlign: 'center', borderLeft: '1px solid rgba(255, 255, 255, 0.08)' }}>
-              <div style={{ fontSize: '11px', color: '#FF8A80', fontWeight: 700 }}>미출근 (미인증)</div>
-              <div style={{ fontSize: '18px', fontWeight: 900, color: absentRecords.length > 0 ? '#FF5252' : '#90A4AE', marginTop: '2px' }}>
+              <div style={{ fontSize: '11px', color: '#FF8A80', fontWeight: 800, lineHeight: 1.3 }}>
+                <div>미출근</div>
+                <div style={{ fontSize: '9.5px', color: '#FFCDD2', fontWeight: 600 }}>(미인증)</div>
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: 900, color: absentRecords.length > 0 ? '#FF5252' : '#90A4AE', marginTop: '3px' }}>
                 {absentRecords.length}명
               </div>
             </div>
@@ -938,7 +972,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                         <span style={{ color: '#90A4AE' }}>{lr.taskSummary}</span>
                       </div>
 
-                      {/* 소명 상태 & 조치 버튼 */}
+                      {/* 소명 상태 & 2줄 하이라이트 조치 버튼 */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px', paddingTop: '4px', borderTop: '1px dashed rgba(255, 255, 255, 0.08)' }}>
                         <div style={{ fontSize: '10.5px', color: lr.gapReason ? '#81C784' : '#FF8A80' }}>
                           {lr.gapReason ? `📝 ${lr.gapReason}` : '🚨 소명 사유 미제출'}
@@ -949,17 +983,25 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                             type="button"
                             onClick={() => handleOpenClarificationModal(lr)}
                             style={{
-                              background: 'rgba(255, 59, 48, 0.2)',
-                              border: '1px solid #FF3B30',
-                              color: '#FF8A80',
-                              fontSize: '10.5px',
-                              fontWeight: 800,
-                              padding: '3px 7px',
-                              borderRadius: '5px',
-                              cursor: 'pointer'
+                              background: 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
+                              border: '1px solid #F87171',
+                              color: '#FFFFFF',
+                              fontSize: '11px',
+                              fontWeight: 900,
+                              padding: '4px 10px',
+                              borderRadius: '7px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              lineHeight: 1.2,
+                              boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)',
+                              minWidth: '60px'
                             }}
                           >
-                            소명 요청
+                            <span style={{ fontSize: '11px', fontWeight: 900 }}>📢 소명</span>
+                            <span style={{ fontSize: '9.5px', fontWeight: 800, color: '#FEE2E2' }}>요청 ➔</span>
                           </button>
                           <button
                             type="button"

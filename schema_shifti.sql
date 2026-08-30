@@ -12,7 +12,10 @@ CREATE TABLE IF NOT EXISTS companies (
     company_type TEXT CHECK(company_type IN ('SHINHAN_DS', 'PARTNER', 'SUB_CONTRACTOR')) NOT NULL DEFAULT 'PARTNER',
     contact_person TEXT,
     contact_phone TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT DEFAULT 'SYSTEM',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by TEXT DEFAULT 'SYSTEM'
 );
 
 -- 2. 부서 및 조직 마스터 (Organizations)
@@ -26,7 +29,10 @@ CREATE TABLE IF NOT EXISTS organizations (
     location_name TEXT DEFAULT '파인에비뉴(카드)',
     member_count INTEGER DEFAULT 0,
     description TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT DEFAULT 'SYSTEM',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by TEXT DEFAULT 'SYSTEM'
 );
 
 -- 3. 사용자 마스터 (Users) - seq AUTOINCREMENT 시퀀스 PK
@@ -51,7 +57,9 @@ CREATE TABLE IF NOT EXISTS users (
     is_admin INTEGER DEFAULT 0,
     device_type TEXT DEFAULT 'Android',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_by TEXT DEFAULT 'SYSTEM',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by TEXT DEFAULT 'SYSTEM'
 );
 
 -- 4. 2FA 이메일 OTP 인증 테이블 (OTP Verifications)
@@ -64,7 +72,10 @@ CREATE TABLE IF NOT EXISTS otp_verifications (
     is_verified INTEGER DEFAULT 0,
     verified_at DATETIME,
     ip_address TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT DEFAULT 'SYSTEM',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by TEXT DEFAULT 'SYSTEM'
 );
 
 -- 5. 로그인 이력 및 감사 로그 (Login History)
@@ -77,7 +88,11 @@ CREATE TABLE IF NOT EXISTS login_history (
     status TEXT CHECK(status IN ('SUCCESS', 'FAILURE')) NOT NULL,
     login_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     reg_dt DATETIME DEFAULT CURRENT_TIMESTAMP,
-    mod_dt DATETIME DEFAULT CURRENT_TIMESTAMP
+    mod_dt DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT DEFAULT 'SYSTEM',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by TEXT DEFAULT 'SYSTEM'
 );
 
 -- 6. 일별 출퇴근 타임로그 (Commute Logs)
@@ -95,6 +110,9 @@ CREATE TABLE IF NOT EXISTS commute_logs (
     total_work_minutes INTEGER DEFAULT 0,
     is_manual_corrected INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT DEFAULT 'SYSTEM',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by TEXT DEFAULT 'SYSTEM',
     UNIQUE(employee_id, work_date)
 );
 
@@ -111,6 +129,9 @@ CREATE TABLE IF NOT EXISTS work_schedules (
     title TEXT,
     is_vacation INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT DEFAULT 'SYSTEM',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by TEXT DEFAULT 'SYSTEM',
     UNIQUE(employee_id, schedule_date)
 );
 
@@ -134,7 +155,10 @@ CREATE TABLE IF NOT EXISTS attendance_requests (
     approver_name TEXT,
     review_comment TEXT,
     reviewed_at DATETIME,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT DEFAULT 'SYSTEM',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by TEXT DEFAULT 'SYSTEM'
 );
 
 -- 9. 주간 52시간 근태 통계 (Weekly Work Stats)
@@ -149,7 +173,10 @@ CREATE TABLE IF NOT EXISTS weekly_work_stats (
     holiday_minutes INTEGER DEFAULT 0,
     total_work_minutes INTEGER DEFAULT 0,
     remaining_limit_minutes INTEGER DEFAULT 3120,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT DEFAULT 'SYSTEM',
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by TEXT DEFAULT 'SYSTEM',
     UNIQUE(employee_id, week_start_date)
 );
 
@@ -166,7 +193,10 @@ CREATE TABLE IF NOT EXISTS service_delivery_inspections (
     inspection_status TEXT CHECK(inspection_status IN ('SUBMITTED', 'INSPECTED_ACCEPTED', 'REVISION_REQUESTED')) DEFAULT 'SUBMITTED',
     inspection_notes TEXT,
     inspected_at DATETIME,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT DEFAULT 'SYSTEM',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by TEXT DEFAULT 'SYSTEM'
 );
 
 -- 11. 도급 인력 일별 투입 실적 (Manpower Inputs)
@@ -188,6 +218,10 @@ CREATE TABLE IF NOT EXISTS manpower_inputs (
     gap_reason TEXT,
     partner_clarification TEXT,
     verification_status TEXT CHECK(verification_status IN ('AUTO_SETTLED', 'PENDING_EXCEPTION_REVIEW', 'SETTLED_BY_PRINCIPAL', 'EXCLUDED_FROM_SLA')) DEFAULT 'AUTO_SETTLED',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT DEFAULT 'SYSTEM',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by TEXT DEFAULT 'SYSTEM',
     reg_id TEXT DEFAULT 'SYSTEM',
     reg_dt DATETIME DEFAULT CURRENT_TIMESTAMP,
     mod_id TEXT,
@@ -205,7 +239,10 @@ CREATE TABLE IF NOT EXISTS audit_trails (
     action TEXT NOT NULL,
     system_label TEXT DEFAULT '도급 계약 이행 확인',
     details TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT DEFAULT 'SYSTEM',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by TEXT DEFAULT 'SYSTEM'
 );
 
 -- 13. SLA 위반 소명 요청 및 공식 회신 (SLA Clarifications)
@@ -220,7 +257,10 @@ CREATE TABLE IF NOT EXISTS sla_clarifications (
     status TEXT CHECK(status IN ('REQUESTED', 'ANSWERED', 'ACCEPTED')) DEFAULT 'REQUESTED',
     answer_content TEXT,
     answered_at DATETIME,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT DEFAULT 'SYSTEM',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by TEXT DEFAULT 'SYSTEM'
 );
 
 -- 14. 사전 인력 결손 통보 (Pre Gap Notices)
@@ -236,7 +276,10 @@ CREATE TABLE IF NOT EXISTS pre_gap_notices (
     status TEXT CHECK(status IN ('DISPATCHED', 'ACKNOWLEDGED')) DEFAULT 'DISPATCHED',
     acknowledged_by TEXT,
     acknowledged_at DATETIME,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT DEFAULT 'SYSTEM',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by TEXT DEFAULT 'SYSTEM'
 );
 
 -- 인덱스
@@ -250,16 +293,16 @@ CREATE INDEX IF NOT EXISTS idx_manpower_emp_date ON manpower_inputs(employee_id,
 
 -- 기본 사용자 시드 데이터 (조경훈, 송무준, 최영호, 정진우)
 INSERT OR IGNORE INTO users 
-(employee_id, name, email, phone, company, team, part, position, role, is_partner_manager, password_hash, status, is_active, is_admin)
+(employee_id, name, email, phone, company, team, part, position, role, is_partner_manager, password_hash, status, is_active, is_admin, created_at, updated_at, created_by, updated_by)
 VALUES
-('S01832', '조경훈', 'khcho0421@gmail.com', '010-4421-8890', '신한DS', '카드개발팀', '카드IS (Part 1)', '부장', 'DS_PRINCIPAL_PM', 0, '508e0f015dfd0be0173f9467bd2c2759:0dd73955f29d16fd97b5655229a3c40dd5237be4b671b360a4beacefb8d419e5', 'ACTIVE', 1, 1),
-('UB0001', '송무준', 'moojun.song@ubgot.co.kr', '010-4732-8880', '유브갓', '상담운영팀', '상담', '선임', 'PARTNER_WORKER', 0, '••••••••', 'ACTIVE', 1, 0),
-('MGRUB1', '최영호', 'ceo.choi@ubgot.co.kr', '010-8888-9999', '유브갓', '영업총괄팀', '전사총괄', '대표', 'PARTNER_PART_LEADER', 1, '••••••••', 'ACTIVE', 1, 0),
-('MGRIT1', '정진우', 'jw.jung@partner-its.co.kr', '010-5555-1234', '(주)협력아이티에스', '영업총괄팀', '전사총괄', '부사장', 'PARTNER_PART_LEADER', 1, '••••••••', 'ACTIVE', 1, 0);
+('S01832', '조경훈', 'khcho0421@gmail.com', '010-4421-8890', '신한DS', '카드개발팀', '카드IS (Part 1)', '부장', 'DS_PRINCIPAL_PM', 0, '508e0f015dfd0be0173f9467bd2c2759:0dd73955f29d16fd97b5655229a3c40dd5237be4b671b360a4beacefb8d419e5', 'ACTIVE', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM'),
+('UB0001', '송무준', 'moojun.song@ubgot.co.kr', '010-4732-8880', '유브갓', '상담운영팀', '상담', '선임', 'PARTNER_WORKER', 0, '••••••••', 'ACTIVE', 1, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM'),
+('MGRUB1', '최영호', 'ceo.choi@ubgot.co.kr', '010-8888-9999', '유브갓', '영업총괄팀', '전사총괄', '대표', 'PARTNER_PART_LEADER', 1, '••••••••', 'ACTIVE', 1, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM'),
+('MGRIT1', '정진우', 'jw.jung@partner-its.co.kr', '010-5555-1234', '(주)협력아이티에스', '영업총괄팀', '전사총괄', '부사장', 'PARTNER_PART_LEADER', 1, '••••••••', 'ACTIVE', 1, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM');
 
 -- 기본 조직 시드 데이터 (신한DS > 카드개발 > 상담)
 INSERT OR REPLACE INTO organizations 
-(id, company_name, team_name, part_name, hierarchy_path, leader_name, location_name, member_count, description)
+(id, company_name, team_name, part_name, hierarchy_path, leader_name, location_name, member_count, description, created_at, updated_at, created_by, updated_by)
 VALUES
-('org-counsel-01', '신한DS', '카드개발', '상담', '신한DS > 카드개발 > 상담', '조경훈', '파인에비뉴(카드)', 4, '상담 시스템 유지 관리');
+('org-counsel-01', '신한DS', '카드개발', '상담', '신한DS > 카드개발 > 상담', '조경훈', '파인에비뉴(카드)', 4, '상담 시스템 유지 관리', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM');
 

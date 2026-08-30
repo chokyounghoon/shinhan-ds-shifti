@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Filter, Calendar, ChevronDown, Send, CheckCircle2, Plane, FileText } from 'lucide-react';
 import { User, DaySchedule } from '../types';
 
@@ -190,14 +190,69 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   onOpenNewScheduleRequest,
   themeMode
 }) => {
-  const isSiteManager = user.role === 'PARTNER_SITE_MANAGER';
-  // 일반 직원은 자기 일정만 보기 강제 (노란봉투법 / 파견법 개인정보 및 노무독립성 철학)
+  const isSiteManager = user.role === 'PARTNER_SITE_MANAGER' || user.role === 'DS_PRINCIPAL_PM';
   const [viewScope, setViewScope] = useState<'my' | 'all'>(isSiteManager ? 'all' : 'my');
   const [searchQuery, setSearchQuery] = useState('');
   const [dateRange, setDateRange] = useState('08.01 - 08.31');
+  const [schedules, setSchedules] = useState<ScheduleEntry[]>(fullTeamScheduleEntries);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  // Cloudflare D1 DB에서 실시간 스케줄 조회
+  const fetchSchedulesFromD1 = async () => {
+    setIsLoading(true);
+    try {
+      const empId = user.employeeId || user.id || 'S01832';
+      const url = isSiteManager && viewScope === 'all' 
+        ? '/api/schedules?month=2026-08' 
+        : `/api/schedules?employee_id=${encodeURIComponent(empId)}&month=2026-08`;
+
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        const rows: any[] = json.data || [];
+        if (rows.length > 0) {
+          const mapped: ScheduleEntry[] = rows.map((r: any) => {
+            const dateStr = r.workDate || '2026-08-30';
+            let label = dateStr;
+            try {
+              const d = new Date(dateStr);
+              const mm = d.getMonth() + 1;
+              const dd = d.getDate();
+              const dow = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()] || '평일';
+              label = `2026년 ${mm}월 ${dd}일, ${dow}`;
+            } catch (_) {}
+
+            return {
+              id: r.id,
+              userId: r.userId,
+              userName: r.userName || user.name || '조경훈',
+              deptName: r.deptName || '카드개발팀',
+              position: r.position || '연구원',
+              workDate: dateStr,
+              dateGroupLabel: label,
+              totalGroupHours: '8시간 0분 (1 M/D)',
+              vacationType: r.vacationType || (r.isVacation ? '휴가' : undefined),
+              startTime: '09:00',
+              endTime: '18:00',
+              isVerified: true
+            };
+          });
+          setSchedules(mapped);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to fetch schedules from D1:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSchedulesFromD1();
+  }, [viewScope, user.employeeId]);
 
   // 권한 및 토글에 따른 일정 필터링
-  const visibleEntries = fullTeamScheduleEntries.filter(entry => {
+  const visibleEntries = schedules.filter(entry => {
     const matchesSearch = entry.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           entry.deptName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           (entry.vacationType && entry.vacationType.includes(searchQuery));
@@ -206,7 +261,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
 
     // 일반 협력직원은 무조건 본인 것만 표출 (철학 준수)
     if (!isSiteManager || viewScope === 'my') {
-      return entry.userId === user.id || entry.userName === '조경훈';
+      return entry.userId === user.id || entry.userName === user.name;
     }
 
     // 현장대리인은 전체 팀원 확인 가능

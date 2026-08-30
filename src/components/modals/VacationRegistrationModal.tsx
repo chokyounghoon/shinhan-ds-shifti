@@ -22,23 +22,62 @@ export const VacationRegistrationModal: React.FC<VacationRegistrationModalProps>
   initialType,
   themeMode
 }) => {
-  const isManager = isManagerMode || currentUser.role === 'PARTNER_PART_LEADER' || (currentUser as any).role === 'PARTNER_MANAGER';
-  const partnerCompany = currentUser.partnerCompany || currentUser.companyName || '유브갓';
+  const isManager = Boolean(isManagerMode);
+  
+  // 협력사명 산출 (신한DS가 원청이므로 협력사는 소속 협력사명으로 명확화)
+  const rawComp = currentUser.partnerCompany || currentUser.companyName || '유브갓';
+  const partnerCompany = rawComp === '신한DS' ? '유브갓' : rawComp;
   
   // 소속 근로자 목록 (관리자 모드용)
   const rosterWorkers = dbService.getManpowerInputs().filter(r => r.partnerCompany === partnerCompany);
   const [selectedWorkerName, setSelectedWorkerName] = useState<string>(
-    isManager ? (rosterWorkers[0]?.workerName || '송무준') : (currentUser.name.split(' ')[0] || '송무준')
+    isManager ? (rosterWorkers[0]?.workerName || currentUser.name) : currentUser.name
   );
 
+  // 오늘 이후 첫 번째 영업일(평일, 월~금) 자동 계산 함수
+  const getNextBusinessDay = (offsetDays: number = 1): string => {
+    const now = new Date();
+    const base = new Date(now);
+    if (base.getFullYear() < 2026) {
+      base.setFullYear(2026, 7, 30); // 2026-08-30 (일) 기준
+    }
+    
+    let target = new Date(base);
+    target.setDate(target.getDate() + offsetDays);
+    
+    // 주말(일: 0, 토: 6) 건너뛰고 가장 빠른 평일로 이동
+    while (target.getDay() === 0 || target.getDay() === 6) {
+      target.setDate(target.getDate() + 1);
+    }
+    
+    const yyyy = target.getFullYear();
+    const mm = String(target.getMonth() + 1).padStart(2, '0');
+    const dd = String(target.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const defaultBizDay = getNextBusinessDay(1); // 다음 영업일 (2026-08-31 월요일)
+
   const [vacationType, setVacationType] = useState<string>(initialType || '연차');
-  const [startDate, setStartDate] = useState<string>('2026-08-17');
-  const [endDate, setEndDate] = useState<string>('2026-08-18');
-  const [reason, setReason] = useState<string>('소속사 복무규정에 따른 하계 정기 연차 휴가 사용');
+  const [startDate, setStartDate] = useState<string>(defaultBizDay);
+  const [endDate, setEndDate] = useState<string>(defaultBizDay);
+  const [reason, setReason] = useState<string>('협력사 복무규정에 따른 하계 정기 연차 휴가 사용');
+
+  // 모달이 열릴 때마다 다음 영업일 및 사용자 이름으로 갱신
+  React.useEffect(() => {
+    if (isOpen) {
+      const bizDay = getNextBusinessDay(1);
+      setStartDate(bizDay);
+      setEndDate(bizDay);
+      if (!isManager) {
+        setSelectedWorkerName(currentUser.name);
+      }
+    }
+  }, [isOpen, isManager, currentUser.name]);
 
   if (!isOpen) return null;
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!startDate || !endDate) {
       alert('일정을 선택해주세요.');
       return;
@@ -51,13 +90,15 @@ export const VacationRegistrationModal: React.FC<VacationRegistrationModalProps>
     const dateRange = startDate === endDate ? startDate : `${startDate} ~ ${endDate}`;
     const daysCount = startDate === endDate ? 1 : 2;
     const hours = vacationType.includes('반차') ? 4 : daysCount * 8;
+    const targetWorker = isManager ? selectedWorkerName : currentUser.name;
+    const empId = currentUser.employeeId || currentUser.id || 'UB0001';
 
     if (isManager) {
       // 1. [협력사 관리자 모드]: 원청(신한DS PM) 앞 투입 공백 사전 통보 공문 발송
       dbService.dispatchPreGapNotice({
         partnerCompany: partnerCompany,
-        workerName: selectedWorkerName,
-        partName: '상담',
+        workerName: targetWorker,
+        partName: currentUser.partName || '상담',
         gapPeriod: dateRange,
         gapHours: hours,
         gapType: `${vacationType} (자체승인)`,
@@ -66,14 +107,14 @@ export const VacationRegistrationModal: React.FC<VacationRegistrationModalProps>
 
       // D1 DB attendance_requests 테이블로 실시간 POST
       const reqId = `req-gap-${Date.now()}`;
-      const empId = currentUser.employeeId || currentUser.id || 'S01832';
-      fetch('/api/attendance/request', {
+      fetch('/api/attendance/requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: reqId,
           employee_id: empId,
           user_id: empId,
+          user_name: targetWorker,
           request_type: 'VACATION',
           vacation_type: vacationType,
           target_date: dateRange,
@@ -88,52 +129,71 @@ export const VacationRegistrationModal: React.FC<VacationRegistrationModalProps>
       }).catch(e => console.warn('D1 vacation request sync error:', e));
 
       onSuccess(vacationType, dateRange);
-      alert(`📢 [원청 앞 투입 공백 사전 통보 완료]\n• 발신: [${partnerCompany}] 현장관리인 (${currentUser.name.split(' ')[0] || '박영업 대표'})\n• 수신: 신한DS 현장대리인 (PM) 귀하\n• 대상 인력: ${selectedWorkerName} (${dateRange})\n• D1 DB: attendance_requests 테이블에 저장 완료\n\n🛡️ [원청 공정 검수 연동]\n신한DS PM의 대시보드에 공문이 접수되었으며, PM의 '공정 투입 공백 확인(검수)'을 거치게 됩니다.`);
+      alert(`📢 [원청 앞 투입 공백 사전 통보 완료]\n• 발신: [${partnerCompany}] 현장관리인 (${currentUser.name})\n• 수신: 신한DS 현장대리인 (PM) 귀하\n• 대상 인력: ${targetWorker} (${dateRange})\n• D1 DB: attendance_requests 테이블에 저장 완료\n\n🛡️ [원청 공정 검수 연동]\n신한DS PM의 대시보드에 공문이 접수되었으며, PM의 '공정 투입 공백 확인(검수)'을 거치게 됩니다.`);
       onClose();
     } else {
-      // 2. [협력사 개인 모드]: 소속 회사(유브갓) 관리자에게 휴가/부재 신청 제출
+      // 2. [협력사 개인 모드]: 수신: 협력사 관리인, 대상인력: 로그인한 사람(본인)
       const reqId = `req-vac-${Date.now()}`;
-      const empId = currentUser.employeeId || currentUser.id || 'PT20260816';
 
       dbService.addRequest({
         id: reqId,
-        userId: currentUser.id,
-        userName: selectedWorkerName,
+        userId: currentUser.id || empId,
+        userName: targetWorker,
         userDept: currentUser.deptName || '상담팀',
-        partnerApproverName: `${partnerCompany} 현장관리인 (영업대표)`,
+        partnerApproverName: `${partnerCompany} 현장관리인`,
         requestType: 'VACATION',
         targetDate: dateRange,
         timeRange: vacationType.includes('반차') ? '0.5 M/D' : '전일 (1.0 M/D)',
         hours: hours,
         reason: reason,
-        status: 'APPROVED', // 소속사 접수 완료
+        status: 'PENDING', // 1단계: 협력사 현장관리인 1차 결재 대기
         createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        approvalMemo: `소속사(${partnerCompany}) 내부 복무 신청 접수 완료`
+        approvalMemo: `협력사(${partnerCompany}) 내부 복무 신청 접수 (1차 결재 대기)`
       });
 
-      // D1 DB attendance_requests 테이블로 실시간 POST
-      fetch('/api/attendance/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: reqId,
-          employee_id: empId,
-          user_id: empId,
-          request_type: 'VACATION',
-          vacation_type: vacationType,
-          target_date: dateRange,
-          start_date: startDate,
-          end_date: endDate,
-          hours: hours,
-          reason: reason,
-          status: 'APPROVED',
-          partner_company: partnerCompany,
-          approver_name: `${partnerCompany} 현장관리인`
-        })
-      }).catch(e => console.warn('D1 vacation request sync error:', e));
+      // D1 DB attendance_requests 테이블로 실시간 POST (status: PENDING)
+      try {
+        await fetch('/api/attendance/requests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: reqId,
+            employee_id: empId,
+            user_id: empId,
+            user_name: targetWorker,
+            company_name: partnerCompany,
+            request_type: 'VACATION',
+            vacation_type: vacationType,
+            target_date: dateRange,
+            start_date: startDate,
+            end_date: endDate,
+            hours: hours,
+            reason: reason,
+            status: 'PENDING', // 1차 결재 대기
+            partner_company: partnerCompany,
+            approver_name: `${partnerCompany} 현장관리인`
+          })
+        });
+      } catch (e) {
+        console.warn('D1 vacation request sync error:', e);
+      }
+
+      // 🔔 알림센터에 미확인 알림 푸시 (협력사 관리인 앞)
+      dbService.addNotification({
+        type: 'APPROVAL_REQUEST',
+        title: `📢 [결재 요청] ${targetWorker}님 ${vacationType} 신청`,
+        content: `${targetWorker}님이 ${vacationType} (${dateRange}) 결재를 요청했습니다. 협력사 관리인의 1차 승인이 필요합니다.`,
+        targetRole: 'PARTNER_MANAGER',
+        partName: currentUser.partName || '상담'
+      });
+
+      // 화면 전역 실시간 갱신 이벤트 발행
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('attendance_request_updated'));
+      }
 
       onSuccess(vacationType, dateRange);
-      alert(`🎉 [소속사 휴가 신청 접수 완료]\n• 수신: [${partnerCompany}] 현장관리인 (영업대표) 귀하\n• 신청자: ${selectedWorkerName}\n• 일정: ${dateRange} (${vacationType})\n• D1 DB 저장: shifti-db > attendance_requests 테이블에 정상 등록\n\n🛡️ [직접 원청 연락 원천 차단]\n본 신청은 원청(신한DS)이 아닌 소속사(${partnerCompany}) 관리자에게 제출되었습니다. 소속사 승인 후 관리자가 원청에 투입 공백을 공식 통보합니다.`);
+      alert(`🎉 [협력사 관리인 앞 휴가 신청 접수 완료 (1단계)]\n• 발신(신청자): ${targetWorker} (${empId})\n• 수신: [${partnerCompany}] 현장관리인 귀하\n• 대상 인력: ${targetWorker} (${dateRange})\n• 신청 유형: ${vacationType} (${hours}시간)\n• D1 DB: attendance_requests 테이블에 저장 완료 (상태: 1차 결재 대기)\n\n🛡️ [도급 승인 체계 (2단계 프로세스)]\n1. [1차] 협력사 현장관리인이 사유를 검토 후 [1차 승인]을 진행합니다.\n2. [2차] 승인된 공백 내역이 신한DS 현장대리인(PM)에게 전달되어 최종 공정 검수를 거치게 됩니다.`);
       onClose();
     }
   };
@@ -142,9 +202,10 @@ export const VacationRegistrationModal: React.FC<VacationRegistrationModalProps>
     { label: '연차 (전일)', val: '연차', desc: '1.0 M/D 전일 부재' },
     { label: '오전 반차', val: '오전반차', desc: '0.5 M/D 오후 투입 예정' },
     { label: '오후 반차', val: '오후반차', desc: '0.5 M/D 오전 투입 예정' },
-    { label: '체력단련휴가', val: '체력단련휴가', desc: '소속사 유급 특별휴가' },
+    { label: '여름휴가', val: '여름휴가', desc: '하계 정기 휴가 (유급)' },
     { label: '경조사 부재', val: '경조사', desc: '경조사 관련 유급 부재' },
-    { label: '병가 / 공가', val: '병가', desc: '진단서 첨부 및 부재' }
+    { label: '병가 / 공가', val: '병가', desc: '진단서 첨부 및 부재' },
+    { label: '기타 휴가', val: '기타', desc: '기타 협력사 승인 휴가' }
   ];
 
   return (
@@ -193,10 +254,10 @@ export const VacationRegistrationModal: React.FC<VacationRegistrationModalProps>
             </div>
             <div>
               <div style={{ fontSize: '17px', fontWeight: 900, color: '#191F28' }}>
-                {isManager ? '원청 앞 투입 공백 사전 통보 (관리자용)' : '소속사 휴가 / 부재 신청 (근로자용)'}
+                {isManager ? '원청 앞 투입 공백 사전 통보 (관리자용)' : '협력사 관리인 앞 휴가 신청 (근로자용)'}
               </div>
               <div style={{ fontSize: '11.5px', color: '#6B7684' }}>
-                {isManager ? `수급사(${partnerCompany}) ➔ 신한DS PM 공문 발송` : `소속 협력사(${partnerCompany}) 내부 복무 신청서`}
+                {isManager ? `수신: 신한DS 현장대리인 (PM) 귀하` : `수신: [${partnerCompany}] 현장관리인 귀하`}
               </div>
             </div>
           </div>
@@ -236,17 +297,17 @@ export const VacationRegistrationModal: React.FC<VacationRegistrationModalProps>
               color: '#15803D',
               lineHeight: 1.5
             }}>
-              🛡️ <strong>[소속사 내부 신청 원칙]</strong><br />
-              본 신청서는 원청(신한DS)이 아닌 <strong>소속사({partnerCompany}) 현장관리자(영업대표)</strong>에게 제출됩니다. 소속사 승인 후 관리자가 원청에 투입 공백을 공문으로 통보합니다.
+              🛡️ <strong>[협력사 1차 결재 원칙]</strong><br />
+              본 신청서는 원청(신한DS)이 아닌 <strong>소속 협력사({partnerCompany}) 현장관리인</strong>에게 제출됩니다. 협력사 관리인의 1차 승인 후, 신한DS PM에게 공백이 공식 통보(검수 연동)됩니다.
             </div>
           )}
 
-          {/* 대상 인력 선택 (관리자 모드일 때만 드롭다운 표출) */}
-          {isManager && (
-            <div>
-              <label style={{ fontSize: '13px', fontWeight: 800, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                공백 발생 대상 인력 (자사 소속) *
-              </label>
+          {/* 대상 인력 정보 표출 */}
+          <div>
+            <label style={{ fontSize: '13px', fontWeight: 800, color: '#334155', display: 'block', marginBottom: '6px' }}>
+              {isManager ? '공백 발생 대상 인력 (자사 소속) *' : '신청 대상 인력 (로그인 본인) *'}
+            </label>
+            {isManager ? (
               <select
                 value={selectedWorkerName}
                 onChange={e => setSelectedWorkerName(e.target.value)}
@@ -269,8 +330,27 @@ export const VacationRegistrationModal: React.FC<VacationRegistrationModalProps>
                   </option>
                 ))}
               </select>
-            </div>
-          )}
+            ) : (
+              <div style={{
+                height: '42px',
+                border: '1px solid #CBD5E1',
+                borderRadius: '8px',
+                padding: '0 12px',
+                fontSize: '13.5px',
+                fontWeight: 700,
+                color: '#1E293B',
+                background: '#F8FAFC',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}>
+                <span>{currentUser.name} ({currentUser.employeeId || 'PT20260816'})</span>
+                <span style={{ fontSize: '11px', background: '#E2E8F0', padding: '2px 8px', borderRadius: '4px', color: '#475569' }}>
+                  {partnerCompany} 소속
+                </span>
+              </div>
+            )}
+          </div>
 
           {/* 휴가/공백 유형 선택 */}
           <div>
@@ -367,14 +447,14 @@ export const VacationRegistrationModal: React.FC<VacationRegistrationModalProps>
                 <div style={{ fontWeight: 800, color: '#0052FF', marginBottom: '4px' }}>
                   [수신: 신한DS 현장대리인(PM) 귀하]
                 </div>
-                "본 협력사(<strong>{partnerCompany}</strong>) 소속 <strong>{selectedWorkerName}</strong> 직원이 <strong>{startDate} ~ {endDate}</strong> 기간 동안 개인 사정(<strong>{vacationType}</strong>)으로 도급 투입 불가(공백 발생)함을 사전 통보합니다."
+                "본 협력사(<strong>{partnerCompany === '신한DS' ? '협력사' : partnerCompany}</strong>) 소속 <strong>{selectedWorkerName}</strong> 직원이 <strong>{startDate} ~ {endDate}</strong> 기간 동안 개인 사정(<strong>{vacationType}</strong>)으로 도급 투입 불가(공백 발생)함을 사전 통보합니다."
               </>
             ) : (
               <>
                 <div style={{ fontWeight: 800, color: '#16A34A', marginBottom: '4px' }}>
-                  [수신: {partnerCompany} 현장관리인 (영업대표) 귀하]
+                  [수신 : 협력사 관리인 귀하]
                 </div>
-                "소속사(<strong>{partnerCompany}</strong>) 복무규정에 따라 <strong>{startDate} ~ {endDate}</strong> 기간 <strong>{vacationType}</strong> 사용을 신청합니다."
+                "협력사 복무규정에 따라 <strong>{startDate} ~ {endDate}</strong> 기간 <strong>{vacationType}</strong> 사용을 신청합니다."
               </>
             )}
           </div>
@@ -388,7 +468,7 @@ export const VacationRegistrationModal: React.FC<VacationRegistrationModalProps>
               type="text"
               value={reason}
               onChange={e => setReason(e.target.value)}
-              placeholder={isManager ? '공백 사유 입력' : '소속사 제출용 사유 입력'}
+              placeholder={isManager ? '공백 사유 입력' : '협력사 관리인 제출용 사유 입력'}
               style={{
                 width: '100%',
                 height: '40px',
@@ -455,7 +535,7 @@ export const VacationRegistrationModal: React.FC<VacationRegistrationModalProps>
             }}
           >
             {isManager ? <Send size={17} /> : <CheckCircle2 size={17} />}
-            <span>{isManager ? '원청 앞 공백 통보서 발송' : `소속사(${partnerCompany})에 신청서 제출`}</span>
+            <span>{isManager ? '원청 앞 공백 통보서 발송' : '협력사 관리인에게 신청서 제출 (1차 결재)'}</span>
           </button>
         </div>
       </div>

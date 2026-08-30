@@ -83,8 +83,17 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
   const [selectedIncidentForModal, setSelectedIncidentForModal] = useState<UnclarifiedIncident | null>(null);
   const [isClarificationModalOpen, setIsClarificationModalOpen] = useState(false);
 
-  const pendingRequests = requestList.filter(r => (r.status as any) === 'PENDING' || (r.status as any) === 'PENDING_PARTNER' || (r.status as any) === 'PENDING_DS');
-  const completedRequests = requestList.filter(r => r.status === 'APPROVED' || r.status === 'REJECTED');
+  const currentEmpId = (empId || currentUser?.id || '').toUpperCase().trim();
+  const currentUserName = (currentUser?.name || '').trim();
+
+  const isMyRequest = (r: AttendanceRequest) => {
+    const rUserId = (r.userId || (r as any).employeeId || '').toUpperCase().trim();
+    const rName = (r.userName || '').trim();
+    return rUserId === currentEmpId || (currentUserName && rName === currentUserName);
+  };
+
+  const pendingRequests = requestList.filter(r => isMyRequest(r) && ((r.status as any) === 'PENDING' || (r.status as any) === 'PENDING_PARTNER' || (r.status as any) === 'PENDING_DS'));
+  const completedRequests = requestList.filter(r => isMyRequest(r) && (r.status === 'APPROVED' || r.status === 'REJECTED'));
 
   // D1 소명 상태 → 표시용 레이블 변환
   const getClarStatusLabel = (status: string) => {
@@ -441,45 +450,93 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
             )}
 
             {/* 기존 requestList (비소명 요청) */}
-            {pendingRequests.filter(r => !(r as any).incidentType).map(req => (
-              <div
-                key={req.id}
-                style={{
-                  border: '1px solid #ECEFF2',
-                  borderRadius: '12px',
-                  padding: '14px 16px',
-                  marginBottom: '10px',
-                  background: '#FFFFFF',
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.03)'
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                  <span style={{ fontSize: '14px', fontWeight: 800, color: '#191F28' }}>
-                    {(req as any).title || (req.requestType === 'VACATION' ? '투입 공백 사전 통보' : req.requestType === 'OVERTIME' ? '연장 투입' : '근무 일정')}
-                  </span>
-                  <span style={{
-                    fontSize: '11px',
-                    padding: '2px 8px',
+            {pendingRequests.filter(r => !(r as any).incidentType).map(req => {
+              const isPending1 = (req.status as any) === 'PENDING';
+              const isPendingDs = (req.status as any) === 'PENDING_DS';
+              const isApproved = req.status === 'APPROVED';
+              const isRejected = req.status === 'REJECTED';
+
+              return (
+                <div
+                  key={req.id}
+                  style={{
+                    border: '1px solid #ECEFF2',
                     borderRadius: '12px',
-                    fontWeight: 700,
-                    background: '#EFF6FF',
-                    color: '#0052FF'
+                    padding: '14px 16px',
+                    marginBottom: '10px',
+                    background: '#FFFFFF',
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.03)'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: 800, color: '#191F28' }}>
+                      {(req as any).title || (req.requestType === 'VACATION' ? '투입 공백 사전 통보' : req.requestType === 'OVERTIME' ? '연장 투입' : '근무 일정')}
+                    </span>
+                    <span style={{
+                      fontSize: '11px',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      fontWeight: 700,
+                      background: isPending1 ? '#FEF3C7' : isPendingDs ? '#EFF6FF' : isApproved ? '#DCFCE7' : '#FEE2E2',
+                      color: isPending1 ? '#B45309' : isPendingDs ? '#2563EB' : isApproved ? '#16A34A' : '#DC2626'
+                    }}>
+                      {isPending1 ? '1단계: 협력사 검토중' : isPendingDs ? '2단계: DS 공정검수 대기' : isApproved ? '최종 승인 완료' : '반려'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#4E5968', fontWeight: 600 }}>
+                    대상 일자: {req.targetDate} {req.startTime ? `(${req.startTime})` : ''}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#64748B', marginTop: '6px', background: '#F8FAFC', padding: '6px 10px', borderRadius: '6px' }}>
+                    <strong>사유:</strong> {req.reason}
+                  </div>
+
+                  {/* 3단계 스텝 게이지 */}
+                  <div style={{
+                    marginTop: '10px',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: '4px'
                   }}>
-                    검토 중
-                  </span>
+                    <div style={{
+                      padding: '4px 2px',
+                      borderRadius: '4px',
+                      background: isPending1 ? '#FEF3C7' : '#DCFCE7',
+                      border: isPending1 ? '1px solid #F59E0B' : '1px solid #86EFAC',
+                      textAlign: 'center',
+                      fontSize: '10px',
+                      fontWeight: 800,
+                      color: isPending1 ? '#B45309' : '#16A34A'
+                    }}>
+                      ① 협력사 {isPending1 ? '검토중' : '승인✓'}
+                    </div>
+                    <div style={{
+                      padding: '4px 2px',
+                      borderRadius: '4px',
+                      background: isPendingDs ? '#EFF6FF' : isApproved ? '#DCFCE7' : '#F8FAFC',
+                      border: isPendingDs ? '1px solid #3B82F6' : isApproved ? '1px solid #86EFAC' : '1px solid #E2E8F0',
+                      textAlign: 'center',
+                      fontSize: '10px',
+                      fontWeight: 800,
+                      color: isPendingDs ? '#2563EB' : isApproved ? '#16A34A' : '#94A3B8'
+                    }}>
+                      ② 원청DS {isPendingDs ? '검수중' : isApproved ? '검수완료✓' : '대기'}
+                    </div>
+                    <div style={{
+                      padding: '4px 2px',
+                      borderRadius: '4px',
+                      background: isApproved ? '#DCFCE7' : isRejected ? '#FEE2E2' : '#F8FAFC',
+                      border: isApproved ? '1px solid #16A34A' : isRejected ? '1px solid #EF4444' : '1px solid #E2E8F0',
+                      textAlign: 'center',
+                      fontSize: '10px',
+                      fontWeight: 800,
+                      color: isApproved ? '#16A34A' : isRejected ? '#DC2626' : '#94A3B8'
+                    }}>
+                      ③ {isApproved ? '승인완료✓' : isRejected ? '반려' : '확정'}
+                    </div>
+                  </div>
                 </div>
-                <div style={{ fontSize: '13px', color: '#4E5968', fontWeight: 600 }}>
-                  대상 일자: {req.targetDate} {req.startTime ? `(${req.startTime})` : ''}
-                </div>
-                <div style={{ fontSize: '12px', color: '#64748B', marginTop: '6px', background: '#F8FAFC', padding: '6px 10px', borderRadius: '6px' }}>
-                  <strong>사유:</strong> {req.reason}
-                </div>
-                <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <ShieldCheck size={12} color="#16A34A" />
-                  <span>결재선: {(req as any).approverName || '소속사 현장대리인'} (원청 비개입 원칙)</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
 
             {d1Clarifications.length === 0 && pendingRequests.length === 0 && (
               <div style={{ textAlign: 'center', padding: '40px 0', color: '#94A3B8', fontSize: '13px' }}>

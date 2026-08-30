@@ -1,7 +1,6 @@
 -- ============================================================
 -- S-GUARD AI & SHINHAN DS 도급 인력 투입 및 공정 검수 통합 DB DDL
 -- Target DB : Cloudflare D1 / SQLite 3 Compatible
--- Reference: /Users/khcho/work_antigravity/s_guard_AI/workers/sms-api/schema.sql
 -- ============================================================
 
 -- 1. 조직 체계 마스터 (Organizations)
@@ -12,6 +11,10 @@ CREATE TABLE IF NOT EXISTS organizations (
     parent_id   INTEGER,                               -- 상위 조직 ID (팀 -> 파트)
     depth       INTEGER DEFAULT 1,                     -- 깊이 (1: 본부/팀, 2: 파트)
     sort_order  INTEGER DEFAULT 0,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by  TEXT DEFAULT 'SYSTEM',
+    updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by  TEXT DEFAULT 'SYSTEM',
     reg_id      TEXT DEFAULT 'SYSTEM',
     reg_dt      DATETIME DEFAULT CURRENT_TIMESTAMP,
     mod_id      TEXT DEFAULT 'SYSTEM',
@@ -20,7 +23,7 @@ CREATE TABLE IF NOT EXISTS organizations (
 );
 CREATE INDEX IF NOT EXISTS idx_org_parent ON organizations(parent_id);
 
--- 2. 사용자 마스터 (Users - s_guard_AI 완벽 호환)
+-- 2. 사용자 마스터 (Users)
 CREATE TABLE IF NOT EXISTS users (
     employee_id     TEXT PRIMARY KEY,                  -- 사번 (e.g. S18121020, S20240012, S20260031)
     email           TEXT UNIQUE NOT NULL,              -- OTP 인증용 퍼블릭 이메일 (구글, 네이버 등)
@@ -38,6 +41,9 @@ CREATE TABLE IF NOT EXISTS users (
     failed_attempts INTEGER DEFAULT 0,
     last_login_at   DATETIME,
     created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by      TEXT DEFAULT 'SYSTEM',
+    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by      TEXT DEFAULT 'SYSTEM',
     is_active       BOOLEAN DEFAULT 1,
     is_admin        INTEGER DEFAULT 0,
     device_type     TEXT DEFAULT 'Android',            -- Android / iOS
@@ -51,7 +57,7 @@ CREATE INDEX IF NOT EXISTS idx_users_part ON users(part);
 CREATE INDEX IF NOT EXISTS idx_users_company ON users(company);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
--- 3. OTP 인증 및 발송 이력 (OTP Verifications - s_guard_AI 호환)
+-- 3. OTP 인증 및 발송 이력 (OTP Verifications)
 CREATE TABLE IF NOT EXISTS otp_verifications (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     employee_id     TEXT NOT NULL,
@@ -63,13 +69,17 @@ CREATE TABLE IF NOT EXISTS otp_verifications (
     attempts        INTEGER DEFAULT 0,
     ip_address      TEXT DEFAULT '127.0.0.1',
     user_agent      TEXT,
+    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by      TEXT DEFAULT 'SYSTEM',
+    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by      TEXT DEFAULT 'SYSTEM',
     reg_id          TEXT DEFAULT 'SYSTEM',
     reg_dt          DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(employee_id) REFERENCES users(employee_id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_otp_emp ON otp_verifications(employee_id, is_verified);
 
--- 4. 로그인 접속 이력 (Login History - s_guard_AI 호환)
+-- 4. 로그인 접속 이력 (Login History)
 CREATE TABLE IF NOT EXISTS login_history (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id         TEXT NOT NULL,
@@ -78,6 +88,10 @@ CREATE TABLE IF NOT EXISTS login_history (
     user_agent      TEXT,
     status          TEXT NOT NULL,                     -- SUCCESS / FAILED
     login_time      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by      TEXT DEFAULT 'SYSTEM',
+    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by      TEXT DEFAULT 'SYSTEM',
     reg_id          TEXT DEFAULT 'SYSTEM',
     reg_dt          DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(user_id) REFERENCES users(employee_id) ON DELETE CASCADE
@@ -102,6 +116,10 @@ CREATE TABLE IF NOT EXISTS manpower_inputs (
     gap_reason            TEXT,                        -- 공백 사유
     partner_clarification TEXT,                        -- 협력사 1차 소명 내용
     verification_status   TEXT NOT NULL DEFAULT 'UNVERIFIED' CHECK (verification_status IN ('UNVERIFIED', 'PARTNER_CONFIRMED', 'SETTLED', 'VARIANCE_GAP')),
+    created_at            DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by            TEXT DEFAULT 'SYSTEM',
+    updated_at            DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by            TEXT DEFAULT 'SYSTEM',
     reg_id                TEXT DEFAULT 'SYSTEM',
     reg_dt                DATETIME DEFAULT CURRENT_TIMESTAMP,
     mod_id                TEXT DEFAULT 'SYSTEM',
@@ -111,7 +129,7 @@ CREATE TABLE IF NOT EXISTS manpower_inputs (
 CREATE INDEX IF NOT EXISTS idx_manpower_part_dt ON manpower_inputs(part_name, work_date);
 CREATE INDEX IF NOT EXISTS idx_manpower_status ON manpower_inputs(verification_status);
 
--- 6. 검수 및 정산 감사 이력 테이블 (Audit Trails - s_guard_AI 호환)
+-- 6. 검수 및 정산 감사 이력 테이블 (Audit Trails)
 CREATE TABLE IF NOT EXISTS audit_trails (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     record_id       TEXT NOT NULL,
@@ -121,6 +139,9 @@ CREATE TABLE IF NOT EXISTS audit_trails (
     action          TEXT NOT NULL,                     -- 1차 사실확인 / 정산확정 / 소명요구 등
     details         TEXT NOT NULL,
     created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by      TEXT DEFAULT 'SYSTEM',
+    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by      TEXT DEFAULT 'SYSTEM',
     reg_id          TEXT DEFAULT 'SYSTEM',
     reg_dt          DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(record_id) REFERENCES manpower_inputs(record_id) ON DELETE CASCADE
@@ -139,6 +160,9 @@ CREATE TABLE IF NOT EXISTS sla_clarifications (
     status          TEXT NOT NULL DEFAULT 'REQUESTED' CHECK (status IN ('REQUESTED', 'ANSWERED', 'ACCEPTED')),
     answer_content  TEXT,
     created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by      TEXT DEFAULT 'SYSTEM',
+    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by      TEXT DEFAULT 'SYSTEM',
     reg_id          TEXT DEFAULT 'SYSTEM',
     reg_dt          DATETIME DEFAULT CURRENT_TIMESTAMP,
     mod_id          TEXT DEFAULT 'SYSTEM',
@@ -150,13 +174,14 @@ CREATE TABLE IF NOT EXISTS sla_clarifications (
 -- 초기 마스터 시드 데이터 (Organizations & Users)
 -- ============================================================
 
-INSERT OR REPLACE INTO organizations (id, name, code, parent_id, depth, sort_order) VALUES
-(1, '상담운영팀', 'TEAM_COUNSEL', NULL, 1, 1),
-(2, '오토금융팀', 'TEAM_AUTO',    NULL, 1, 2),
-(3, '재무정산팀', 'TEAM_FINANCE', NULL, 1, 3),
-(4, '상담',       'PART_COUNSEL', 1,    2, 1),
-(5, '오토',       'PART_AUTO',    2,    2, 2),
-(6, '재무',       'PART_FINANCE', 3,    2, 3);
+INSERT OR REPLACE INTO organizations (id, name, code, parent_id, depth, sort_order, created_at, updated_at, created_by, updated_by) VALUES
+(1, '상담운영팀', 'TEAM_COUNSEL', NULL, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM'),
+(2, '오토금융팀', 'TEAM_AUTO',    NULL, 1, 2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM'),
+(3, '재무정산팀', 'TEAM_FINANCE', NULL, 1, 3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM'),
+(4, '상담',       'PART_COUNSEL', 1,    2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM'),
+(5, '오토',       'PART_AUTO',    2,    2, 2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM'),
+(6, '재무',       'PART_FINANCE', 3,    2, 3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM');
+
 
 INSERT OR REPLACE INTO users (
     employee_id, email, name, password_hash, role, company, phone, team, part, position, status, is_active, is_admin, device_type

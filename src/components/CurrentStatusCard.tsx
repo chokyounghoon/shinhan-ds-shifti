@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Info, RotateCw, ChevronRight, ChevronLeft, Calendar, ShieldCheck, CheckCircle2, FileCheck, Clock } from 'lucide-react';
+import { Info, RotateCw, ChevronRight, ChevronLeft, Calendar, ShieldCheck, CheckCircle2, FileCheck, Clock, Palmtree, AlertTriangle, FileText, X } from 'lucide-react';
 import { WeeklyWorkStat } from '../types';
 import { dbService } from '../services/db';
+import { VacationRegistrationModal } from './modals/VacationRegistrationModal';
+import { SubmitClarificationModal } from './modals/SubmitClarificationModal';
 
 interface CurrentStatusCardProps {
   stats: WeeklyWorkStat;
@@ -25,6 +27,11 @@ export const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
   const [currentMonth, setCurrentMonth] = useState<number>(realMonth);
   const [selectedDay, setSelectedDay] = useState<number>(realDay);
   const [isSpinning, setIsSpinning] = useState(false);
+
+  // 날짜 관리 모달 상태
+  const [isVacationModalOpen, setIsVacationModalOpen] = useState(false);
+  const [isClarificationModalOpen, setIsClarificationModalOpen] = useState(false);
+  const [isDayActionModalOpen, setIsDayActionModalOpen] = useState(false);
   const [punchedDates, setPunchedDates] = useState<Record<number, { time: string; status: string; hours: number }>>({
     3: { time: '08:50', status: 'NORMAL', hours: 8 },
     4: { time: '08:45', status: 'NORMAL', hours: 8 },
@@ -361,54 +368,117 @@ export const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
         })}
       </div>
 
-      {/* 5. 선택 일자 상세 투입 정보 툴팁 카드 */}
+      {/* 5. 선택 일자 상세 투입 정보 및 휴가/소명 관리 액션 바 */}
       <div style={{
         marginTop: '12px',
-        background: '#F8F9FA',
-        borderRadius: '10px',
-        padding: '10px 14px',
-        border: '1px solid #ECEFF2',
+        background: '#F8FAFC',
+        borderRadius: '12px',
+        padding: '12px 14px',
+        border: '1.5px solid #E2E8F0',
         display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
+        flexDirection: 'column',
+        gap: '10px'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Clock size={15} color="#0052FF" />
-          <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#191F28' }}>
-            8월 {selectedDay}일 도급 투입 실적:
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Clock size={15} color="#0052FF" />
+            <div style={{ fontSize: '13px', fontWeight: 900, color: '#191F28' }}>
+              {currentMonth}월 {selectedDay}일 도급 투입 실적
+            </div>
+          </div>
+
+          <div style={{ fontSize: '12px', fontWeight: 800 }}>
             {selectedDay === 18 ? (
-              <span style={{ color: '#D97706', marginLeft: '6px' }}>소속사 연차 휴가 (1 M/D 공백 통보완료)</span>
+              <span style={{ color: '#D97706', background: '#FEF3C7', padding: '2px 8px', borderRadius: '6px' }}>
+                🏖️ 연차 휴가 (1 M/D 인정)
+              </span>
             ) : punchedDates[selectedDay] ? (
-              <span style={{ color: '#16A34A', marginLeft: '6px' }}>
-                1 M/D (8.0h) 정상 투입 확정 ({punchedDates[selectedDay].time} 파인에비뉴)
+              <span style={{ color: '#16A34A', background: '#DCFCE7', padding: '2px 8px', borderRadius: '6px' }}>
+                ✓ 8.0h 정상 투입 ({punchedDates[selectedDay].time})
               </span>
             ) : (selectedDay % 7 === 1 || selectedDay % 7 === 2) ? (
-              <span style={{ color: '#64748B', marginLeft: '6px' }}>주말 정기 휴무</span>
+              <span style={{ color: '#64748B', background: '#F1F5F9', padding: '2px 8px', borderRadius: '6px' }}>
+                주말 휴무
+              </span>
             ) : (
-              <span style={{ color: '#64748B', marginLeft: '6px' }}>투입 예정 (정규 8.0h)</span>
+              <span style={{ color: '#0052FF', background: '#EFF6FF', padding: '2px 8px', borderRadius: '6px' }}>
+                투입 예정 (8.0h)
+              </span>
             )}
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={onOpenDetail}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#0052FF',
-            fontWeight: 800,
-            fontSize: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            cursor: 'pointer',
-            padding: 0,
-            whiteSpace: 'nowrap'
-          }}
-        >
-          <span>내역 보기</span>
-          <ChevronRight size={14} />
-        </button>
+        {/* 날짜별 원터치 관리 액션 버튼들 (휴가 신청 / 지각·누락 소명 작성 / 공수 내역) */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginTop: '2px' }}>
+          <button
+            type="button"
+            onClick={() => setIsVacationModalOpen(true)}
+            style={{
+              background: '#EFF6FF',
+              border: '1px solid #BFDBFE',
+              borderRadius: '8px',
+              padding: '8px 4px',
+              fontSize: '11.5px',
+              fontWeight: 800,
+              color: '#0046FF',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <Palmtree size={13} color="#0046FF" />
+            <span>휴가 신청</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsClarificationModalOpen(true)}
+            style={{
+              background: '#FFFBEB',
+              border: '1px solid #FDE68A',
+              borderRadius: '8px',
+              padding: '8px 4px',
+              fontSize: '11.5px',
+              fontWeight: 800,
+              color: '#D97706',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <AlertTriangle size={13} color="#D97706" />
+            <span>소명서 작성</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenDetail}
+            style={{
+              background: '#F1F5F9',
+              border: '1px solid #E2E8F0',
+              borderRadius: '8px',
+              padding: '8px 4px',
+              fontSize: '11.5px',
+              fontWeight: 800,
+              color: '#475569',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <FileText size={13} color="#64748B" />
+            <span>내역 보기</span>
+          </button>
+        </div>
       </div>
 
       {/* 6. 하단 도급비 정산 법적 기준 고지 */}
@@ -423,6 +493,37 @@ export const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
         <span>※ 용역 완성물 및 공수(Man-Hour) 기준 정산</span>
         <span style={{ color: '#16A34A', fontWeight: 700 }}>✓ 독립 노무 관리 준수</span>
       </div>
+
+      {/* 🌟 선택한 날짜 기준 휴가 신청 모달 */}
+      <VacationRegistrationModal
+        isOpen={isVacationModalOpen}
+        onClose={() => setIsVacationModalOpen(false)}
+        themeMode={themeMode}
+        onSuccess={() => {
+          fetchMonthLogs();
+        }}
+      />
+
+      {/* 🌟 선택한 날짜 기준 소명서 작성 모달 */}
+      <SubmitClarificationModal
+        isOpen={isClarificationModalOpen}
+        onClose={() => setIsClarificationModalOpen(false)}
+        incident={{
+          id: `incident-${currentYear}${String(currentMonth).padStart(2, '0')}${String(selectedDay).padStart(2, '0')}`,
+          incidentDate: `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`,
+          type: 'LATE',
+          typeLabel: '지각/출근 누락 소명',
+          delayMinutes: 15,
+          varianceTime: '15분',
+          scheduledTime: '09:00',
+          actualTime: '09:15',
+          defaultReason: '출근 시간대 대중교통 지연으로 인한 일시 투입 지연'
+        }}
+        onClarificationSubmitted={() => {
+          fetchMonthLogs();
+        }}
+        themeMode={themeMode}
+      />
     </div>
   );
 };

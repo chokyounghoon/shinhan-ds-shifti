@@ -938,24 +938,60 @@ export class PureDatabaseEngine {
     return list;
   }
 
+  private requests: AttendanceRequest[] = [
+    {
+      id: 'req-01',
+      userId: 'usr-001',
+      userName: '조경훈',
+      userDept: '카드개발팀',
+      partnerApproverName: '최영호 (유브갓 현장대리인)',
+      requestType: 'VACATION',
+      targetDate: '2026-08-12 ~ 2026-08-14',
+      timeRange: '전일',
+      hours: 24,
+      reason: '하계 정기 연차 휴가 (소속사 복무규정 준수)',
+      status: 'APPROVED',
+      createdAt: '2026-08-01 09:30',
+      approvalMemo: '소속사 현장대리인 승인 완료'
+    }
+  ];
+
   public getRequests(): AttendanceRequest[] {
-    return [
-      {
-        id: 'req-01',
-        userId: 'usr-001',
-        userName: '조경훈',
-        userDept: '카드개발팀',
-        partnerApproverName: '최영호 (유브갓 현장대리인)',
-        requestType: 'VACATION',
-        targetDate: '2026-08-12 ~ 2026-08-14',
-        timeRange: '전일',
-        hours: 24,
-        reason: '하계 정기 연차 휴가 (소속사 복무규정 준수)',
-        status: 'APPROVED',
-        createdAt: '2026-08-01 09:30',
-        approvalMemo: '소속사 현장대리인 승인 완료'
-      }
-    ];
+    return [...this.requests];
+  }
+
+  public addRequest(req: any): void {
+    const fullReq: AttendanceRequest = {
+      id: req.id || `req-${Date.now()}`,
+      userId: req.userId || 'usr-default',
+      userName: req.userName || '신청자',
+      userDept: req.userDept || '소속팀',
+      partnerApproverName: req.partnerApproverName || '현장관리인',
+      requestType: req.requestType || 'VACATION',
+      targetDate: req.targetDate || '2026-08-30',
+      timeRange: req.timeRange || '전일',
+      hours: Number(req.hours) || 8,
+      reason: req.reason || '근태 신청',
+      status: req.status || 'PENDING',
+      createdAt: req.createdAt || new Date().toISOString().replace('T', ' ').substring(0, 16),
+      approvalMemo: req.approvalMemo
+    };
+    this.requests.unshift(fullReq);
+  }
+
+  public updateRequestStatus(id: string, status: 'PENDING' | 'PENDING_DS' | 'APPROVED' | 'REJECTED', memo?: string): void {
+    const idx = this.requests.findIndex(r => r.id === id);
+    if (idx >= 0) {
+      this.requests[idx] = {
+        ...this.requests[idx],
+        status,
+        approvalMemo: memo || this.requests[idx].approvalMemo
+      };
+    }
+  }
+
+  public deleteRequest(id: string): void {
+    this.requests = this.requests.filter(r => r.id !== id);
   }
 
   public getWeeklyStats(): WeeklyWorkStat {
@@ -1080,7 +1116,6 @@ export class PureDatabaseEngine {
   }
 
   public addCommuteLog(type: string, loc: string): void {}
-  public addRequest(req: any): void {}
   public approvePartnerRequest(reqId: string, memo?: string): boolean { return true; }
   public rejectPartnerRequest(reqId: string, memo?: string): boolean { return true; }
 
@@ -1101,7 +1136,7 @@ export class PureDatabaseEngine {
       const res = await fetch(url);
       const json = await safeFetchJson(res);
       if (json && json.data && Array.isArray(json.data)) {
-        this.notifications = json.data.map((row: any) => ({
+        const d1Notis: DbAppNotification[] = json.data.map((row: any) => ({
           id: row.id,
           type: row.type,
           title: row.title,
@@ -1112,6 +1147,16 @@ export class PureDatabaseEngine {
           createdAt: row.created_at,
           linkUrl: row.link_url
         }));
+
+        // 기존 로컬 알림 중 아직 D1에 없는 알림 보존
+        const merged = [...d1Notis];
+        this.notifications.forEach(localNoti => {
+          if (!merged.some(m => m.id === localNoti.id)) {
+            merged.unshift(localNoti);
+          }
+        });
+
+        this.notifications = merged;
         return [...this.notifications];
       }
     } catch (err) {
@@ -1128,6 +1173,48 @@ export class PureDatabaseEngine {
     return this.notifications.filter(n => !n.isRead).length;
   }
 
+  public addNotification(noti: {
+    type?: string;
+    title: string;
+    content: string;
+    targetRole?: string;
+    partName?: string;
+    linkUrl?: string;
+  }): DbAppNotification {
+    const newNoti: DbAppNotification = {
+      id: `noti_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      type: noti.type || 'APPROVAL_REQUEST',
+      title: noti.title,
+      content: noti.content,
+      targetRole: noti.targetRole || 'ALL',
+      partName: noti.partName || '카드개발팀',
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      linkUrl: noti.linkUrl
+    };
+    this.notifications.unshift(newNoti);
+
+    // 서버로도 전송 시도
+    fetch(`${this.API_BASE}/notifications`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: newNoti.type,
+        title: newNoti.title,
+        content: newNoti.content,
+        target_role: newNoti.targetRole,
+        part_name: newNoti.partName,
+        link_url: newNoti.linkUrl
+      })
+    }).catch(() => {});
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('notification_updated'));
+    }
+
+    return newNoti;
+  }
+
   public async markNotificationAsRead(id: string): Promise<void> {
     const item = this.notifications.find(n => n.id === id);
     if (item) {
@@ -1136,6 +1223,9 @@ export class PureDatabaseEngine {
     try {
       await fetch(`${this.API_BASE}/notifications/${id}/read`, { method: 'PUT' });
     } catch (e) {}
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('notification_updated'));
+    }
   }
 
   public async markAllNotificationsAsRead(): Promise<void> {
@@ -1143,6 +1233,9 @@ export class PureDatabaseEngine {
     try {
       await fetch(`${this.API_BASE}/notifications/read-all`, { method: 'PUT' });
     } catch (e) {}
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('notification_updated'));
+    }
   }
 
   public async fetchMessagesFromD1(userRole?: string, partName?: string): Promise<DbAppMessage[]> {
@@ -1225,7 +1318,7 @@ export class PureDatabaseEngine {
 
 export interface DbAppNotification {
   id: string;
-  type: 'SLA_ALERT' | 'GAP_NOTICE' | 'CONTRACT_SETTLE' | 'GENERAL';
+  type: 'SLA_ALERT' | 'GAP_NOTICE' | 'CONTRACT_SETTLE' | 'GENERAL' | 'APPROVAL_REQUEST' | 'INSPECTION_REQUEST' | 'APPROVAL_COMPLETED' | 'REJECTION' | string;
   title: string;
   content: string;
   targetRole: string;

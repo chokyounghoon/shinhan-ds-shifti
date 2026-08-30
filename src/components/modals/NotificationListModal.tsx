@@ -10,6 +10,7 @@ interface NotificationListModalProps {
   onMarkRead: (id: string) => void;
   onMarkAllRead: () => void;
   onNavigate?: (linkUrl?: string) => void;
+  onNavigateNotification?: (noti: DbAppNotification) => void;
   themeMode?: 'ddangyo' | 'shinhan';
 }
 
@@ -20,6 +21,7 @@ export const NotificationListModal: React.FC<NotificationListModalProps> = ({
   onMarkRead,
   onMarkAllRead,
   onNavigate,
+  onNavigateNotification,
   themeMode = 'shinhan'
 }) => {
   const [isYellowEnvelopeModalOpen, setIsYellowEnvelopeModalOpen] = useState(false);
@@ -39,6 +41,16 @@ export const NotificationListModal: React.FC<NotificationListModalProps> = ({
       default:
         return <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#F1F5F9', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Bell size={18} /></div>;
     }
+  };
+
+  const handleItemClick = (noti: DbAppNotification) => {
+    onMarkRead(noti.id);
+    if (onNavigateNotification) {
+      onNavigateNotification(noti);
+    } else if (noti.linkUrl && onNavigate) {
+      onNavigate(noti.linkUrl);
+    }
+    onClose();
   };
 
   return (
@@ -102,7 +114,6 @@ export const NotificationListModal: React.FC<NotificationListModalProps> = ({
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {/* 🛡️ 노란봉투법 버튼 */}
               <button
                 type="button"
                 onClick={() => setIsYellowEnvelopeModalOpen(true)}
@@ -118,11 +129,10 @@ export const NotificationListModal: React.FC<NotificationListModalProps> = ({
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '4px',
-                  boxShadow: '0 1px 3px rgba(245, 158, 11, 0.2)'
+                  gap: '4px'
                 }}
               >
-                <Scale size={13} color="#D97706" />
+                <Scale size={12} />
                 <span>노란봉투법</span>
               </button>
 
@@ -134,28 +144,24 @@ export const NotificationListModal: React.FC<NotificationListModalProps> = ({
                     padding: '5px 8px',
                     borderRadius: '6px',
                     background: '#F1F5F9',
+                    border: 'none',
                     color: '#475569',
                     fontSize: '11px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    border: 'none'
+                    fontWeight: 700,
+                    cursor: 'pointer'
                   }}
                 >
                   모두 읽음
                 </button>
               )}
+
               <button
                 type="button"
                 onClick={onClose}
                 style={{
-                  width: '30px',
-                  height: '30px',
-                  borderRadius: '50%',
-                  background: '#E2E8F0',
+                  background: 'none',
                   border: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  padding: '4px',
                   cursor: 'pointer',
                   color: '#475569'
                 }}
@@ -174,7 +180,6 @@ export const NotificationListModal: React.FC<NotificationListModalProps> = ({
             flexDirection: 'column',
             gap: '10px'
           }}>
-            {/* 🛡️ 상단 고정 노란봉투법 컴플라이언스 배너 알림 */}
             <div
               onClick={() => setIsYellowEnvelopeModalOpen(true)}
               style={{
@@ -220,56 +225,74 @@ export const NotificationListModal: React.FC<NotificationListModalProps> = ({
                 </p>
               </div>
             </div>
-          {notifications.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px 0', color: '#94A3B8' }}>
-              <Bell size={36} strokeWidth={1.5} style={{ margin: '0 auto 10px', display: 'block', opacity: 0.5 }} />
-              <p style={{ margin: 0, fontSize: '13px', fontWeight: 600 }}>수신된 알림이 없습니다.</p>
-            </div>
-          ) : (
-            notifications.map((noti) => (
-              <div
-                key={noti.id}
-                onClick={() => {
-                  onMarkRead(noti.id);
-                  if (noti.linkUrl && onNavigate) {
-                    onNavigate(noti.linkUrl);
-                    onClose();
-                  }
-                }}
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: '14px',
-                  background: noti.isRead ? '#F8FAFC' : '#EFF6FF',
-                  border: noti.isRead ? '1px solid #E2E8F0' : '1px solid #BFDBFE',
-                  display: 'flex',
-                  gap: '12px',
-                  alignItems: 'flex-start',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                {getIcon(noti.type)}
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: noti.isRead ? '#64748B' : '#0052FF' }}>
-                      [{noti.partName} 파트]
-                    </span>
-                    <span style={{ fontSize: '10.5px', color: '#94A3B8' }}>{noti.createdAt}</span>
-                  </div>
-                  <h4 style={{ margin: '0 0 3px', fontSize: '13px', fontWeight: 700, color: '#0F172A' }}>
-                    {noti.title}
-                  </h4>
-                  <p style={{ margin: 0, fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>
-                    {noti.content}
-                  </p>
-                </div>
-                {!noti.isRead && (
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#0052FF', marginTop: '6px' }} />
-                )}
+
+            {notifications.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: '#94A3B8' }}>
+                <Bell size={36} strokeWidth={1.5} style={{ margin: '0 auto 10px', display: 'block', opacity: 0.5 }} />
+                <p style={{ margin: 0, fontSize: '13px', fontWeight: 600 }}>수신된 알림이 없습니다.</p>
               </div>
-            ))
-          )}
-        </div>
+            ) : (
+              notifications.map((noti) => (
+                <div
+                  key={noti.id}
+                  onClick={() => handleItemClick(noti)}
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '14px',
+                    background: noti.isRead ? '#F8FAFC' : '#EFF6FF',
+                    border: noti.isRead ? '1px solid #E2E8F0' : '1px solid #BFDBFE',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                    {getIcon(noti.type)}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: noti.isRead ? '#64748B' : '#0052FF' }}>
+                          [{noti.partName || '도급 관리'} 파트]
+                        </span>
+                        <span style={{ fontSize: '10.5px', color: '#94A3B8' }}>{noti.createdAt}</span>
+                      </div>
+                      <h4 style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 800, color: '#0F172A' }}>
+                        {noti.title}
+                      </h4>
+                      <p style={{ margin: 0, fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>
+                        {noti.content}
+                      </p>
+                    </div>
+                    {!noti.isRead && (
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#0052FF', marginTop: '6px', flexShrink: 0 }} />
+                    )}
+                  </div>
+
+                  {/* 🔗 클릭 유도 액션 버튼 */}
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    alignItems: 'center',
+                    paddingTop: '6px',
+                    borderTop: '1px dashed #E2E8F0',
+                    marginTop: '2px'
+                  }}>
+                    <span style={{
+                      fontSize: '11.5px',
+                      fontWeight: 800,
+                      color: noti.isRead ? '#64748B' : '#0052FF',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '3px'
+                    }}>
+                      👉 해당 관리 화면으로 바로가기 <ChevronRight size={13} />
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
 
         {/* 모달 하단 푸터 */}
         <div style={{ padding: '12px 16px', borderTop: '1px solid #F1F5F9', background: '#FAFAFA', textAlign: 'center' }}>

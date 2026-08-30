@@ -17,17 +17,19 @@ export interface EmployeeManpowerSummary {
 }
 
 interface AttendanceReportViewProps {
-  onBack: () => void;
+  onBack?: () => void;
   themeMode: 'ddangyo' | 'shinhan';
   currentUser?: User;
   onOpenAiStats?: () => void;
+  hideBackBtn?: boolean;
 }
 
 export const AttendanceReportView: React.FC<AttendanceReportViewProps> = ({
   onBack,
   themeMode,
   currentUser = dbService.getCurrentUser(),
-  onOpenAiStats
+  onOpenAiStats,
+  hideBackBtn = false
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [dateRange, setDateRange] = useState('08.01 - 08.31');
@@ -38,6 +40,7 @@ export const AttendanceReportView: React.FC<AttendanceReportViewProps> = ({
   // 역할 판정: 개인 근로자 vs 협력사 관리인/영업대표 vs 원청 PM
   const isIndividual = currentUser.role === 'PARTNER_WORKER' || currentUser.role === 'PARTNER_EMPLOYEE';
   const isPartnerManager = currentUser.role === 'PARTNER_PART_LEADER' || currentUser.role === 'PARTNER_SITE_MANAGER';
+  const isDsPm = currentUser.role === 'DS_PRINCIPAL_PM' || currentUser.role === 'PRINCIPAL_INSPECTOR';
 
   // DB에서 데이터 로드
   const [allInputs, setAllInputs] = useState<DbManpowerInput[]>(dbService.getManpowerInputs());
@@ -108,11 +111,13 @@ export const AttendanceReportView: React.FC<AttendanceReportViewProps> = ({
         background: '#FFFFFF'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <button onClick={onBack} style={{ color: '#191F28', display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer' }}>
-            <ArrowLeft size={24} />
-          </button>
+          {!hideBackBtn && onBack && (
+            <button onClick={onBack} style={{ color: '#191F28', display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer' }}>
+              <ArrowLeft size={24} />
+            </button>
+          )}
           <span style={{ fontSize: '18px', fontWeight: 800, color: '#191F28' }}>
-            {isIndividual ? '내 도급 투입 실적 리포트' : '협력사 소속 인력 도급 리포트'}
+            {isDsPm ? '전 협력사 도급 투입 실적 리포트' : isIndividual ? '내 도급 투입 실적 리포트' : '협력사 소속 인력 도급 리포트'}
           </span>
         </div>
 

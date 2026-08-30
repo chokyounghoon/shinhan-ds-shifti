@@ -23,9 +23,9 @@ export const vacationTypeCategories: VacationTypeCategory[] = [
     ]
   },
   {
-    categoryName: '02. 체력단련휴가',
+    categoryName: '02. 여름휴가',
     items: [
-      { id: 'v-02-1', title: '체력단련휴가 (0h, 1일)', unit: '1일' }
+      { id: 'v-02-1', title: '여름휴가 (0h, 1일)', description: '소속사 하계 정기 유급휴가', unit: '1일' }
     ]
   },
   {
@@ -131,6 +131,13 @@ export const vacationTypeCategories: VacationTypeCategory[] = [
     categoryName: '18. 무급휴가',
     items: [
       { id: 'v-18-1', title: '무급휴가 (0h, 1일)', unit: '1일' }
+    ]
+  },
+  {
+    categoryName: '19. 기타 휴가',
+    items: [
+      { id: 'v-19-1', title: '기타 휴가 (0h, 1일)', description: '기타 소속사 승인 휴가', unit: '1일' },
+      { id: 'v-19-2', title: '기타 반차 (0h, 0.5일)', description: '기타 소속사 승인 반차', unit: '0.5일' }
     ]
   },
   {

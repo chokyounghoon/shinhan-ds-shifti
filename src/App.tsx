@@ -127,7 +127,33 @@ export function App() {
   const [notifications, setNotifications] = useState<DbAppNotification[]>([]);
   const [messagesList, setMessagesList] = useState<DbAppMessage[]>([]);
 
-  const unreadNotificationCount = notifications.filter(n => !n.isRead).length;
+  // 역할별 알림 필터링:
+  // - PARTNER_WORKER(개인): 관리자용 승인 요청(APPROVAL_REQUEST, INSPECTION_REQUEST) 제외, 본인 대상 승인완료/반려/공지만 노출
+  // - PARTNER_PART_LEADER / PARTNER_MANAGER: 협력사 관리자용 알림 (1차 결재 요청 전용)
+  // - DS_PRINCIPAL_PM / DS_DIRECTOR: 원청 DS PM용 알림 (협력사 1차 승인 완료된 공정 검수 통보만 노출, 1차 결재 요청은 절대 차단)
+  const filteredNotifications = notifications.filter(n => {
+    const role = (currentUser?.role as string) || 'PARTNER_WORKER';
+    const targetRole = n.targetRole || (n as any).target_role || 'ALL';
+
+    if (role === 'PARTNER_WORKER' || role === 'PARTNER_EMPLOYEE') {
+      if (targetRole === 'PARTNER_MANAGER' || targetRole === 'PARTNER_PART_LEADER' || targetRole === 'DS_PRINCIPAL_PM') return false;
+      if (n.type === 'APPROVAL_REQUEST' || n.type === 'INSPECTION_REQUEST') return false;
+      return true;
+    } else if (role === 'PARTNER_PART_LEADER' || role === 'PARTNER_SITE_MANAGER' || role === 'PARTNER_MANAGER' || (currentUser as any)?.isPartnerManager) {
+      if (targetRole === 'DS_PRINCIPAL_PM') return false;
+      if (n.type === 'INSPECTION_REQUEST') return false;
+      return true;
+    } else if (role === 'DS_PRINCIPAL_PM' || role === 'PRINCIPAL_INSPECTOR' || role === 'DS_DIRECTOR') {
+      // 🛡️ DS PM에게는 협력사 1차 결재 단계의 알림을 절대 노출하지 않음
+      if (targetRole === 'PARTNER_MANAGER' || targetRole === 'PARTNER_PART_LEADER' || targetRole === 'PARTNER_WORKER') return false;
+      if (n.type === 'APPROVAL_REQUEST') return false;
+      if (n.title?.includes('[결재 요청]') || n.content?.includes('1차 결재')) return false;
+      return true;
+    }
+    return true;
+  });
+
+  const unreadNotificationCount = filteredNotifications.filter(n => !n.isRead).length;
   const unreadMessageCount = messagesList.filter(m => !m.isRead).length;
 
   // D1 DB 실시간 데이터 로드 & 폴링 동기화
@@ -148,7 +174,18 @@ export function App() {
     loadD1Data();
     // 15초마다 실시간 D1 폴링 동기화 (PC와 모바일 간 데이터 실시간 동기 유지)
     const interval = setInterval(loadD1Data, 15000);
-    return () => clearInterval(interval);
+
+    const handleNotiUpdate = () => {
+      setNotifications([...dbService.getNotifications()]);
+    };
+    window.addEventListener('notification_updated', handleNotiUpdate);
+    window.addEventListener('attendance_request_updated', handleNotiUpdate);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('notification_updated', handleNotiUpdate);
+      window.removeEventListener('attendance_request_updated', handleNotiUpdate);
+    };
   }, [currentUser?.role, currentUser?.partName]);
 
   const handleMarkNotificationRead = async (id: string) => {
@@ -174,6 +211,63 @@ export function App() {
   const handleMarkAllMessagesRead = async () => {
     await dbService.markAllMessagesAsRead();
     setMessagesList(prev => prev.map(m => ({ ...m, isRead: true })));
+  };
+
+  const [partnerPortalTab, setPartnerPortalTab] = useState<'roster' | 'approvals' | 'clarifications' | 'gap_notices'>('roster');
+  const [principalPortalTab, setPrincipalPortalTab] = useState<'monitoring' | 'roster' | 'dashboard' | 'report' | 'approvals' | 'evidences'>('monitoring');
+
+  // 🌟 알림 클릭 시 해당 결재/관리 화면으로 즉시 텔레포트 이동 (역할 스위칭 + 탭 포커싱)
+  const handleNotificationNavigate = (noti: DbAppNotification) => {
+    const title = noti.title || '';
+    const content = noti.content || '';
+    const type = noti.type || '';
+
+    // 1. [결재 요청] 연차/휴가 결재 요청 ➔ 협력사 관리인 [승인관리] 탭
+    if (title.includes('결재 요청') || title.includes('연차') || title.includes('휴가') || type === 'APPROVAL_REQUEST' || content.includes('협력사 관리인')) {
+      handleSwitchUser('PARTNER_MANAGER');
+      setPartnerPortalTab('approvals');
+      setCurrentPage('partner_portal');
+      return;
+    }
+
+    // 2. [소명 요구] 원청 DS PM의 소명 요구 공문 ➔ 협력사 관리인 [소명관리] 탭
+    if (title.includes('소명 요구') || (title.includes('소명') && title.includes('공문')) || type === 'DS_DEMANDED') {
+      handleSwitchUser('PARTNER_MANAGER');
+      setPartnerPortalTab('clarifications');
+      setCurrentPage('partner_portal');
+      return;
+    }
+
+    // 3. [소명서 작성 요청] 관리인이 소속 직원에게 전달한 소명 요청 ➔ 개인 홈 화면
+    if (title.includes('소명서 작성') || title.includes('소명 전달') || type === 'FORWARDED_TO_WORKER') {
+      handleSwitchUser('PARTNER');
+      setCurrentPage('home');
+      return;
+    }
+
+    // 4. [원청 상신/검수] 협력사 1차 승인 완료 ➔ 신한DS PM [승인관리] 탭
+    if (title.includes('SLA 소명 상신') || title.includes('공백 사전 통보') || title.includes('원청') || type === 'PENDING_DS' || type === 'INSPECTION_REQUEST') {
+      handleSwitchUser('DS_PM');
+      setPrincipalPortalTab('approvals');
+      setCurrentPage('principal_portal');
+      return;
+    }
+
+    // 5. [최종 승인/반려] ➔ 개인 요청 현황 탭
+    if (title.includes('승인 완료') || title.includes('반려') || type === 'APPROVED' || type === 'REJECTED') {
+      handleSwitchUser('PARTNER');
+      setCurrentPage('request');
+      return;
+    }
+
+    // fallback: linkUrl 또는 협력사 승인관리
+    if (noti.linkUrl) {
+      setCurrentPage(noti.linkUrl as PageView);
+    } else {
+      handleSwitchUser('PARTNER_MANAGER');
+      setPartnerPortalTab('approvals');
+      setCurrentPage('partner_portal');
+    }
   };
 
   // D1 DB 실시간 프로필 사진 & 정보 동기화
@@ -227,9 +321,18 @@ export function App() {
   };
 
   // [개발 모드] 역할 시뮬레이션: 실제 로그인 사용자 이름/정보는 그대로 유지하고 role + page만 변경
-  const handleSwitchUser = (roleKey: 'PARTNER' | 'PARTNER_MANAGER' | 'DS_PM') => {
+  const handleSwitchUser = (roleKey: 'PARTNER' | 'PARTNER_MANAGER' | 'DS_PM' | 'DS_DIRECTOR') => {
     const base = { ...currentUser }; // 로그인한 실제 사용자 정보 보존
-    if (roleKey === 'DS_PM') {
+    if (roleKey === 'DS_DIRECTOR') {
+      const switched: User = {
+        ...base,
+        role: 'DS_DIRECTOR',
+        roleTitle: '신한DS IT도급 총괄담당자 (부서장)'
+      };
+      dbService.setCurrentUser(switched);
+      setCurrentUser(switched);
+      setCurrentPage('principal_portal');
+    } else if (roleKey === 'DS_PM') {
       const switched: User = {
         ...base,
         role: 'DS_PRINCIPAL_PM',
@@ -315,7 +418,7 @@ export function App() {
               } catch (e) {}
               setIsLoggedIn(true);
               setCurrentUser(user);
-              if (user.role === 'DS_PRINCIPAL_PM') {
+              if (user.role === 'DS_PRINCIPAL_PM' || user.role === 'DS_DIRECTOR') {
                 setCurrentPage('principal_portal');
               } else if (user.role === 'PARTNER_PART_LEADER' || (user as any).role === 'PARTNER_MANAGER') {
                 setCurrentPage('partner_portal');
@@ -361,14 +464,11 @@ export function App() {
 
             {/* 본문 탭 및 역할별 뷰 영역 */}
             <main className="main-content" style={!isTabActive ? { padding: hideHeaderPages.includes(currentPage) ? 0 : '14px' } : undefined}>
-              {/* 1. 신한DS 총괄 PM 도급 계약 이행 및 30인 공정 검수 대시보드 (User 뷰) */}
+              {/* 1. 신한DS 현장대리인 / DS총괄담당자 도급 공정 검수 포털 (투입현황 / 검수포털 / 실적리포트 / 승인관리 / 법적증빙) */}
               {currentPage === 'principal_portal' && (
-                <ContractFulfillmentDashboardView
-                  currentUser={currentUser}
+                <PrincipalInspectionPortalView
                   themeMode={themeMode}
-                  onOpenEmployees={() => setCurrentPage('employees')}
-                  onOpenOrganizations={() => setCurrentPage('organizations')}
-                  onOpenAiStats={() => setCurrentPage('ai_stats')}
+                  initialTab={principalPortalTab}
                 />
               )}
 
@@ -377,14 +477,14 @@ export function App() {
                 <PartnerManagerPortalView
                   themeMode={themeMode}
                   onRequestUpdated={refreshData}
+                  initialTab={partnerPortalTab}
                 />
               )}
 
               {/* 3. 협력사 근로자 기본 홈 화면 */}
               {currentPage === 'home' && (
                 <>
-                  {/* 상단 리포트 & 누락기록 퀵 카드 */}
-                  <ReportCard onClick={() => setCurrentPage('attendance_report')} />
+                  {/* 상단 누락기록 퀵 카드 */}
                   <MissedPunchCard onClick={() => setCurrentPage('missed_punch_records')} />
 
                   {/* 오늘 근무 히어로 카드 */}
@@ -762,12 +862,13 @@ export function App() {
             <NotificationListModal
               isOpen={isNotificationModalOpen}
               onClose={() => setIsNotificationModalOpen(false)}
-              notifications={notifications}
+              notifications={filteredNotifications}
               onMarkRead={handleMarkNotificationRead}
               onMarkAllRead={handleMarkAllNotificationsRead}
               onNavigate={(url) => {
                 if (url) setCurrentPage(url as PageView);
               }}
+              onNavigateNotification={handleNotificationNavigate}
             />
 
             {/* 도급 소통 / 메시지 및 소명 센터 모달 (Cloudflare D1 연동) */}

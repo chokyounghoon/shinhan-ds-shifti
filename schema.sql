@@ -219,7 +219,10 @@ CREATE TABLE IF NOT EXISTS app_notifications (
     part_name TEXT DEFAULT '상담',                  -- 도급 파트명
     is_read INTEGER DEFAULT 0,                      -- 0: 미확인, 1: 읽음
     link_url TEXT,                                  -- 이동할 페이지 URL/뷰 ID
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP   -- 발송일시 (KST)
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,  -- 등록일시 (KST 한국시간)
+    created_by TEXT DEFAULT 'SYSTEM',               -- 등록자 (사번/ID)
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,  -- 수정일시 (KST 한국시간)
+    updated_by TEXT DEFAULT 'SYSTEM'                -- 수정자 (사번/ID)
 );
 
 -- 16. 도급 소통 및 소명 메시지함 (App Messages)
@@ -234,7 +237,89 @@ CREATE TABLE IF NOT EXISTS app_messages (
     reply_status TEXT DEFAULT 'PENDING',            -- PENDING, COMPLETED
     reply_content TEXT,                             -- PM 회신 내용
     replied_at DATETIME,                            -- 회신 일시
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP   -- 등록일시 (KST)
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,  -- 등록일시 (KST 한국시간)
+    created_by TEXT DEFAULT 'SYSTEM',               -- 등록자 (사번/ID)
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,  -- 수정일시 (KST 한국시간)
+    updated_by TEXT DEFAULT 'SYSTEM'                -- 수정자 (사번/ID)
+);
+
+-- 17. 도급 인력 투입 실적 (Manpower Inputs)
+CREATE TABLE IF NOT EXISTS manpower_inputs (
+    record_id TEXT PRIMARY KEY,
+    employee_id TEXT NOT NULL,
+    worker_name TEXT NOT NULL,
+    part_name TEXT NOT NULL,
+    partner_company TEXT NOT NULL,
+    work_date TEXT NOT NULL,
+    contracted_hours REAL DEFAULT 8.0,
+    actual_input_hours REAL DEFAULT 8.0,
+    clock_in_time TEXT,
+    clock_out_time TEXT,
+    task_summary TEXT,
+    variance_minutes INTEGER DEFAULT 0,
+    is_sla_breach INTEGER DEFAULT 0,
+    exception_type TEXT,
+    gap_reason TEXT,
+    partner_clarification TEXT,
+    verification_status TEXT DEFAULT 'AUTO_SETTLED',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,   -- [등록일시] (KST 한국시간)
+    created_by TEXT DEFAULT 'SYSTEM',                -- [등록자] (사번/ID)
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,   -- [수정일시] (KST 한국시간)
+    updated_by TEXT DEFAULT 'SYSTEM',                -- [수정자] (사번/ID)
+    UNIQUE(employee_id, work_date)
+);
+
+-- 18. 도급 감사 추적 로그 (Audit Trails)
+CREATE TABLE IF NOT EXISTS audit_trails (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    record_id TEXT NOT NULL,
+    actor_id TEXT NOT NULL,
+    actor_name TEXT NOT NULL,
+    actor_role TEXT NOT NULL,
+    action TEXT NOT NULL,
+    system_label TEXT DEFAULT '도급 계약 이행 확인',
+    details TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,   -- [등록일시] (KST 한국시간)
+    created_by TEXT DEFAULT 'SYSTEM',                -- [등록자] (사번/ID)
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,   -- [수정일시] (KST 한국시간)
+    updated_by TEXT DEFAULT 'SYSTEM'                 -- [수정자] (사번/ID)
+);
+
+-- 19. 협력사 SLA 소명 요청 (SLA Clarifications)
+CREATE TABLE IF NOT EXISTS sla_clarifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    record_id TEXT NOT NULL,
+    part_name TEXT NOT NULL,
+    partner_company TEXT NOT NULL,
+    requester_id TEXT NOT NULL,
+    official_title TEXT NOT NULL,
+    message_content TEXT NOT NULL,
+    status TEXT DEFAULT 'REQUESTED',
+    answer_content TEXT,
+    answered_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,   -- [등록일시] (KST 한국시간)
+    created_by TEXT DEFAULT 'SYSTEM',                -- [등록자] (사번/ID)
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,   -- [수정일시] (KST 한국시간)
+    updated_by TEXT DEFAULT 'SYSTEM'                 -- [수정자] (사번/ID)
+);
+
+-- 20. 사전 공백 통보 (Pre Gap Notices)
+CREATE TABLE IF NOT EXISTS pre_gap_notices (
+    id TEXT PRIMARY KEY,
+    partner_company TEXT NOT NULL,
+    worker_name TEXT NOT NULL,
+    part_name TEXT NOT NULL,
+    gap_period TEXT NOT NULL,
+    gap_hours REAL DEFAULT 8.0,
+    gap_type TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    status TEXT DEFAULT 'DISPATCHED',
+    acknowledged_by TEXT,
+    acknowledged_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,   -- [등록일시] (KST 한국시간)
+    created_by TEXT DEFAULT 'SYSTEM',                -- [등록자] (사번/ID)
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,   -- [수정일시] (KST 한국시간)
+    updated_by TEXT DEFAULT 'SYSTEM'                 -- [수정자] (사번/ID)
 );
 
 -- 인덱스 생성

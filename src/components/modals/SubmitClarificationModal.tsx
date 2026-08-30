@@ -97,27 +97,42 @@ export const SubmitClarificationModal: React.FC<SubmitClarificationModalProps> =
     const incidentType = incident?.type || 'LATE';
 
     try {
-      // D1 clarification_requests 테이블에 저장 (2단계 결재 시작)
-      const res = await fetch('/api/clarification-requests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          employee_id: empId,
-          employee_name: empName,
-          company_name: companyName,
-          incident_type: incidentType,
-          incident_date: targetDate,
-          scheduled_time: incident?.scheduledTime || '09:00',
-          actual_time: actualStartTime,
-          delay_minutes: incident?.delayMinutes || 0,
-          reason_text: reasonText,
-          category: category,
-          has_attachment: hasAttachment
-        })
-      });
+      let newId = incident?.id;
+      // 1) 소속사 관리인이 전달한 건(incident.id가 clar-로 시작)인 경우 UPDATE
+      if (incident?.id && incident.id.startsWith('clar-')) {
+        const res = await fetch(`/api/clarification-requests/${incident.id}/worker-submit`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reason_text: reasonText,
+            category: category,
+            has_attachment: hasAttachment
+          })
+        });
+        if (!res.ok) throw new Error('Update failed');
+      } else {
+        // 2) 직원이 자발적으로 최초 상신하는 경우 INSERT
+        const res = await fetch('/api/clarification-requests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            employee_id: empId,
+            employee_name: empName,
+            company_name: companyName,
+            incident_type: incidentType,
+            incident_date: targetDate,
+            scheduled_time: incident?.scheduledTime || '09:00',
+            actual_time: actualStartTime,
+            delay_minutes: incident?.delayMinutes || 0,
+            reason_text: reasonText,
+            category: category,
+            has_attachment: hasAttachment
+          })
+        });
 
-      const json = res.ok ? await res.json() : null;
-      const newId = json?.id || `clar-${Date.now()}`;
+        const json = res.ok ? await res.json() : null;
+        newId = json?.id || `clar-${Date.now()}`;
+      }
 
       // 로컬 상태 동기화용 요청 객체 (RequestsView 탭에 즉시 반영)
       const newRequest = {

@@ -1,4 +1,5 @@
 export type UserRole = 
+  | 'DS_DIRECTOR'           // 신한DS 총괄담당자 (부서장 / 전사 도급 총괄)
   | 'DS_PRINCIPAL_PM'       // 신한DS 파트 전담 현장관리인 (10인 PM 체제 도급 PM / 최종 검수)
   | 'PARTNER_PART_LEADER'   // 협력사 관리자 (유브갓 등 / 1차 투입 사실 확인 및 소명)
   | 'PARTNER_WORKER'        // 협력사 근로자 (작업자 / 본인 투입 입력)
@@ -148,7 +149,7 @@ export interface AttendanceRequest {
   endTime?: string;
   hours: number;
   reason: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  status: 'PENDING' | 'PENDING_DS' | 'APPROVED' | 'REJECTED';
   createdAt: string;
   category?: string;
   approvalMemo?: string;

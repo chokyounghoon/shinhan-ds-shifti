@@ -29,7 +29,8 @@ function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2:
 }
 
 // 거리 읽기 편한 포맷터 (예: 25m, 1.2km, 26.3km)
-function formatDistanceText(meters: number): string {
+function formatDistanceText(meters: number | null): string {
+  if (meters === null) return '측정 대기';
   if (meters >= 1000) {
     return `${(meters / 1000).toFixed(1)}km`;
   }
@@ -49,10 +50,9 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
   const [isGpsModalOpen, setIsGpsModalOpen] = useState(false);
   const [isAntiSpoofModalOpen, setIsAntiSpoofModalOpen] = useState(false);
 
-  // 실시간 실제 GPS 거리 및 상태 관리 (테스트를 위해 기본 25m 설정 및 모의 모드 지원)
-  const [gpsDistance, setGpsDistance] = useState<number>(25);
+  // 실시간 실제 GPS 거리 및 상태 관리 (실모드)
+  const [gpsDistance, setGpsDistance] = useState<number | null>(null);
   const [isLocating, setIsLocating] = useState<boolean>(false);
-  const [isTestBypass, setIsTestBypass] = useState<boolean>(true); // 테스트용 지오펜스 바이패스 활성화
 
   const activeLocation: WorkLocation = selectedLocation || defaultWorkLocations[0];
   const targetName = activeLocation.name.replace('[좌표] ', '');
@@ -97,9 +97,9 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
 
   const { ymd: todayYmd, month, date, dayName } = getKstDateInfo();
 
-  // 100m 이내 & 안티스푸핑 무결성 통과 여부 판정 (테스트 바이패스 시 항상 활성화)
-  const isWithin100m = isTestBypass ? true : gpsDistance <= 100;
-  const isSecurityPassed = isTestBypass ? true : spoofResult.isSecure;
+  // 100m 이내 & 안티스푸핑 무결성 통과 여부 판정 (실모드: 실제 100m 이하 & 보안통과 필요)
+  const isWithin100m = gpsDistance !== null && gpsDistance <= 100;
+  const isSecurityPassed = spoofResult.isSecure;
 
   // 실제 브라우저 GPS 하드웨어 센서 측정 및 7중 제로트러스트 안티스푸핑 검증
   const measureLiveGps = async () => {
@@ -107,7 +107,7 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
     const currentUser = dbService.getCurrentUser();
     const empId = currentUser?.employeeId || (currentUser as any)?.id || 'S01832';
 
-    if (navigator.geolocation) {
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
           const lat = pos.coords.latitude;
@@ -123,20 +123,15 @@ export const TodayWorkCard: React.FC<TodayWorkCardProps> = ({
           setSpoofResult(secResult);
           setIsLocating(false);
         },
-        async () => {
-          // PC 브라우저(Google Geolocation 403 등) 위치 에러 시 안전 시뮬레이션 거리(25m)로 폴백
-          const simLat = targetLat + 0.00020;
-          const simLng = targetLng + 0.00015;
-          const dist = calculateDistanceMeters(simLat, simLng, targetLat, targetLng);
-          setGpsDistance(dist);
-
-          const secResult = await antiSpoofService.verifyZeroTrustIntegrity(simLat, simLng, 15, 38, 0, empId);
-          setSpoofResult(secResult);
+        async (err) => {
+          console.warn('Live GPS measurement error:', err);
+          setGpsDistance(null);
           setIsLocating(false);
         },
-        { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
       );
     } else {
+      setGpsDistance(null);
       setIsLocating(false);
     }
   };

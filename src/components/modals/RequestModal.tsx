@@ -15,8 +15,25 @@ export const RequestModal: React.FC<RequestModalProps> = ({
   onRequestSubmitted,
   themeMode
 }) => {
+  const getNextBusinessDay = (): string => {
+    const now = new Date();
+    const base = new Date(now);
+    if (base.getFullYear() < 2026) {
+      base.setFullYear(2026, 7, 30);
+    }
+    let target = new Date(base);
+    target.setDate(target.getDate() + 1);
+    while (target.getDay() === 0 || target.getDay() === 6) {
+      target.setDate(target.getDate() + 1);
+    }
+    const yyyy = target.getFullYear();
+    const mm = String(target.getMonth() + 1).padStart(2, '0');
+    const dd = String(target.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
   const [requestType, setRequestType] = useState<'VACATION' | 'OVERTIME' | 'MISSED_PUNCH' | 'BUSINESS_TRIP'>('VACATION');
-  const [targetDate, setTargetDate] = useState('2026-08-20');
+  const [targetDate, setTargetDate] = useState(getNextBusinessDay());
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('18:00');
   const [reason, setReason] = useState('');
@@ -25,8 +42,9 @@ export const RequestModal: React.FC<RequestModalProps> = ({
   if (!isOpen) return null;
 
   const currentUser = dbService.getCurrentUser();
-  const partnerCompany = currentUser?.partnerCompany || currentUser?.companyName || '유브갓';
-  const approverName = `${partnerCompany} 현장대리인 (PM)`;
+  const rawComp = currentUser?.partnerCompany || currentUser?.companyName || '유브갓';
+  const partnerCompany = rawComp === '신한DS' ? '유브갓' : rawComp;
+  const approverName = `[${partnerCompany}] 현장관리인`;
 
   const typeLabels = {
     VACATION: '휴가신청 (연차/반차)',
@@ -45,16 +63,18 @@ export const RequestModal: React.FC<RequestModalProps> = ({
     setIsSubmitting(true);
     const reqId = `req-${requestType.toLowerCase()}-${Date.now()}`;
     const empId = currentUser?.employeeId || currentUser?.id || 'PT20260816';
+    const workerName = currentUser?.name || '소속 인력';
 
     try {
       // 1. Cloudflare D1 DB attendance_requests 테이블에 실시간 영구 INSERT
-      await fetch('/api/attendance/request', {
+      await fetch('/api/attendance/requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: reqId,
           employee_id: empId,
           user_id: empId,
+          user_name: workerName,
           request_type: requestType,
           vacation_type: requestType === 'VACATION' ? '연차' : requestType,
           target_date: targetDate,
@@ -62,23 +82,40 @@ export const RequestModal: React.FC<RequestModalProps> = ({
           end_date: targetDate,
           hours: requestType === 'OVERTIME' ? 2 : 8,
           reason: reason,
-          status: 'APPROVED',
+          status: 'PENDING',
           partner_company: partnerCompany,
-          approver_name: approverName
+          approver_name: `${partnerCompany} 현장관리인`
         })
       });
 
       // 2. 로컬 메모리 동기화
       dbService.addRequest({
         id: reqId,
+        userId: empId,
+        userName: workerName,
+        partnerApproverName: `${partnerCompany} 현장관리인`,
         requestType,
         targetDate,
         startTime: requestType === 'OVERTIME' ? startTime : undefined,
         endTime: requestType === 'OVERTIME' ? endTime : undefined,
-        reason
+        reason,
+        status: 'PENDING'
       });
 
-      alert(`🎉 [${typeLabels[requestType]}] 신청이 D1 DB에 정상 저장/상신되었습니다.\n• 수신 결재권자: ${approverName}\n• 대상 일자: ${targetDate}\n• 저장 DB 테이블: shifti-db > attendance_requests\n• 사유: ${reason}\n\n🛡️ [독립 인사권 보호] 원청(신한DS)이 아닌 소속 협력사(${partnerCompany}) 관리자에게 정상 상신되었습니다.`);
+      // 3. 🔔 알림센터에 미확인 알림 푸시
+      dbService.addNotification({
+        type: 'APPROVAL_REQUEST',
+        title: `📢 [근태 신청] ${workerName}님 ${typeLabels[requestType]} 신청`,
+        content: `${workerName}님이 ${typeLabels[requestType]} (${targetDate}) 결재를 요청했습니다. (${approverName} 앞)`,
+        targetRole: 'PARTNER_MANAGER',
+        partName: currentUser?.partName || '상담'
+      });
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('attendance_request_updated'));
+      }
+
+      alert(`🎉 [${typeLabels[requestType]}] 신청이 정상 상신되었습니다.\n• 발신(신청자): ${workerName} (${empId})\n• 수신: ${approverName} 귀하\n• 대상 인력: ${workerName} (본인)\n• 대상 일자: ${targetDate}\n• 사유: ${reason}\n• D1 DB: attendance_requests 테이블 저장 완료 (상태: 1차 결재 대기)\n\n🛡️ [도급 승인 체계] 원청(신한DS)이 아닌 소속 협력사(${partnerCompany}) 관리자에게 1차 결재가 상신되었습니다.`);
       onRequestSubmitted();
       onClose();
     } catch (err) {

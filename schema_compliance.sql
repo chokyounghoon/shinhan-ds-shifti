@@ -11,7 +11,10 @@ CREATE TABLE IF NOT EXISTS companies (
     biz_number TEXT,
     company_type TEXT CHECK(company_type IN ('PRINCIPAL_SHINHAN_DS', 'PARTNER_CONTRACTOR')) NOT NULL,
     is_autonomous_employer INTEGER DEFAULT 1, -- 독자적 노무지휘권 보장 여부
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT DEFAULT 'SYSTEM',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by TEXT DEFAULT 'SYSTEM'
 );
 
 -- 2. 협력사 현장대리인 지정 마스터 (파견법 제31조 준수)
@@ -23,7 +26,10 @@ CREATE TABLE IF NOT EXISTS partner_site_representatives (
     assigned_project_code TEXT NOT NULL,
     appointment_date TEXT NOT NULL,
     is_active INTEGER DEFAULT 1,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT DEFAULT 'SYSTEM',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by TEXT DEFAULT 'SYSTEM'
 );
 
 -- 3. 사용자 및 역할 (권한 3단계 분리)
@@ -41,7 +47,10 @@ CREATE TABLE IF NOT EXISTS users (
     )) NOT NULL,
     position TEXT DEFAULT '팀원',
     dept_name TEXT DEFAULT '카드개발팀',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT DEFAULT 'SYSTEM',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by TEXT DEFAULT 'SYSTEM'
 );
 
 -- 4. 협력사 독자 근태 결재 테이블 (원청 결재선 원천 차단)
@@ -59,7 +68,10 @@ CREATE TABLE IF NOT EXISTS partner_attendance_requests (
     status TEXT CHECK(status IN ('PENDING', 'APPROVED', 'REJECTED')) DEFAULT 'PENDING',
     approved_at DATETIME,
     approval_memo TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT DEFAULT 'SYSTEM',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by TEXT DEFAULT 'SYSTEM'
 );
 
 -- 5. 출퇴근 실적 기록 (협력사 자체 보관 데이터)
@@ -73,7 +85,10 @@ CREATE TABLE IF NOT EXISTS partner_commute_logs (
     work_minutes INTEGER DEFAULT 0,
     status TEXT CHECK(status IN ('NORMAL', 'LATE', 'WORKING', 'VACATION', 'OVERTIME')) DEFAULT 'NORMAL',
     verified_by_rep INTEGER DEFAULT 0, -- 현장대리인 확인 여부
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT DEFAULT 'SYSTEM',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by TEXT DEFAULT 'SYSTEM'
 );
 
 -- 6. 원청 도급 계약 공수 검수 테이블 (원청이 열람/검수하는 비개인화 집계 데이터)
@@ -90,7 +105,10 @@ CREATE TABLE IF NOT EXISTS service_delivery_inspections (
     inspection_status TEXT CHECK(inspection_status IN ('SUBMITTED', 'INSPECTED_ACCEPTED', 'REVISION_REQUESTED')) DEFAULT 'SUBMITTED',
     inspection_notes TEXT,
     inspected_at DATETIME,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT DEFAULT 'SYSTEM',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by TEXT DEFAULT 'SYSTEM'
 );
 
 -- 7. 물리적 보안 게이트 출입 기록 (시설안전보건법 준수용 - 노무관리와 법적 분리)
@@ -101,5 +119,9 @@ CREATE TABLE IF NOT EXISTS facility_security_gate_logs (
     gate_location TEXT NOT NULL, -- 예: 신한DS 데이터센터 1F 중앙게이트
     access_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
     purpose TEXT DEFAULT 'FACILITY_SAFETY_AND_SECURITY', -- 시설안전 및 재난대응 목적 명시
-    is_labor_management_data INTEGER DEFAULT 0 -- 인사/근태 산정용 직접 사용 불가 플래그
+    is_labor_management_data INTEGER DEFAULT 0, -- 인사/근태 산정용 직접 사용 불가 플래그
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT DEFAULT 'SYSTEM',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_by TEXT DEFAULT 'SYSTEM'
 );

@@ -63,7 +63,7 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
   const isWithin100m = distanceMeters !== null && distanceMeters <= 100;
   const isSecurityPassed = spoofResult.isSecure;
 
-  // 실제 GPS 위치 측정 & 7중 제로트러스트 안티스푸핑/VPN 검증
+  // 실제 GPS 위치 측정 & 7중 제로트러스트 안티스푸핑/VPN 검증 (실모드)
   const fetchCurrentLocation = () => {
     setIsLocating(true);
     setGpsError(null);
@@ -71,7 +71,7 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
     const currentUser = dbService.getCurrentUser();
     const empId = currentUser?.employeeId || (currentUser as any)?.id || 'S01832';
 
-    if (navigator.geolocation) {
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const uLat = position.coords.latitude;
@@ -89,27 +89,27 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
           setIsLocating(false);
         },
         async (error) => {
-          const simLat = targetLat + 0.00025;
-          const simLng = targetLng + 0.00020;
-          setUserPos({ lat: simLat, lng: simLng });
-          const dist = getDistanceMeters(simLat, simLng, targetLat, targetLng);
-          setDistanceMeters(dist);
-
-          const sec = await antiSpoofService.verifyZeroTrustIntegrity(simLat, simLng, 15, 38, 0, empId);
-          setSpoofResult(sec);
+          console.warn('GPS Geolocation Error:', error);
+          let errorMsg = 'GPS 위치 정보를 수신할 수 없습니다.';
+          if (error.code === error.PERMISSION_DENIED) {
+            errorMsg = '위치 정보 접근 권한이 거부되었습니다. 브라우저 설정에서 위치 권한을 허용해주세요.';
+          } else if (error.code === error.POSITION_UNAVAILABLE) {
+            errorMsg = '현재 위치 정보를 사용할 수 없습니다. GPS가 켜져 있는지 확인해주세요.';
+          } else if (error.code === error.TIMEOUT) {
+            errorMsg = '위치 측정 시간이 초과되었습니다. GPS 재측정을 시도해주세요.';
+          }
+          setGpsError(errorMsg);
+          setUserPos(null);
+          setDistanceMeters(null);
           setIsLocating(false);
         },
-        { enableHighAccuracy: true, timeout: 6000 }
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
       );
     } else {
-      const simLat = targetLat + 0.00025;
-      const simLng = targetLng + 0.00020;
-      setUserPos({ lat: simLat, lng: simLng });
-      setDistanceMeters(getDistanceMeters(simLat, simLng, targetLat, targetLng));
-      antiSpoofService.verifyZeroTrustIntegrity(simLat, simLng, 15, 38, 0, empId).then(sec => {
-        setSpoofResult(sec);
-        setIsLocating(false);
-      });
+      setGpsError('현재 환경에서 Geolocation API를 지원하지 않습니다.');
+      setUserPos(null);
+      setDistanceMeters(null);
+      setIsLocating(false);
     }
   };
 
@@ -427,7 +427,29 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
 
         {/* 4. 측정 결과 안내 배너 */}
         <div style={{ padding: '16px 18px 18px 18px' }}>
-          {!isSecurityPassed ? (
+          {/* 4. 측정 결과 안내 배너 */}
+          {gpsError ? (
+            <div style={{
+              background: '#FFFBEB',
+              border: '1.5px solid #FCD34D',
+              borderRadius: '12px',
+              padding: '12px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              marginBottom: '14px'
+            }}>
+              <AlertTriangle size={24} color="#D97706" />
+              <div>
+                <div style={{ fontSize: '13.5px', fontWeight: 900, color: '#B45309' }}>
+                  위치 측정 불가 (GPS 권한 확인 필요)
+                </div>
+                <div style={{ fontSize: '11px', color: '#92400E', marginTop: '2px' }}>
+                  {gpsError}
+                </div>
+              </div>
+            </div>
+          ) : !isSecurityPassed ? (
             <div style={{
               background: '#FEF2F2',
               border: '1.5px solid #FCA5A5',
@@ -471,8 +493,8 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
             </div>
           ) : (
             <div style={{
-              background: '#EFF6FF',
-              border: '1.5px solid #BFDBFE',
+              background: '#FEF2F2',
+              border: '1.5px solid #FECACA',
               borderRadius: '12px',
               padding: '12px 14px',
               display: 'flex',
@@ -480,46 +502,58 @@ export const GpsPunchMapModal: React.FC<GpsPunchMapModalProps> = ({
               gap: '10px',
               marginBottom: '14px'
             }}>
-              <CheckCircle2 size={22} color="#0052FF" />
+              <AlertTriangle size={22} color="#DC2626" />
               <div>
-                <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#1E40AF' }}>
-                  현재 위치 확인됨 (거리: {distanceMeters !== null ? (distanceMeters >= 1000 ? `${(distanceMeters / 1000).toFixed(1)}km` : `${distanceMeters}m`) : '측정 완료'})
+                <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#991B1B' }}>
+                  지정 근무지 반경 밖입니다 (거리: {distanceMeters !== null ? (distanceMeters >= 1000 ? `${(distanceMeters / 1000).toFixed(1)}km` : `${distanceMeters}m`) : '측정 대기'})
                 </div>
-                <div style={{ fontSize: '11.5px', color: '#3B82F6', marginTop: '1px' }}>
-                  테스트 검증 모드: 아래 버튼을 터치하여 즉시 1 M/D 투입 인증을 완료할 수 있습니다.
+                <div style={{ fontSize: '11.5px', color: '#B91C1C', marginTop: '1px' }}>
+                  지정 근무지 [{targetName}] 반경 100m 이내 도착 시에만 투입 확정이 가능합니다.
                 </div>
               </div>
             </div>
           )}
 
-          {/* 5. 최종 출근(투입) 확정 버튼 (테스트를 위해 상시 활성화) */}
+          {/* 5. 최종 출근(투입) 확정 버튼 (실모드: 100m 이내 & 보안통과 시에만 활성화) */}
           <button
             type="button"
+            disabled={!isWithin100m || !isSecurityPassed || isLocating || distanceMeters === null}
             onClick={() => {
-              onConfirmPunch(distanceMeters !== null ? distanceMeters : 25);
-              onClose();
+              if (isWithin100m && isSecurityPassed && distanceMeters !== null) {
+                onConfirmPunch(distanceMeters);
+                onClose();
+              }
             }}
             style={{
               width: '100%',
               height: '52px',
               borderRadius: '12px',
-              background: 'linear-gradient(90deg, #0052FF 0%, #0066FF 100%)',
+              background: (isWithin100m && isSecurityPassed && !isLocating && distanceMeters !== null)
+                ? (themeMode === 'ddangyo' ? 'linear-gradient(90deg, #FF462D 0%, #FF6048 100%)' : 'linear-gradient(90deg, #0052FF 0%, #0066FF 100%)')
+                : '#94A3B8',
               border: 'none',
               color: '#FFFFFF',
               fontSize: '15.5px',
               fontWeight: 900,
-              cursor: 'pointer',
+              cursor: (isWithin100m && isSecurityPassed && !isLocating && distanceMeters !== null) ? 'pointer' : 'not-allowed',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '6px',
-              boxShadow: '0 4px 16px rgba(0, 82, 255, 0.35)',
+              boxShadow: (isWithin100m && isSecurityPassed && !isLocating && distanceMeters !== null)
+                ? (themeMode === 'ddangyo' ? '0 4px 16px rgba(255, 70, 45, 0.35)' : '0 4px 16px rgba(0, 82, 255, 0.35)')
+                : 'none',
+              opacity: (isWithin100m && isSecurityPassed && !isLocating && distanceMeters !== null) ? 1 : 0.7,
               transition: 'all 0.15s ease'
             }}
           >
             <ShieldCheck size={18} />
             <span>
-              📍 오늘 도급 인력 투입 확정 (1 M/D)
+              {isLocating 
+                ? '📍 실시간 GPS 위치 확인 중...' 
+                : (isWithin100m && isSecurityPassed) 
+                ? '📍 오늘 도급 인력 투입 확정 (1 M/D)' 
+                : '📍 근무지 반경 100m 이내에서만 확정 가능'}
             </span>
           </button>
         </div>
