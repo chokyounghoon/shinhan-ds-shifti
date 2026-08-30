@@ -32,7 +32,7 @@ export interface EmployeeItem {
   position: string;
   phone: string;
   email: string;
-  status: '정상투입' | 'ACTIVE' | '휴가/외근' | '미배정';
+  status: '정상투입' | 'ACTIVE' | 'INACTIVE' | '미배정';
   joinedDate: string;
 }
 

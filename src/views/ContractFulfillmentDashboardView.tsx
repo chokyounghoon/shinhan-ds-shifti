@@ -103,7 +103,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
     role: 'PARTNER_WORKER' as 'PARTNER_WORKER' | 'PARTNER_MANAGER' | 'DS_PM',
     phone: '',
     email: '',
-    status: '정상투입'
+    status: 'ACTIVE'
   });
 
   // D1 조직 테이블 기반 고유 팀 목록
@@ -2856,9 +2856,9 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                       onChange={e => setRegisterEmployeeForm({ ...registerEmployeeForm, status: e.target.value })}
                       style={formInputStyle}
                     >
-                      <option value="정상투입" style={{ background: '#0D1726', color: '#00E676' }}>정상투입 (ACTIVE)</option>
-                      <option value="휴가/외근" style={{ background: '#0D1726', color: '#FFB300' }}>휴가/외근</option>
-                      <option value="미배정" style={{ background: '#0D1726', color: '#90A4AE' }}>미배정</option>
+                      <option value="ACTIVE" style={{ background: '#0D1726', color: '#00E676' }}>정상투입 (ACTIVE)</option>
+                      <option value="INACTIVE" style={{ background: '#0D1726', color: '#EF4444' }}>인액티브 / 미투입 (INACTIVE)</option>
+                      <option value="UNASSIGNED" style={{ background: '#0D1726', color: '#90A4AE' }}>미배정</option>
                     </select>
                   )}
                 </div>
