@@ -32,33 +32,10 @@ export const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
   const [isVacationModalOpen, setIsVacationModalOpen] = useState(false);
   const [isClarificationModalOpen, setIsClarificationModalOpen] = useState(false);
   const [isDayActionModalOpen, setIsDayActionModalOpen] = useState(false);
-  const [punchedDates, setPunchedDates] = useState<Record<number, { time: string; status: string; hours: number }>>({
-    3: { time: '08:50', status: 'NORMAL', hours: 8 },
-    4: { time: '08:45', status: 'NORMAL', hours: 8 },
-    5: { time: '08:50', status: 'NORMAL', hours: 8 },
-    6: { time: '08:55', status: 'NORMAL', hours: 8 },
-    7: { time: '08:50', status: 'NORMAL', hours: 8 },
-    10: { time: '08:48', status: 'NORMAL', hours: 8 },
-    11: { time: '08:50', status: 'NORMAL', hours: 8 },
-    12: { time: '08:52', status: 'NORMAL', hours: 8 },
-    13: { time: '08:45', status: 'NORMAL', hours: 8 },
-    14: { time: '08:50', status: 'NORMAL', hours: 8 },
-    17: { time: '08:50', status: 'NORMAL', hours: 8 },
-    19: { time: '08:50', status: 'NORMAL', hours: 8 },
-    20: { time: '08:45', status: 'NORMAL', hours: 8 },
-    21: { time: '08:52', status: 'NORMAL', hours: 8 },
-    24: { time: '08:48', status: 'NORMAL', hours: 8 },
-    25: { time: '08:50', status: 'NORMAL', hours: 8 },
-    26: { time: '08:50', status: 'NORMAL', hours: 8 },
-    27: { time: '08:55', status: 'NORMAL', hours: 8 },
-    28: { time: '08:50', status: 'NORMAL', hours: 8 },
-    29: { time: '08:50', status: 'NORMAL', hours: 8 },
-  });
+  const [punchedDates, setPunchedDates] = useState<Record<number, { time: string; status: string; hours: number }>>({});
 
   // D1 실시간 승인된 휴가/연차 데이터 맵 (day -> { type, status, hours, reason })
-  const [vacationDates, setVacationDates] = useState<Record<number, { type: string; status: string; hours: number; reason: string }>>({
-    18: { type: '연차', status: 'APPROVED', hours: 8, reason: '하계 정기 연차' }
-  });
+  const [vacationDates, setVacationDates] = useState<Record<number, { type: string; status: string; hours: number; reason: string }>>({});
 
   // D1 DB에서 당월 출근/투입 기록 및 휴가 승인 데이터 실시간 조회
   const fetchMonthLogs = async () => {
@@ -75,7 +52,7 @@ export const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
       if (commuteRes.ok) {
         const json = await commuteRes.json();
         const logs = json.data || [];
-        const newMap = { ...punchedDates };
+        const newMap: Record<number, { time: string; status: string; hours: number }> = {};
         logs.forEach((log: any) => {
           if (log.work_date && log.work_date.startsWith(monthPrefix)) {
             const dayNum = parseInt(log.work_date.split('-')[2], 10);
