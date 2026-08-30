@@ -202,18 +202,67 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
         }
       }
 
-      // D1 attendance_requests 휴가 승인 건 실시간 결합
+      // D1 attendance_requests 휴가 승인 건 실시간 결합 (단일 일자 및 범위 일자 완벽 지원)
       if (vacRes.ok) {
         const vacJson = await vacRes.json();
         const vacs: any[] = vacJson.data || [];
         vacs.forEach((v: any) => {
           if (v.status === 'APPROVED' || v.status === 'PENDING_DS' || v.status === 'PENDING') {
-            const matchIdx = baseList.findIndex(e => e.workDate === v.target_date && (e.userName === v.user_name || e.userId === v.employee_id));
-            if (matchIdx >= 0) {
-              baseList[matchIdx].vacationType = v.vacation_type || '연차';
-              baseList[matchIdx].workType = 'VACATION';
-              baseList[matchIdx].taskSummary = `[${v.status === 'APPROVED' ? '승인완료' : '검수대기'}] ${v.reason || '휴가 공백'}`;
+            const target = v.target_date || v.start_date || '';
+            const vacType = v.vacation_type || (v.request_type === 'VACATION' ? '연차' : '휴가');
+            const summary = `[${v.status === 'APPROVED' ? '승인완료' : '검수대기'}] ${v.reason || '휴가'}`;
+
+            // 대상 일자 배열 추출
+            const datesToApply: string[] = [];
+            if (target.includes('~')) {
+              const [startStr, endStr] = target.split('~').map((s: string) => s.trim());
+              try {
+                const s = new Date(startStr);
+                const e = new Date(endStr);
+                for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+                  datesToApply.push(d.toISOString().slice(0, 10));
+                }
+              } catch (_) {
+                datesToApply.push(startStr);
+              }
+            } else if (target) {
+              datesToApply.push(target);
             }
+
+            datesToApply.forEach(dateStr => {
+              const matchIdx = baseList.findIndex(e => e.workDate === dateStr && (e.userName === v.user_name || e.userId === v.employee_id || e.userId === currentEmpId));
+              if (matchIdx >= 0) {
+                baseList[matchIdx].vacationType = vacType;
+                baseList[matchIdx].workType = 'VACATION';
+                baseList[matchIdx].taskSummary = summary;
+              } else if (dateStr.startsWith(monthStr)) {
+                // 해당 월의 날짜인데 baseList에 없었던 경우 엔트리 추가
+                let label = dateStr;
+                try {
+                  const d = new Date(dateStr);
+                  const mm = d.getMonth() + 1;
+                  const dd = d.getDate();
+                  const dow = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()] || '평일';
+                  label = `2026년 ${mm}월 ${dd}일, ${dow}`;
+                } catch (_) {}
+                baseList.push({
+                  id: `vac-sched-${v.id}-${dateStr}`,
+                  userId: v.employee_id || currentEmpId,
+                  userName: v.user_name || currentName,
+                  deptName: '카드개발팀',
+                  position: '팀원',
+                  workDate: dateStr,
+                  dateGroupLabel: label,
+                  totalGroupHours: '8시간 0분',
+                  vacationType: vacType,
+                  workType: 'VACATION',
+                  startTime: '09:00',
+                  endTime: '18:00',
+                  taskSummary: summary,
+                  isVerified: true
+                });
+              }
+            });
           }
         });
       }

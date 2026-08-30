@@ -55,18 +55,29 @@ export const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
     29: { time: '08:50', status: 'NORMAL', hours: 8 },
   });
 
-  // D1 DB에서 당월 출근/투입 기록 실시간 조회
+  // D1 실시간 승인된 휴가/연차 데이터 맵 (day -> { type, status, hours, reason })
+  const [vacationDates, setVacationDates] = useState<Record<number, { type: string; status: string; hours: number; reason: string }>>({
+    18: { type: '연차', status: 'APPROVED', hours: 8, reason: '하계 정기 연차' }
+  });
+
+  // D1 DB에서 당월 출근/투입 기록 및 휴가 승인 데이터 실시간 조회
   const fetchMonthLogs = async () => {
     const currentUser = dbService.getCurrentUser();
     const empId = currentUser?.employeeId || (currentUser as any)?.id || 'S01832';
+    const monthPrefix = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+
     try {
-      const res = await fetch(`/api/commute/logs?employee_id=${encodeURIComponent(empId)}`);
-      if (res.ok) {
-        const json = await res.json();
+      const [commuteRes, vacRes] = await Promise.all([
+        fetch(`/api/commute/logs?employee_id=${encodeURIComponent(empId)}`),
+        fetch(`/api/attendance/requests?employee_id=${encodeURIComponent(empId)}`)
+      ]);
+
+      if (commuteRes.ok) {
+        const json = await commuteRes.json();
         const logs = json.data || [];
         const newMap = { ...punchedDates };
         logs.forEach((log: any) => {
-          if (log.work_date && log.work_date.startsWith(`${currentYear}-${String(currentMonth).padStart(2, '0')}`)) {
+          if (log.work_date && log.work_date.startsWith(monthPrefix)) {
             const dayNum = parseInt(log.work_date.split('-')[2], 10);
             newMap[dayNum] = {
               time: log.clock_in_time || '08:50',
@@ -77,13 +88,54 @@ export const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
         });
         setPunchedDates(newMap);
       }
+
+      if (vacRes.ok) {
+        const vacJson = await vacRes.json();
+        const vacs = vacJson.data || [];
+        const newVacMap: Record<number, { type: string; status: string; hours: number; reason: string }> = {
+          18: { type: '연차', status: 'APPROVED', hours: 8, reason: '하계 정기 연차' }
+        };
+
+        vacs.forEach((vac: any) => {
+          if (vac.status === 'REJECTED' || vac.status === 'REJECTED_PARTNER') return;
+          const target = vac.target_date || vac.start_date || '';
+          const vacType = vac.vacation_type || (vac.request_type === 'VACATION' ? '연차' : '휴가');
+          const hours = Number(vac.hours) || (vacType.includes('반차') ? 4 : 8);
+
+          // 단일 일자 또는 범위 일자 파싱
+          if (target.includes('~')) {
+            const [startStr, endStr] = target.split('~').map((s: string) => s.trim());
+            if (startStr.startsWith(monthPrefix)) {
+              const startDay = parseInt(startStr.split('-')[2], 10);
+              const endDay = endStr.startsWith(monthPrefix) ? parseInt(endStr.split('-')[2], 10) : startDay;
+              for (let d = startDay; d <= endDay; d++) {
+                newVacMap[d] = { type: vacType, status: vac.status, hours, reason: vac.reason || '휴가' };
+              }
+            }
+          } else if (target.startsWith(monthPrefix)) {
+            const dayNum = parseInt(target.split('-')[2], 10);
+            newVacMap[dayNum] = { type: vacType, status: vac.status, hours, reason: vac.reason || '휴가' };
+          }
+        });
+
+        setVacationDates(newVacMap);
+      }
     } catch (e) {
-      console.warn('Failed to fetch monthly commute logs:', e);
+      console.warn('Failed to fetch monthly commute logs & vacations:', e);
     }
   };
 
   useEffect(() => {
     fetchMonthLogs();
+
+    const handleUpdate = () => fetchMonthLogs();
+    window.addEventListener('attendance_request_updated', handleUpdate);
+    window.addEventListener('notification_updated', handleUpdate);
+
+    return () => {
+      window.removeEventListener('attendance_request_updated', handleUpdate);
+      window.removeEventListener('notification_updated', handleUpdate);
+    };
   }, [currentYear, currentMonth]);
 
   const handlePrevMonth = (e: React.MouseEvent) => {
@@ -128,8 +180,9 @@ export const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
     calendarCells.push({ day: d, isCurrentMonth: true });
   }
 
-  // 월간 총 누적 공수 계산
-  const totalWorkedDays = Object.keys(punchedDates).filter(k => parseInt(k, 10) <= realDay).length;
+  // 월간 총 누적 공수 계산 (출근일 + 승인/신청된 휴가일)
+  const totalWorkedDays = Object.keys(punchedDates).filter(k => parseInt(k, 10) <= realDay).length + 
+    Object.keys(vacationDates).filter(k => parseInt(k, 10) <= realDay && !punchedDates[parseInt(k, 10)]).length;
   const totalHours = totalWorkedDays * 8;
   const totalMonthWorkingDays = 21; // 8월 평일 21일
 
@@ -284,7 +337,7 @@ export const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
           const isToday = currentYear === realYear && currentMonth === realMonth && day === realDay;
           const isSelected = selectedDay === day;
           const punch = punchedDates[day];
-          const isVacation = day === 18; // 8월 18일 연차
+          const vacInfo = vacationDates[day];
 
           return (
             <div
@@ -296,13 +349,17 @@ export const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
                   ? (themeMode === 'ddangyo' ? '#FFF0ED' : '#EFF6FF')
                   : isToday 
                     ? '#F0FDF4'
-                    : '#FFFFFF',
+                    : vacInfo
+                      ? '#FFFBEB'
+                      : '#FFFFFF',
                 borderRadius: '8px',
                 border: isSelected 
                   ? `2px solid ${themeMode === 'ddangyo' ? '#FF462D' : '#0052FF'}` 
                   : isToday 
                     ? '1.5px solid #16A34A' 
-                    : '1px solid #E5E8EB',
+                    : vacInfo
+                      ? '1px solid #FDE68A'
+                      : '1px solid #E5E8EB',
                 padding: '4px 2px',
                 display: 'flex',
                 flexDirection: 'column',
@@ -331,7 +388,7 @@ export const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
 
               {/* 공수 / 휴가 뱃지 */}
               <div style={{ width: '100%', textAlign: 'center' }}>
-                {isVacation ? (
+                {vacInfo ? (
                   <span style={{
                     display: 'block',
                     background: '#FEF3C7',
@@ -342,7 +399,7 @@ export const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
                     padding: '1px 0',
                     margin: '0 2px'
                   }}>
-                    연차
+                    {vacInfo.type || '연차'}
                   </span>
                 ) : punch ? (
                   <span style={{
@@ -388,9 +445,9 @@ export const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
           </div>
 
           <div style={{ fontSize: '12px', fontWeight: 800 }}>
-            {selectedDay === 18 ? (
+            {vacationDates[selectedDay] ? (
               <span style={{ color: '#D97706', background: '#FEF3C7', padding: '2px 8px', borderRadius: '6px' }}>
-                🏖️ 연차 휴가 (1 M/D 인정)
+                🏖️ {vacationDates[selectedDay].type} ({vacationDates[selectedDay].hours}.0h M/D 인정) {vacationDates[selectedDay].status === 'APPROVED' ? '✓ 최종 승인' : '검수중'}
               </span>
             ) : punchedDates[selectedDay] ? (
               <span style={{ color: '#16A34A', background: '#DCFCE7', padding: '2px 8px', borderRadius: '6px' }}>

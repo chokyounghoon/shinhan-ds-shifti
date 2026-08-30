@@ -1824,21 +1824,24 @@ app.post('/attendance/requests', async (c) => {
     const id = body.id || `req-vac-${Date.now()}`;
     const empId = body.employee_id || body.user_id || 'S01832';
     const userName = body.user_name || body.userName || '김신한';
-    const compName = body.company_name || body.companyName || '유브갓';
+    const compName = body.company_name || body.companyName || body.partner_company || '유브갓';
     const reqType = body.request_type || body.requestType || 'VACATION';
     const vacType = body.vacation_type || body.vacationType || '연차';
     const targetDate = body.target_date || body.targetDate || now.slice(0, 10);
+    const startDate = body.start_date || body.startDate || targetDate.split('~')[0].trim();
+    const endDate = body.end_date || body.endDate || (targetDate.includes('~') ? targetDate.split('~')[1].trim() : startDate);
+    const hours = Number(body.hours) || (vacType.includes('반차') ? 4 : 8);
     const reason = body.reason || '소속사 휴가 신청';
     const status = body.status || 'PENDING';
-    const approverName = body.approver_name || body.approverName || '소속사 현장관리인';
+    const approverName = body.approver_name || body.approverName || `${compName} 현장관리인`;
     const creator = body.created_by || userName || empId;
 
     await db.prepare(`
       INSERT INTO attendance_requests
-      (id, user_id, employee_id, user_name, company_name, request_type, target_date, reason, status, approver_name, created_at, updated_at, created_by, updated_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, user_id, employee_id, user_name, company_name, partner_company, request_type, vacation_type, target_date, start_date, end_date, hours, reason, status, approver_name, created_at, updated_at, created_by, updated_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
-      id, empId, empId, userName, compName, reqType, targetDate, reason, status, approverName, now, now, creator, creator
+      id, empId, empId, userName, compName, compName, reqType, vacType, targetDate, startDate, endDate, hours, reason, status, approverName, now, now, creator, creator
     ).run();
 
     // 🔔 1단계: D1 app_notifications에 협력사 관리인 앞 알림 즉시 생성
