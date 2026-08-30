@@ -118,34 +118,8 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-08');
   const [approvalSubFilter, setApprovalSubFilter] = useState<'ALL' | 'VACATION' | 'CLARIFICATION' | 'APPROVED'>('ALL');
 
-  // 전체 협력사 인력 마스터 데이터 (유브갓 10명 + 협력아이티에스 10명)
-  const allWorkersMaster: MasterWorkerItem[] = useMemo(() => [
-    // 유브갓 소속 (10명)
-    { name: '송무준', employee_id: 'UB0001', company: '유브갓', part: '상담', team: '고객상담팀', position: '선임', clockIn: '08:50', hours: 8.0, variance: 0, task: '상담 공정 (인바운드)' },
-    { name: '김철수', employee_id: 'UB0002', company: '유브갓', part: '상담', team: '고객상담팀', position: '사원', clockIn: '08:55', hours: 8.0, variance: 0, task: '상담 공정 (VIP전담)' },
-    { name: '이영희', employee_id: 'UB0003', company: '유브갓', part: '상담', team: '고객상담팀', position: '책임', clockIn: '08:45', hours: 8.0, variance: 0, task: '상담 공정 (품질관리)' },
-    { name: '박민수', employee_id: 'UB0004', company: '유브갓', part: '상담', team: '고객상담팀', position: '사원', clockIn: '08:58', hours: 8.0, variance: 0, task: '상담 공정 (VOC접수)' },
-    { name: '정다은', employee_id: 'UB0005', company: '유브갓', part: '상담', team: '고객상담팀', position: '선임', clockIn: '08:50', hours: 8.0, variance: 0, task: '상담 공정 (야간대응)' },
-    { name: '최현우', employee_id: 'UB0006', company: '유브갓', part: '상담', team: '고객상담팀', position: '사원', clockIn: '08:52', hours: 8.0, variance: 0, task: '상담 공정 (모니터링)' },
-    { name: '강지혜', employee_id: 'UB0007', company: '유브갓', part: '상담', team: '고객상담팀', position: '선임', clockIn: '08:48', hours: 8.0, variance: 0, task: '상담 공정 (스크립트)' },
-    { name: '윤서준', employee_id: 'UB0008', company: '유브갓', part: '상담', team: '고객상담팀', position: '사원', clockIn: '09:15', hours: 7.75, variance: 15, isWarning: true, reason: '지하철 2호선 지연 소명 접수', task: '상담 공정 (일반)' },
-    { name: '임채원', employee_id: 'UB0009', company: '유브갓', part: '상담', team: '고객상담팀', position: '사원', clockIn: '08:50', hours: 8.0, variance: 0, task: '상담 공정 (해피콜)' },
-    { name: '한도윤', employee_id: 'UB0010', company: '유브갓', part: '상담', team: '고객상담팀', position: '선임', clockIn: '08:40', hours: 8.0, variance: 0, task: '상담 공정 (운영지원)' },
-    // (주)협력아이티에스 소속 (10명)
-    { name: '김태호', employee_id: 'ITS001', company: '(주)협력아이티에스', part: '국제', team: '해외금융팀', position: '수석', clockIn: '08:45', hours: 8.0, variance: 0, task: '외환 전문 처리' },
-    { name: '박수진', employee_id: 'ITS002', company: '(주)협력아이티에스', part: '국제', team: '해외금융팀', position: '책임', clockIn: '08:50', hours: 8.0, variance: 0, task: 'SWIFT 송금 공정' },
-    { name: '이동욱', employee_id: 'ITS003', company: '(주)협력아이티에스', part: '국제', team: '해외금융팀', position: '선임', clockIn: '08:52', hours: 8.0, variance: 0, task: '해외승인 결제' },
-    { name: '최은지', employee_id: 'ITS004', company: '(주)협력아이티에스', part: '국제', team: '해외금융팀', position: '사원', clockIn: '08:55', hours: 8.0, variance: 0, task: '환율 모니터링' },
-    { name: '정승우', employee_id: 'ITS005', company: '(주)협력아이티에스', part: '국제', team: '해외금융팀', position: '선임', clockIn: '08:48', hours: 8.0, variance: 0, task: 'FDS 외환 이상감지' },
-    { name: '오세훈', employee_id: 'ITS006', company: '(주)협력아이티에스', part: '오토', team: '오토금융팀', position: '책임', clockIn: '08:40', hours: 8.0, variance: 0, task: '오토리스 심사 도급' },
-    { name: '배서현', employee_id: 'ITS007', company: '(주)협력아이티에스', part: '오토', team: '오토금융팀', position: '선임', clockIn: '08:50', hours: 8.0, variance: 0, task: '중고차 금융 정산' },
-    { name: '신재원', employee_id: 'ITS008', company: '(주)협력아이티에스', part: '오토', team: '오토금융팀', position: '사원', clockIn: '08:53', hours: 8.0, variance: 0, task: '채권 서류 검수' },
-    { name: '유하나', employee_id: 'ITS009', company: '(주)협력아이티에스', part: '오토', team: '오토금융팀', position: '선임', clockIn: '08:50', hours: 8.0, variance: 0, task: '제휴사 대사 업무' },
-    { name: '조민기', employee_id: 'ITS010', company: '(주)협력아이티에스', part: '오토', team: '오토금융팀', position: '사원', clockIn: '08:58', hours: 8.0, variance: 0, task: '데이터 등록 공정' }
-  ], []);
-
-  // 전체 협력사 인력 마스터 데이터 (D1 실시간 연동 + Fallback)
-  const [rosterWorkers, setRosterWorkers] = useState<MasterWorkerItem[]>(allWorkersMaster);
+  // 전체 협력사 인력 마스터 데이터 (D1 실시간 연동)
+  const [rosterWorkers, setRosterWorkers] = useState<MasterWorkerItem[]>([]);
   const [isD1Connected, setIsD1Connected] = useState<boolean>(false);
 
   // DS 현장대리인 최종 승인 대기 소명 목록 (D1)
@@ -160,7 +134,7 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
       const res = await fetch('/api/manpower');
       if (res.ok) {
         const json = await res.json();
-        if (json.success && json.data && Array.isArray(json.data) && json.data.length > 0) {
+        if (json.success && json.data && Array.isArray(json.data)) {
           const d1Workers: MasterWorkerItem[] = json.data.map((row: any) => ({
             name: row.worker_name || row.name,
             employee_id: row.employee_id,
@@ -183,8 +157,7 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
     } catch (e) {
       console.warn('D1 Manpower fetch warn:', e);
     }
-    // Fallback
-    setRosterWorkers(allWorkersMaster);
+    setRosterWorkers([]);
   };
 
   // 2. D1 DB service_delivery_inspections 실시간 조회

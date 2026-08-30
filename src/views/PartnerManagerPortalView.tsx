@@ -142,60 +142,29 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
     return mgr ? `${mgr.name} ${mgr.position || '대표'}` : `${currentUser.name.split(' ')[0]} 관리자`;
   }, [allUsers, selectedPartner, currentUser.name]);
 
-  // 4. 해당 협력사 소속 투입 인력(작업자) 마스터 및 실시간 D1 연동 풀
+  // 4. 해당 협력사 소속 투입 인력(작업자) 마스터 (순수 D1 DB allUsers 기준)
   const myWorkers = useMemo(() => {
-    const partnerMasterRoster: Record<string, Array<{ name: string; employee_id: string; company: string; part: string; team: string; position: string; clockIn: string; hours: number; variance: number; isWarning?: boolean; reason?: string; task: string; phone?: string }>> = {
-      '유브갓': [
-        { name: '송무준', employee_id: 'UB0001', company: '유브갓', part: '상담', team: '고객상담팀', position: '선임', clockIn: '08:50', hours: 8.0, variance: 0, task: '상담 공정 (인바운드)' },
-        { name: '김성훈', employee_id: 'PT20260818', company: '유브갓', part: '상담', team: '금융분실팀', position: '주임', clockIn: '08:45', hours: 8.0, variance: 0, task: '상담 공정 (분실/도난)' },
-        { name: '김신한', employee_id: 'PT20260816', company: '유브갓', part: '상담', team: '수신제신고팀', position: '대리', clockIn: '08:50', hours: 8.0, variance: 0, task: '상담 공정 (수신/제신고)' },
-        { name: '이하은', employee_id: 'PT20260817', company: '유브갓', part: '상담', team: '모바일운영팀', position: '사원', clockIn: '09:15', hours: 7.5, variance: 15, isWarning: true, reason: '지하철 2호선 신호 장애 지연 소명서 작성 필요', task: '상담 공정 (모바일배정)' },
-        { name: '김흥섭', employee_id: 'UB0002', company: '유브갓', part: '상담', team: '심사지원팀', position: '선임', clockIn: '08:50', hours: 8.0, variance: 0, task: '상담 공정 (한도심사)' },
-        { name: '최진영', employee_id: 'UB0003', company: '유브갓', part: '상담', team: '해외승인팀', position: '주임', clockIn: '08:52', hours: 8.0, variance: 0, task: '상담 공정 (해외승인)' },
-        { name: '강동현', employee_id: 'UB0004', company: '유브갓', part: '상담', team: '가맹점정산팀', position: '대리', clockIn: '08:40', hours: 8.0, variance: 0, task: '상담 공정 (가맹점정산)' },
-        { name: '윤서아', employee_id: 'UB0005', company: '유브갓', part: '상담', team: '발급심사팀', position: '주임', clockIn: '08:55', hours: 8.0, variance: 0, task: '상담 공정 (발급심사)' },
-        { name: '배지훈', employee_id: 'UB0006', company: '유브갓', part: '상담', team: 'VIP케어팀', position: '수석', clockIn: '08:50', hours: 8.0, variance: 0, task: '상담 공정 (VIP상담)' },
-        { name: '김글로벌', employee_id: 'UB0010', company: '유브갓', part: '국제', team: '글로벌결제팀', position: '차장', clockIn: '08:50', hours: 8.0, variance: 0, task: '글로벌 결제 네트워크 관리' }
-      ],
-      '(주)협력아이티에스': [
-        { name: '박민지', employee_id: 'PT20260819', company: '(주)협력아이티에스', part: '상담', team: 'CTI운영팀', position: '선임', clockIn: '08:48', hours: 8.0, variance: 0, task: 'CTI 연동/분배' },
-        { name: '이제성', employee_id: 'ITS001', company: '(주)협력아이티에스', part: '오토금융', team: '오토시스템팀', position: '책임', clockIn: '08:50', hours: 8.0, variance: 0, task: '오토론 기간계 연동' },
-        { name: '정재호', employee_id: 'ITS002', company: '(주)협력아이티에스', part: '오토금융', team: '가맹데스크팀', position: '선임', clockIn: '08:45', hours: 8.0, variance: 0, task: '오토금융 가맹점 데스크' }
-      ],
-      '현대IT솔루션': [
-        { name: '박민우', employee_id: 'HD001', company: '현대IT솔루션', part: '오토금융', team: '인증보안팀', position: '선임', clockIn: '08:50', hours: 8.0, variance: 0, task: '오토심사 비대면 인증' },
-        { name: '한동훈', employee_id: 'HD002', company: '현대IT솔루션', part: '오토금융', team: '정산배치팀', position: '책임', clockIn: '08:55', hours: 8.0, variance: 0, task: '오토리스 정산 배치' }
-      ]
-    };
-
     const d1List = allUsers.filter(u => 
       u.company === selectedPartner && 
-      u.role === 'PARTNER_WORKER' && 
+      (u.role === 'PARTNER_WORKER' || u.role === 'WORKER') && 
       !u.is_partner_manager
     );
 
-    const masterList = partnerMasterRoster[selectedPartner] || [];
-    const merged = [...masterList];
-
-    d1List.forEach(u => {
-      const exists = merged.some(m => m.name === u.name || m.employee_id === u.employee_id);
-      if (!exists) {
-        merged.push({
-          name: u.name,
-          employee_id: u.employee_id || `EMP-${Date.now()}`,
-          company: selectedPartner,
-          part: u.part || '상담',
-          team: u.team || '도급운영팀',
-          position: u.position || '사원',
-          clockIn: '08:50',
-          hours: 8.0,
-          variance: 0,
-          task: `${u.part || '상담'} 공정 도급 업무 수행`
-        });
-      }
-    });
-
-    return merged;
+    return d1List.map(u => ({
+      name: u.name,
+      employee_id: u.employee_id || `EMP-${Date.now()}`,
+      company: selectedPartner,
+      part: u.part || '상담',
+      team: u.team || '도급운영팀',
+      position: u.position || '사원',
+      clockIn: '08:50',
+      hours: 8.0,
+      variance: 0,
+      isWarning: false,
+      reason: '',
+      phone: u.phone || '',
+      task: `${u.part || '상담'} 공정 도급 업무 수행`
+    }));
   }, [allUsers, selectedPartner]);
 
   // 소명 및 공백 통보 상태

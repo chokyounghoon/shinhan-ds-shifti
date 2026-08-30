@@ -279,62 +279,6 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
     const exceptions = dbService.getExceptionRecordsByPart(activePart);
     const notices = await dbService.fetchGapNoticesFromD1(activePart);
 
-    // 파트별 기준 협력인력 마스터 풀 (10-PM 도급 전수 관리 및 D1 DB 실시간 연동)
-    const masterRoster: Record<string, Array<{ name: string; id: string; company: string; task: string; defaultClockIn: string; isSlaBreach?: boolean; variance?: number; reason?: string; status?: any; hours?: number }>> = {
-      '상담': [
-        { name: '송무준', id: 'UB0001', company: '유브갓', task: '상담 공정 (인바운드)', defaultClockIn: '08:50', status: 'AUTO_SETTLED', hours: 8.0 },
-        { name: '김성훈', id: 'PT20260818', company: '유브갓', task: '상담 공정 (분실/도난)', defaultClockIn: '08:45', status: 'AUTO_SETTLED', hours: 8.0 },
-        { name: '김신한', id: 'PT20260816', company: '유브갓', task: '상담 공정 (수신/제신고)', defaultClockIn: '08:50', status: 'AUTO_SETTLED', hours: 8.0 },
-        { name: '박민지', id: 'PT20260819', company: '(주)협력아이티에스', task: 'CTI 연동/분배', defaultClockIn: '08:48', status: 'AUTO_SETTLED', hours: 8.0 },
-        { name: '이하은', id: 'PT20260817', company: '유브갓', task: '상담 공정 (모바일배정)', defaultClockIn: '09:15', isSlaBreach: true, variance: 15, reason: '지하철 2호선 신호 장애 지연 소명 접수', status: 'VARIANCE_GAP', hours: 7.5 },
-        { name: '배지훈', id: 'UB0006', company: '유브갓', task: '상담 공정 (VIP상담)', defaultClockIn: '09:22', isSlaBreach: true, variance: 22, reason: '현장 지각 (소명 미제출 🚨)', status: 'VARIANCE_GAP', hours: 7.5 },
-        { name: '강미출', id: 'PT20260820', company: '(주)협력아이티에스', task: '상담 공정 (가맹점정산)', defaultClockIn: '-', isSlaBreach: true, variance: 0, reason: '09:00 기준 미출근 (연락 대기 ⛔)', status: 'UNVERIFIED', hours: 0 },
-        { name: '김흥섭', id: 'UB0002', company: '유브갓', task: '상담 공정 (한도심사)', defaultClockIn: '08:50', status: 'AUTO_SETTLED', hours: 8.0 },
-        { name: '최진영', id: 'UB0003', company: '유브갓', task: '상담 공정 (해외승인)', defaultClockIn: '08:52', status: 'AUTO_SETTLED', hours: 8.0 },
-        { name: '윤서아', id: 'UB0005', company: '유브갓', task: '상담 공정 (발급심사)', defaultClockIn: '08:55', status: 'AUTO_SETTLED', hours: 8.0 }
-      ],
-      '오토금융': [
-        { name: '이제성', id: 'ITS001', company: '(주)협력아이티에스', task: '오토론 기간계 연동', defaultClockIn: '08:50', status: 'AUTO_SETTLED', hours: 8.0 },
-        { name: '정재호', id: 'ITS002', company: '(주)협력아이티에스', task: '오토금융 가맹점 데스크', defaultClockIn: '08:45', status: 'AUTO_SETTLED', hours: 8.0 },
-        { name: '박민우', id: 'HD001', company: '현대IT솔루션', task: '오토심사 비대면 인증', defaultClockIn: '09:10', isSlaBreach: true, variance: 10, reason: '출근길 교통 체증 지연', status: 'VARIANCE_GAP', hours: 7.8 },
-        { name: '한동훈', id: 'HD002', company: '현대IT솔루션', task: '오토리스 정산 배치', defaultClockIn: '08:55', status: 'AUTO_SETTLED', hours: 8.0 }
-      ],
-      '국제': [
-        { name: '김글로벌', id: 'UB0010', company: '유브갓', task: '글로벌 결제 네트워크 관리', defaultClockIn: '08:50', status: 'AUTO_SETTLED', hours: 8.0 }
-      ]
-    };
-
-    // D1 등록 직원 중 해당 파트 소속 협력직원 보충
-    const defaultList = masterRoster[activePart] || masterRoster['상담'] || [];
-    const mergedRecords: ManpowerInputRecord[] = [...partRecords];
-
-    defaultList.forEach((m, idx) => {
-      const exists = mergedRecords.some(r => r.workerName === m.name || (r as any).employeeId === m.id || r.workerId === m.id);
-      if (!exists) {
-        mergedRecords.push({
-          id: `manpower-gen-${activePart}-${m.id || idx}`,
-          workerId: m.id,
-          workerName: m.name,
-          partnerCompany: m.company,
-          partName: activePart,
-          workDate: selectedDate || todayStr,
-          clockInTime: m.defaultClockIn,
-          clockOutTime: '18:00',
-          contractedHours: 8.0,
-          actualInputHours: m.hours ?? 8.0,
-          taskSummary: m.task,
-          varianceMinutes: m.variance || 0,
-          isSlaBreach: Boolean(m.isSlaBreach),
-          gapReason: m.reason || '',
-          partnerClarification: m.reason || '',
-          verificationStatus: m.status || 'AUTO_SETTLED',
-          auditTrails: []
-        });
-      }
-    });
-
-    partRecords = mergedRecords;
-
     // 🔍 일자별 필터
     if (selectedDate) {
       partRecords = partRecords.map(r => ({ ...r, workDate: selectedDate }));
