@@ -3604,45 +3604,6 @@ app.get('/manpower', async (c) => {
     const stmt = db.prepare(query);
     const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
 
-    // 초기 데이터가 비어있는 경우 기본 Roster 자동 생성
-    if (!results || results.length === 0) {
-      const now = getKst();
-      const todayStr = now.substring(0, 10);
-      const defaultRecords = [
-        {
-          record_id: 'rec-init-01',
-          employee_id: 'UB0001',
-          worker_name: '송무준',
-          part_name: '상담',
-          partner_company: '유브갓',
-          work_date: todayStr,
-          contracted_hours: 8.0,
-          actual_input_hours: 8.0,
-          clock_in_time: '08:50',
-          clock_out_time: '18:00',
-          task_summary: '상담 시스템 기간계 계정계 승인 코어 모듈 유지보수',
-          variance_minutes: 0,
-          is_sla_breach: 0,
-          verification_status: 'AUTO_SETTLED'
-        }
-      ];
-
-      for (const rec of defaultRecords) {
-        await db.prepare(`
-          INSERT OR IGNORE INTO manpower_inputs
-          (record_id, employee_id, worker_name, part_name, partner_company, work_date, contracted_hours, actual_input_hours, clock_in_time, clock_out_time, task_summary, variance_minutes, is_sla_breach, verification_status, created_at, updated_at, created_by, updated_by)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SYSTEM', 'SYSTEM')
-        `).bind(
-          rec.record_id, rec.employee_id, rec.worker_name, rec.part_name, rec.partner_company, rec.work_date,
-          rec.contracted_hours, rec.actual_input_hours, rec.clock_in_time, rec.clock_out_time, rec.task_summary,
-          rec.variance_minutes, rec.is_sla_breach, rec.verification_status, now, now
-        ).run();
-      }
-
-      const refetched = await db.prepare("SELECT * FROM manpower_inputs ORDER BY rowid DESC").all();
-      return c.json({ success: true, data: refetched.results || [] });
-    }
-
     return c.json({ success: true, data: results || [] });
   } catch (err: any) {
     return c.json({ success: false, detail: err.message }, 500);
@@ -3902,36 +3863,6 @@ app.get('/gap-notices', async (c) => {
     const stmt = db.prepare(query);
     const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
 
-    // 기본 사전 결손 통보 시드 주입 (비어있을 시)
-    if (!results || results.length === 0) {
-      const now = getKst();
-      const todayStr = now.substring(0, 10);
-      const defaultNotices = [
-        {
-          id: 'gap-notice-01',
-          partner_company: '유브갓',
-          worker_name: '송무준',
-          part_name: '상담',
-          gap_period: `${todayStr} 09:00 ~ 13:00`,
-          gap_hours: 4.0,
-          gap_type: '오전반차 (협력사 자체 승인)',
-          reason: '가족 행사로 인한 사전 휴무 신청건',
-          status: 'DISPATCHED'
-        }
-      ];
-
-      for (const n of defaultNotices) {
-        await db.prepare(`
-          INSERT OR IGNORE INTO pre_gap_notices
-          (id, partner_company, worker_name, part_name, gap_period, gap_hours, gap_type, reason, status, created_at, updated_at, created_by, updated_by)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SYSTEM', 'SYSTEM')
-        `).bind(n.id, n.partner_company, n.worker_name, n.part_name, n.gap_period, n.gap_hours, n.gap_type, n.reason, n.status, now, now).run();
-      }
-
-      const refetched = await db.prepare("SELECT * FROM pre_gap_notices ORDER BY created_at DESC").all();
-      return c.json({ success: true, data: refetched.results || [] });
-    }
-
     return c.json({ success: true, data: results || [] });
   } catch (err: any) {
     return c.json({ success: false, detail: err.message }, 500);
@@ -4001,39 +3932,6 @@ app.get('/inspections', async (c) => {
     const db = c.env.DB;
     await ensureManpowerTables(db);
     const { results } = await db.prepare("SELECT * FROM service_delivery_inspections ORDER BY created_at DESC").all();
-
-    if (!results || results.length === 0) {
-      const now = getKst();
-      const defaultInspections = [
-        {
-          id: 'insp-2026-08',
-          project_code: 'PRJ-SHIFTI-2026-08',
-          partner_company: '유브갓',
-          inspector_id: 'S01832',
-          inspector_name: '조경훈 PM',
-          inspection_month: '2026-08',
-          contracted_man_days: 120.0,
-          actual_delivered_man_days: 118.5,
-          inspection_status: 'SUBMITTED',
-          inspection_notes: '2026년 8월 도급 용역 이행 공수 검수 제출'
-        }
-      ];
-
-      for (const item of defaultInspections) {
-        await db.prepare(`
-          INSERT OR IGNORE INTO service_delivery_inspections
-          (id, project_code, partner_company, inspector_id, inspector_name, inspection_month, contracted_man_days, actual_delivered_man_days, inspection_status, inspection_notes, created_at, updated_at, created_by, updated_by)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).bind(
-          item.id, item.project_code, item.partner_company, item.inspector_id, item.inspector_name,
-          item.inspection_month, item.contracted_man_days, item.actual_delivered_man_days, item.inspection_status,
-          item.inspection_notes, now, now, item.inspector_name, item.inspector_name
-        ).run();
-      }
-
-      const refetched = await db.prepare("SELECT * FROM service_delivery_inspections ORDER BY created_at DESC").all();
-      return c.json({ success: true, data: refetched.results || [] });
-    }
 
     return c.json({ success: true, data: results || [] });
   } catch (err: any) {
