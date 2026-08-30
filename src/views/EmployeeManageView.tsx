@@ -238,6 +238,30 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
       return;
     }
 
+    const cleanPhone = updated.phone?.trim() || '';
+    if (!cleanPhone) {
+      alert('연락처(휴대폰 번호)를 입력해 주세요.');
+      return;
+    }
+    const phoneRegex = /^01[0-9]-\d{3,4}-\d{4}$/;
+    if (!phoneRegex.test(cleanPhone)) {
+      alert('올바른 휴대폰 번호 형식(예: 010-1234-5678)으로 입력해 주세요.');
+      return;
+    }
+    updated.phone = cleanPhone;
+
+    const cleanEmail = updated.email?.trim() || '';
+    if (!cleanEmail) {
+      alert('이메일 주소를 입력해 주세요.');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      alert('올바른 이메일 주소 형식(예: user@shinhands.co.kr)으로 입력해 주세요.');
+      return;
+    }
+    updated.email = cleanEmail;
+
     setIsEditModalOpen(false);
     setEditingEmp(null);
 
@@ -1040,10 +1064,10 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
 
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
-                    핸드폰 번호
+                    연락처 (휴대폰) *
                   </label>
                   <input
-                    type="text"
+                    type="tel"
                     maxLength={13}
                     value={(() => {
                       const raw = (editingEmp.phone || '').replace(/[^0-9]/g, '').slice(0, 11);
@@ -1070,6 +1094,7 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
                       fontSize: '13px',
                       boxSizing: 'border-box'
                     }}
+                    required
                   />
                 </div>
               </div>
@@ -1077,13 +1102,13 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
               {/* 6. 외부 이메일 */}
               <div>
                 <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
-                  이메일 주소 (외부 메일: 구글/네이버 등)
+                  이메일 주소 *
                 </label>
                 <input
                   type="email"
                   value={editingEmp.email}
                   onChange={e => setEditingEmp({ ...editingEmp, email: e.target.value })}
-                  placeholder="예: user@gmail.com"
+                  placeholder="예: user@shinhands.co.kr"
                   style={{
                     width: '100%',
                     padding: '8px 10px',
@@ -1092,6 +1117,7 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
                     fontSize: '13px',
                     boxSizing: 'border-box'
                   }}
+                  required
                 />
               </div>
             </div>

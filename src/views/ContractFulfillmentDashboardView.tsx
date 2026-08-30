@@ -172,8 +172,31 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
     e.preventDefault();
     const cleanId = registerEmployeeForm.employeeId.trim().toUpperCase();
     const cleanName = registerEmployeeForm.name.trim();
+    const cleanPhone = registerEmployeeForm.phone.trim();
+    const cleanEmail = registerEmployeeForm.email.trim();
+
     if (!cleanId || !cleanName) {
       alert('사번(아이디)과 성명을 모두 입력해 주세요.');
+      return;
+    }
+
+    if (!cleanPhone) {
+      alert('연락처(휴대폰 번호)를 입력해 주세요.');
+      return;
+    }
+    const phoneRegex = /^01[0-9]-\d{3,4}-\d{4}$/;
+    if (!phoneRegex.test(cleanPhone)) {
+      alert('올바른 휴대폰 번호 형식(예: 010-1234-5678)으로 입력해 주세요.');
+      return;
+    }
+
+    if (!cleanEmail) {
+      alert('이메일 주소를 입력해 주세요.');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      alert('올바른 이메일 주소 형식(예: user@shinhands.co.kr)으로 입력해 주세요.');
       return;
     }
 
@@ -204,11 +227,11 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
           company: registerEmployeeForm.role === 'DS_PM' ? '신한DS' : finalCompany,
           team: finalTeam,
           part: finalPart,
-          position: registerEmployeeForm.position || (isPartnerMgr ? '대표' : '선임'),
+          position: registerEmployeeForm.position || (isPartnerMgr ? '대표이사' : registerEmployeeForm.role === 'DS_PM' ? '부장' : '사원'),
           role: userRole,
           isPartnerManager: isManagerFlag,
-          phone: registerEmployeeForm.phone,
-          email: registerEmployeeForm.email || `${cleanId.toLowerCase()}@shinhands.co.kr`,
+          phone: cleanPhone,
+          email: cleanEmail,
           status: finalStatus
         })
       });
@@ -2812,19 +2835,30 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
                   <label style={{ fontSize: '11.5px', color: '#90A4AE', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
-                    연락처 (휴대폰)
+                    연락처 (휴대폰) *
                   </label>
                   <input
-                    type="text"
+                    type="tel"
                     placeholder="010-0000-0000"
+                    maxLength={13}
                     value={registerEmployeeForm.phone}
-                    onChange={e => setRegisterEmployeeForm({ ...registerEmployeeForm, phone: e.target.value })}
+                    onChange={e => {
+                      const raw = e.target.value.replace(/[^0-9]/g, '').slice(0, 11);
+                      let formatted = raw;
+                      if (raw.length >= 4 && raw.length <= 7) {
+                        formatted = `${raw.slice(0, 3)}-${raw.slice(3)}`;
+                      } else if (raw.length > 7) {
+                        formatted = `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7)}`;
+                      }
+                      setRegisterEmployeeForm({ ...registerEmployeeForm, phone: formatted });
+                    }}
                     style={formInputStyle}
+                    required
                   />
                 </div>
                 <div>
                   <label style={{ fontSize: '11.5px', color: '#90A4AE', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
-                    이메일 주소
+                    이메일 주소 *
                   </label>
                   <input
                     type="email"
@@ -2832,6 +2866,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                     value={registerEmployeeForm.email}
                     onChange={e => setRegisterEmployeeForm({ ...registerEmployeeForm, email: e.target.value })}
                     style={formInputStyle}
+                    required
                   />
                 </div>
               </div>
