@@ -198,10 +198,12 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
 
   const fetchPendingDsClarifications = async () => {
     try {
+      // 🛡️ DS_PRINCIPAL_PM 역할로 조회: API 서버에서 PENDING_DS 상태만 필터링하여 반환
       const res = await fetch('/api/clarification-requests?role=DS_PRINCIPAL_PM');
       if (res.ok) {
         const json = await res.json();
         const all = json.data || [];
+        // API에서 이미 PENDING_DS 필터링되지만 이중 방어
         setPendingDsClarifications(all.filter((c: any) => c.status === 'PENDING_DS'));
       }
     } catch (e) {
@@ -211,14 +213,15 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
 
   const fetchPendingDsVacations = async () => {
     try {
-      const res = await fetch('/api/attendance/requests');
+      // 🛡️ DS_PRINCIPAL_PM 역할로 조회: API 서버에서 PENDING_DS 상태만 필터링하여 반환
+      const res = await fetch('/api/attendance/requests?role=DS_PRINCIPAL_PM');
       let d1Vacations: any[] = [];
       if (res.ok) {
         const json = await res.json();
         const all = json.data || [];
         d1Vacations = all.filter((r: any) => 
           (r.request_type === 'VACATION' || r.requestType === 'VACATION') && 
-          r.status === 'PENDING_DS'
+          r.status === 'PENDING_DS' // API에서 이미 필터링되지만 이중 방어
         );
       }
 

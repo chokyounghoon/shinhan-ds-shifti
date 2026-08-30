@@ -1113,17 +1113,27 @@ app.get('/clarification-requests', async (c) => {
     await ensureClarificationTable(db);
     const { role, employee_id, company_name } = c.req.query();
 
-    let query = 'SELECT * FROM clarification_requests';
+    let query = 'SELECT * FROM clarification_requests WHERE 1=1';
     const binds: any[] = [];
 
     if (role === 'PARTNER_WORKER' && employee_id) {
-      query += ' WHERE employee_id = ?';
+      // 개인(근로자): 본인이 신청한 건 전체 (상태 무관, 승인 현황 확인용)
+      query += ' AND (UPPER(employee_id) = UPPER(?))';
       binds.push(employee_id);
-    } else if (role === 'PARTNER_SITE_MANAGER' && company_name) {
-      query += ' WHERE company_name = ?';
-      binds.push(company_name);
+    } else if (role === 'PARTNER_MANAGER' || role === 'PARTNER_SITE_MANAGER' || role === 'PARTNER_PART_LEADER') {
+      // 협력사 관리인: 1차 결재 대기(PENDING_PARTNER) + 반려후재상신(REJECTED_PARTNER) + 이미 처리한 건(PENDING_DS, APPROVED, REJECTED_DS) 포함
+      // 단, DS 전용(PENDING_DS에서 DS PM이 처리 중인 건)은 보이되 이미 개인이 보완 필요한 REJECTED_PARTNER도 포함
+      if (company_name) {
+        query += ' AND company_name = ?';
+        binds.push(company_name);
+      }
+      // 협력사 관리인에게는 모든 상태 표시 (단, 개인 직접 조회는 아님)
+    } else if (role === 'DS_PRINCIPAL_PM' || role === 'PRINCIPAL_INSPECTOR' || role === 'DS_DIRECTOR') {
+      // 🛡️ DS 현장대리인: 협력사 관리인이 1차 승인 완료한 건(PENDING_DS)과 이미 처리한 건만 표시
+      // PENDING_PARTNER(개인 신청 후 협력사 관리인 미승인)는 절대 표시 금지
+      query += " AND status IN ('PENDING_DS', 'APPROVED', 'REJECTED_DS', 'REJECTED')";
     }
-    // DS_PRINCIPAL_PM: 전체 조회
+    // 기타 역할: 전체 조회 (관리자 등)
 
     query += ' ORDER BY created_at DESC';
     const stmt = db.prepare(query);
@@ -1737,6 +1747,7 @@ app.get('/attendance/requests', async (c) => {
 
     const employeeId = c.req.query('employee_id');
     const requestType = c.req.query('request_type');
+    const role = c.req.query('role');
 
     // employee_id 대소문자 불일치 방어: UPPER()로 양측 비교
     let query = 'SELECT * FROM attendance_requests WHERE 1=1';
@@ -1750,6 +1761,16 @@ app.get('/attendance/requests', async (c) => {
       query += ' AND request_type = ?';
       params.push(requestType);
     }
+
+    // 역할별 상태 필터: DS 현장대리인은 협력사 관리인 1차 승인 완료 건만 조회
+    if (role === 'DS_PRINCIPAL_PM' || role === 'PRINCIPAL_INSPECTOR' || role === 'DS_DIRECTOR') {
+      query += " AND status IN ('PENDING_DS', 'APPROVED', 'REJECTED_DS', 'REJECTED')";
+    } else if (role === 'PARTNER_MANAGER' || role === 'PARTNER_SITE_MANAGER' || role === 'PARTNER_PART_LEADER') {
+      // 협력사 관리인: 1차 결재 대기 및 반려 건만 (PENDING, PENDING_PARTNER, REJECTED_PARTNER)
+      // DS가 처리 중이거나 완료된 건도 이력 확인 목적으로 포함
+      // 특별한 상태 제한 없음 (이미 employee_id/company로 본인 소속 건만 가져옴)
+    }
+    // PARTNER_WORKER(개인): employee_id 필터로만 충분
 
     query += ' ORDER BY rowid DESC';
 
