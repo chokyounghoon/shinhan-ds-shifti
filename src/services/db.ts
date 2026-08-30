@@ -1183,14 +1183,14 @@ export class PureDatabaseEngine {
     return this.notifications.filter(n => !n.isRead).length;
   }
 
-  public addNotification(noti: {
+  public async addNotification(noti: {
     type?: string;
     title: string;
     content: string;
     targetRole?: string;
     partName?: string;
     linkUrl?: string;
-  }): DbAppNotification {
+  }): Promise<DbAppNotification> {
     const newNoti: DbAppNotification = {
       id: `noti_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
       type: noti.type || 'APPROVAL_REQUEST',
@@ -1202,21 +1202,27 @@ export class PureDatabaseEngine {
       createdAt: getKstNowString(),
       linkUrl: noti.linkUrl
     };
-    this.notifications.unshift(newNoti);
 
-    // 서버로도 전송 시도
-    fetch(`${this.API_BASE}/notifications`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: newNoti.type,
-        title: newNoti.title,
-        content: newNoti.content,
-        target_role: newNoti.targetRole,
-        part_name: newNoti.partName,
-        link_url: newNoti.linkUrl
-      })
-    }).catch(() => {});
+    // 1) D1 DB 서버로 등록 전송
+    try {
+      await fetch(`${this.API_BASE}/notifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: newNoti.type,
+          title: newNoti.title,
+          content: newNoti.content,
+          target_role: newNoti.targetRole,
+          part_name: newNoti.partName,
+          link_url: newNoti.linkUrl
+        })
+      });
+      // D1 DB에서 최신 데이터 다시 로드
+      await this.fetchNotificationsFromD1();
+    } catch (e) {
+      console.warn('[D1 Notification Post Error]:', e);
+      this.notifications.unshift(newNoti);
+    }
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('notification_updated'));
