@@ -4,43 +4,8 @@ import react from '@vitejs/plugin-react';
 // 로컬 개발 환경용 D1 API 미들웨어
 function localApiPlugin(): Plugin {
   // 로컬 메모리 DB 저장소
-  const localRequests: any[] = [
-    {
-      id: 'req-init-1',
-      employee_id: 'PT20260816',
-      user_id: 'PT20260816',
-      user_name: '김신한',
-      company_name: '유브갓',
-      request_type: 'VACATION',
-      vacation_type: '연차',
-      target_date: '2026-08-25',
-      start_date: '2026-08-25',
-      end_date: '2026-08-25',
-      hours: 8,
-      reason: '소속사 정기 연차 휴가',
-      status: 'APPROVED',
-      approver_name: '유브갓 현장관리인',
-      created_at: '2026-08-24 09:00:00'
-    }
-  ];
-
-  const localNotifications: any[] = [
-    {
-      id: 'noti-init-1',
-      type: 'GENERAL',
-      title: '시스템 정상 가동 중',
-      content: '신한DS 도급 인력 투입 및 공정 검수 관리 포털이 정상 구동되었습니다.',
-      target_role: 'ALL',
-      part_name: '상담',
-      is_read: 0,
-      link_url: '',
-      created_at: new Date().toISOString().replace('T', ' ').substring(0, 19),
-      created_by: 'SYSTEM',
-      updated_at: new Date().toISOString().replace('T', ' ').substring(0, 19),
-      updated_by: 'SYSTEM'
-    }
-  ];
-
+  const localRequests: any[] = [];
+  const localNotifications: any[] = [];
   const localMessages: any[] = [];
 
   return {
