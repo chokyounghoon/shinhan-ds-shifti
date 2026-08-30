@@ -1700,11 +1700,12 @@ app.get('/attendance/requests', async (c) => {
     const employeeId = c.req.query('employee_id');
     const requestType = c.req.query('request_type');
 
+    // employee_id 대소문자 불일치 방어: UPPER()로 양측 비교
     let query = 'SELECT * FROM attendance_requests WHERE 1=1';
     const params: any[] = [];
 
     if (employeeId) {
-      query += ' AND (employee_id = ? OR user_id = ?)';
+      query += ' AND (UPPER(employee_id) = UPPER(?) OR UPPER(user_id) = UPPER(?))';
       params.push(employeeId, employeeId);
     }
     if (requestType) {

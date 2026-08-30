@@ -41,9 +41,14 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
   const fetchClarifications = async () => {
     setIsLoadingClarifications(true);
     try {
-      const [clarRes, vacRes] = await Promise.all([
-        fetch(`/api/clarification-requests?role=PARTNER_WORKER&employee_id=${encodeURIComponent(empId)}`),
-        fetch(`/api/attendance/requests?employee_id=${encodeURIComponent(empId)}`)
+      // employee_id 대소문자 불일치 방어: 대문자 및 소문자 모두 시도
+      const empIdUpper = (empId || '').toUpperCase().trim();
+      const empIdLower = (empId || '').toLowerCase().trim();
+
+      const [clarRes, vacRes, vacResLower] = await Promise.all([
+        fetch(`/api/clarification-requests?role=PARTNER_WORKER&employee_id=${encodeURIComponent(empIdUpper)}`),
+        fetch(`/api/attendance/requests?employee_id=${encodeURIComponent(empIdUpper)}`),
+        fetch(`/api/attendance/requests?employee_id=${encodeURIComponent(empIdLower)}`)
       ]);
       
       let clarData: any[] = [];
@@ -53,12 +58,28 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
         const json = await clarRes.json();
         clarData = json.data || [];
         setD1Clarifications(clarData);
+        console.log('[투입소명] 소명 조회 결과:', clarData.length, '건', empIdUpper);
       }
-      if (vacRes.ok) {
-        const vacJson = await vacRes.json();
-        vacData = vacJson.data || [];
-        setD1Vacations(vacData);
+      
+      // 대문자 결과와 소문자 결과 병합 (중복 제거)
+      const vacIds = new Set<string>();
+      const mergedVac: any[] = [];
+      
+      for (const res of [vacRes, vacResLower]) {
+        if (res.ok) {
+          const j = await res.json();
+          const rows: any[] = j.data || [];
+          for (const r of rows) {
+            if (!vacIds.has(r.id)) {
+              vacIds.add(r.id);
+              mergedVac.push(r);
+            }
+          }
+        }
       }
+      vacData = mergedVac;
+      setD1Vacations(vacData);
+      console.log('[투입소명] 휴가 조회 결과:', vacData.length, '건', empIdUpper, '/', empIdLower);
     } catch (e) {
       console.warn('소명 및 휴가 조회 실패:', e);
     } finally {
@@ -194,9 +215,11 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
     setIsSubmittingResubmit(true);
     try {
       const isClar = targetReqForResubmit.id.startsWith('clar-');
+      // originalId를 사용해야 DB에서 정확히 찾을 수 있음 (id는 'clar-', 'vac-' prefix 포함)
+      const apiId = targetReqForResubmit.originalId || targetReqForResubmit.id;
       const url = isClar 
-        ? `/api/clarification-requests/${targetReqForResubmit.id}/resubmit`
-        : `/api/attendance/requests/${targetReqForResubmit.id}/resubmit`;
+        ? `/api/clarification-requests/${apiId}/resubmit`
+        : `/api/attendance/requests/${apiId}/resubmit`;
 
       const payload = isClar ? {
         employee_id: currentEmpId,
