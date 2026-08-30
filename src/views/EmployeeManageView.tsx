@@ -245,8 +245,9 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
     try {
       const currentUser = dbService.getCurrentUser();
       const actorId = currentUser?.id || currentUser?.name || 'S01832';
-      const isManagerFlag = updated.role === 'PARTNER_MANAGER' ? 1 : 0;
-      const userRole = updated.role === 'DS_PM' ? 'DS_PRINCIPAL_PM' : updated.role === 'PARTNER_MANAGER' ? 'PARTNER_PART_LEADER' : 'PARTNER_WORKER';
+      const isPartnerMgr = updated.role === 'PARTNER_MANAGER';
+      const isManagerFlag = isPartnerMgr ? 1 : 0;
+      const userRole = updated.role === 'DS_PM' ? 'DS_PRINCIPAL_PM' : isPartnerMgr ? 'PARTNER_PART_LEADER' : 'PARTNER_WORKER';
 
       const res = await fetch('/api/users', {
         method: 'POST',
@@ -257,8 +258,8 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
           email: updated.email,
           phone: updated.phone,
           company: updated.company,
-          team: updated.team,
-          part: updated.part,
+          team: isPartnerMgr ? '' : updated.team,
+          part: isPartnerMgr ? '' : updated.part,
           position: updated.position,
           role: userRole,
           isPartnerManager: isManagerFlag,
@@ -896,34 +897,85 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
                 )}
               </div>
 
+              {/* 💡 협력사 관리인 안내 */}
+              {editingEmp.role === 'PARTNER_MANAGER' && (
+                <div style={{
+                  background: '#F0F9FF',
+                  border: '1px solid #BAE6FD',
+                  borderRadius: '10px',
+                  padding: '10px 12px',
+                  fontSize: '11.5px',
+                  color: '#0369A1',
+                  lineHeight: 1.4
+                }}>
+                  💡 <strong>협력사 관리인(현장대리인)</strong>은 전체 총괄 관리자이므로 <strong>소속 팀과 관제 파트</strong>는 지정하지 않습니다 (자동 공백 처리).
+                </div>
+              )}
+
               {/* 4. 소속 정보 (팀 & 파트 - DB 기준 동적) */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
-                    소속 팀 *
+                    소속 팀 {editingEmp.role !== 'PARTNER_MANAGER' && '*'}
                   </label>
-                  <input
-                    type="text"
-                    value={editingEmp.team}
-                    onChange={e => setEditingEmp({ ...editingEmp, team: e.target.value })}
-                    placeholder="예: 카드개발팀, 상담운영팀"
-                    style={{
-                      width: '100%',
-                      padding: '8px 10px',
-                      borderRadius: '8px',
-                      border: '1px solid #CBD5E1',
-                      fontSize: '13px',
-                      background: '#FFFFFF',
-                      boxSizing: 'border-box'
-                    }}
-                  />
+                  {editingEmp.role === 'PARTNER_MANAGER' ? (
+                    <input
+                      type="text"
+                      value="해당 없음 (총괄 관리)"
+                      disabled
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        border: '1px solid #E2E8F0',
+                        fontSize: '13px',
+                        background: '#F8FAFC',
+                        color: '#94A3B8',
+                        cursor: 'not-allowed',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      value={editingEmp.team}
+                      onChange={e => setEditingEmp({ ...editingEmp, team: e.target.value })}
+                      placeholder="예: 카드개발팀, 상담운영팀"
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        border: '1px solid #CBD5E1',
+                        fontSize: '13px',
+                        background: '#FFFFFF',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  )}
                 </div>
 
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
-                    관제 파트 (DB 기준) *
+                    관제 파트 (DB 기준) {editingEmp.role !== 'PARTNER_MANAGER' && '*'}
                   </label>
-                  {availableParts.length > 0 ? (
+                  {editingEmp.role === 'PARTNER_MANAGER' ? (
+                    <input
+                      type="text"
+                      value="해당 없음 (전체 총괄)"
+                      disabled
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        border: '1px solid #E2E8F0',
+                        fontSize: '13px',
+                        background: '#F8FAFC',
+                        color: '#94A3B8',
+                        cursor: 'not-allowed',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  ) : availableParts.length > 0 ? (
                     <select
                       value={editingEmp.part}
                       onChange={e => setEditingEmp({ ...editingEmp, part: e.target.value })}

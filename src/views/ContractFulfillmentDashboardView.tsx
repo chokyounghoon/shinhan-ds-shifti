@@ -183,13 +183,17 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
 
     setIsRegisteringEmp(true);
     try {
+      const isPartnerMgr = registerEmployeeForm.role === 'PARTNER_MANAGER';
       const userRole = registerEmployeeForm.role === 'DS_PM'
         ? 'DS_PRINCIPAL_PM'
-        : registerEmployeeForm.role === 'PARTNER_MANAGER'
+        : isPartnerMgr
         ? 'PARTNER_PART_LEADER'
         : 'PARTNER_WORKER';
 
-      const isManagerFlag = registerEmployeeForm.role === 'PARTNER_MANAGER' ? 1 : 0;
+      const isManagerFlag = isPartnerMgr ? 1 : 0;
+      const finalTeam = isPartnerMgr ? '' : registerEmployeeForm.team;
+      const finalPart = isPartnerMgr ? '' : (registerEmployeeForm.part || activePart);
+      const finalStatus = isPartnerMgr ? 'ACTIVE' : (registerEmployeeForm.status === '정상투입' ? 'ACTIVE' : registerEmployeeForm.status);
 
       const res = await fetch('/api/users', {
         method: 'POST',
@@ -198,20 +202,20 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
           employeeId: cleanId,
           name: cleanName,
           company: registerEmployeeForm.role === 'DS_PM' ? '신한DS' : finalCompany,
-          team: registerEmployeeForm.team,
-          part: registerEmployeeForm.part || activePart,
-          position: registerEmployeeForm.position,
+          team: finalTeam,
+          part: finalPart,
+          position: registerEmployeeForm.position || (isPartnerMgr ? '대표' : '선임'),
           role: userRole,
           isPartnerManager: isManagerFlag,
           phone: registerEmployeeForm.phone,
           email: registerEmployeeForm.email || `${cleanId.toLowerCase()}@shinhands.co.kr`,
-          status: registerEmployeeForm.status === '정상투입' ? 'ACTIVE' : registerEmployeeForm.status
+          status: finalStatus
         })
       });
 
       const json = await res.json();
       if (json.success) {
-        alert(`🎉 [${cleanName} / ${cleanId}] 직원이 Cloudflare D1에 성공적으로 등록되었습니다.\n• 소속: ${finalCompany} (${registerEmployeeForm.part || activePart} 파트)\n• 직무: ${registerEmployeeForm.role === 'DS_PM' ? '신한DS 현장대리인' : registerEmployeeForm.role === 'PARTNER_MANAGER' ? '협력사 현장대리인' : '도급 인력 (협력사)'}`);
+        alert(`🎉 [${cleanName} / ${cleanId}] 직원이 Cloudflare D1에 성공적으로 등록되었습니다.\n• 소속: ${finalCompany} ${isPartnerMgr ? '(전체 총괄 관리인)' : `(${finalPart} 파트)`}\n• 직무: ${registerEmployeeForm.role === 'DS_PM' ? '신한DS 현장대리인' : isPartnerMgr ? '협력사 현장대리인' : '도급 인력 (협력사)'}`);
         setIsRegisterEmployeeModalOpen(false);
         setRegisterEmployeeForm({
           employeeId: '',
@@ -2695,36 +2699,69 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                 )}
               </div>
 
+              {/* 💡 협력사 현장대리인 안내 배너 */}
+              {registerEmployeeForm.role === 'PARTNER_MANAGER' && (
+                <div style={{
+                  background: 'rgba(0, 229, 255, 0.08)',
+                  border: '1px solid rgba(0, 229, 255, 0.3)',
+                  borderRadius: '10px',
+                  padding: '10px 12px',
+                  fontSize: '11.5px',
+                  color: '#80D8FF',
+                  lineHeight: 1.4
+                }}>
+                  💡 <strong>협력사 현장대리인</strong>은 전체 협력사 총괄 관리자이므로 <strong>소속팀, 관제파트, 투입상태</strong>는 입력 대상에서 제외(자동 공백 처리)됩니다.
+                </div>
+              )}
+
               {/* 4. 소속 팀 & 배정 파트 */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
                   <label style={{ fontSize: '11.5px', color: '#90A4AE', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
-                    소속 팀 *
+                    소속 팀 {registerEmployeeForm.role !== 'PARTNER_MANAGER' && '*'}
                   </label>
-                  <input
-                    type="text"
-                    placeholder="예: 카드개발팀, 상담운영팀"
-                    value={registerEmployeeForm.team}
-                    onChange={e => setRegisterEmployeeForm({ ...registerEmployeeForm, team: e.target.value })}
-                    style={formInputStyle}
-                    required
-                  />
+                  {registerEmployeeForm.role === 'PARTNER_MANAGER' ? (
+                    <input
+                      type="text"
+                      value="해당 없음 (총괄 관리)"
+                      disabled
+                      style={{ ...formInputStyle, background: 'rgba(255, 255, 255, 0.04)', color: '#64748B', cursor: 'not-allowed' }}
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder="예: 카드개발팀, 상담운영팀"
+                      value={registerEmployeeForm.team}
+                      onChange={e => setRegisterEmployeeForm({ ...registerEmployeeForm, team: e.target.value })}
+                      style={formInputStyle}
+                      required
+                    />
+                  )}
                 </div>
                 <div>
                   <label style={{ fontSize: '11.5px', color: '#90A4AE', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
-                    관제 파트 (D1 조직) *
+                    관제 파트 (D1 조직) {registerEmployeeForm.role !== 'PARTNER_MANAGER' && '*'}
                   </label>
-                  <select
-                    value={registerEmployeeForm.part}
-                    onChange={e => setRegisterEmployeeForm({ ...registerEmployeeForm, part: e.target.value })}
-                    style={formInputStyle}
-                  >
-                    {displayPartList.map(p => (
-                      <option key={p.id || p.partName} value={p.partName} style={{ background: '#0D1726', color: '#FFFFFF' }}>
-                        {p.partName} 파트
-                      </option>
-                    ))}
-                  </select>
+                  {registerEmployeeForm.role === 'PARTNER_MANAGER' ? (
+                    <input
+                      type="text"
+                      value="해당 없음 (전체 총괄)"
+                      disabled
+                      style={{ ...formInputStyle, background: 'rgba(255, 255, 255, 0.04)', color: '#64748B', cursor: 'not-allowed' }}
+                    />
+                  ) : (
+                    <select
+                      value={registerEmployeeForm.part}
+                      onChange={e => setRegisterEmployeeForm({ ...registerEmployeeForm, part: e.target.value })}
+                      style={formInputStyle}
+                    >
+                      {displayPartList.map(p => (
+                        <option key={p.id || p.partName} value={p.partName} style={{ background: '#0D1726', color: '#FFFFFF' }}>
+                          {p.partName} 파트
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </div>
 
@@ -2736,7 +2773,7 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                   </label>
                   <input
                     type="text"
-                    placeholder="예: 선임, 수석, 대표, PM"
+                    placeholder={registerEmployeeForm.role === 'PARTNER_MANAGER' ? '예: 대표, 총괄PM' : '예: 선임, 책임'}
                     value={registerEmployeeForm.position}
                     onChange={e => setRegisterEmployeeForm({ ...registerEmployeeForm, position: e.target.value })}
                     style={formInputStyle}
@@ -2746,15 +2783,24 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
                   <label style={{ fontSize: '11.5px', color: '#90A4AE', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
                     투입 상태
                   </label>
-                  <select
-                    value={registerEmployeeForm.status}
-                    onChange={e => setRegisterEmployeeForm({ ...registerEmployeeForm, status: e.target.value })}
-                    style={formInputStyle}
-                  >
-                    <option value="정상투입" style={{ background: '#0D1726', color: '#00E676' }}>정상투입 (ACTIVE)</option>
-                    <option value="휴가/외근" style={{ background: '#0D1726', color: '#FFB300' }}>휴가/외근</option>
-                    <option value="미배정" style={{ background: '#0D1726', color: '#90A4AE' }}>미배정</option>
-                  </select>
+                  {registerEmployeeForm.role === 'PARTNER_MANAGER' ? (
+                    <input
+                      type="text"
+                      value="해당 없음 (관리인)"
+                      disabled
+                      style={{ ...formInputStyle, background: 'rgba(255, 255, 255, 0.04)', color: '#64748B', cursor: 'not-allowed' }}
+                    />
+                  ) : (
+                    <select
+                      value={registerEmployeeForm.status}
+                      onChange={e => setRegisterEmployeeForm({ ...registerEmployeeForm, status: e.target.value })}
+                      style={formInputStyle}
+                    >
+                      <option value="정상투입" style={{ background: '#0D1726', color: '#00E676' }}>정상투입 (ACTIVE)</option>
+                      <option value="휴가/외근" style={{ background: '#0D1726', color: '#FFB300' }}>휴가/외근</option>
+                      <option value="미배정" style={{ background: '#0D1726', color: '#90A4AE' }}>미배정</option>
+                    </select>
+                  )}
                 </div>
               </div>
 
