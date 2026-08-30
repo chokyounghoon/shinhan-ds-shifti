@@ -1800,12 +1800,6 @@ app.put('/attendance/requests/:id/ds-reject', async (c) => {
   }
 });
 
-    return c.json({ success: true, message: '신한DS PM 검수 결과 반려되었습니다.' });
-  } catch (err: any) {
-    return c.json({ success: false, detail: err.message }, 500);
-  }
-});
-
 // 4) 사용자별 연차/체력단련/청원휴가 실시간 잔여일수 집계 API
 app.get('/vacation/balances', async (c) => {
   try {
