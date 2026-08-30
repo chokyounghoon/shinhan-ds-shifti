@@ -1662,21 +1662,28 @@ const ensureAttendanceRequestsTable = async (db: any) => {
     await db.prepare(`
       CREATE TABLE IF NOT EXISTS attendance_requests (
         id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        employee_id TEXT NOT NULL,
-        user_name TEXT NOT NULL,
-        company_name TEXT NOT NULL,
+        user_id TEXT,
+        employee_id TEXT,
+        user_name TEXT,
+        company_name TEXT,
         request_type TEXT NOT NULL,
         vacation_type TEXT,
         hours REAL DEFAULT 8.0,
         target_date TEXT NOT NULL,
+        start_date TEXT,
+        end_date TEXT,
         start_time TEXT,
         end_time TEXT,
-        reason TEXT NOT NULL,
+        reason TEXT,
         proof_attachment_url TEXT,
         status TEXT DEFAULT 'PENDING',
         approver_id TEXT,
         approver_name TEXT,
+        partner_company TEXT,
+        partner_approved_at DATETIME,
+        partner_approval_memo TEXT,
+        ds_approved_at DATETIME,
+        ds_approval_memo TEXT,
         review_comment TEXT,
         reviewed_at DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -1685,6 +1692,37 @@ const ensureAttendanceRequestsTable = async (db: any) => {
         updated_by TEXT DEFAULT 'SYSTEM'
       )
     `).run();
+
+    // 🛠️ 자가치유 마이그레이션: 기존 테이블에 누락된 컬럼 자동 추가
+    const migrationCols = [
+      { name: 'user_name', def: 'TEXT' },
+      { name: 'company_name', def: 'TEXT' },
+      { name: 'employee_id', def: 'TEXT' },
+      { name: 'user_id', def: 'TEXT' },
+      { name: 'vacation_type', def: 'TEXT' },
+      { name: 'hours', def: 'REAL DEFAULT 8.0' },
+      { name: 'start_date', def: 'TEXT' },
+      { name: 'end_date', def: 'TEXT' },
+      { name: 'start_time', def: 'TEXT' },
+      { name: 'end_time', def: 'TEXT' },
+      { name: 'partner_company', def: 'TEXT' },
+      { name: 'partner_approved_at', def: 'DATETIME' },
+      { name: 'partner_approval_memo', def: 'TEXT' },
+      { name: 'ds_approved_at', def: 'DATETIME' },
+      { name: 'ds_approval_memo', def: 'TEXT' },
+      { name: 'approver_name', def: 'TEXT' },
+      { name: 'approver_id', def: 'TEXT' },
+      { name: 'review_comment', def: 'TEXT' },
+      { name: 'reviewed_at', def: 'DATETIME' },
+      { name: 'created_by', def: "TEXT DEFAULT 'SYSTEM'" },
+      { name: 'updated_by', def: "TEXT DEFAULT 'SYSTEM'" },
+      { name: 'updated_at', def: 'DATETIME' },
+    ];
+    for (const col of migrationCols) {
+      try {
+        await db.prepare(`ALTER TABLE attendance_requests ADD COLUMN ${col.name} ${col.def}`).run();
+      } catch (_) { /* 이미 존재하는 컬럼이면 무시 */ }
+    }
     await ensureAuditColumns(db);
   } catch (e) {
     console.warn('ensureAttendanceRequestsTable notice:', e);
