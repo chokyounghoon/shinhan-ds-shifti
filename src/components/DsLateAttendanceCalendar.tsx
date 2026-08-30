@@ -252,8 +252,99 @@ export const DsLateAttendanceCalendar: React.FC<DsLateAttendanceCalendarProps> =
       }
     });
 
+    // 3. clarifications 테이블의 모든 소명 건 직접 통합 (D1에 등록 및 승인된 모든 소명 포함)
+    clarifications.forEach((c: any) => {
+      const incidentDate = c.incident_date || c.incidentDate || c.target_date || c.work_date || '';
+      if (!incidentDate || !incidentDate.startsWith(monthPrefix)) return;
+      const dayNum = parseInt(incidentDate.split('-')[2], 10);
+      if (isNaN(dayNum)) return;
+
+      const user = users.find(u => u.employee_id === c.employee_id || u.name === c.worker_name || u.id === c.employee_id);
+      const company = c.company_name || c.partner_company || user?.company || '유브갓';
+      const workerName = c.worker_name || user?.name || '근로자';
+      const partName = user?.part || c.part_name || '상담';
+
+      if (!map[dayNum]) map[dayNum] = [];
+      const existingIdx = map[dayNum].findIndex(d => d.employeeId === c.employee_id || d.workerName === workerName);
+
+      const detailObj: LateWorkerDetail = {
+        id: c.id || `clar-${dayNum}-${c.employee_id}`,
+        employeeId: c.employee_id || user?.employee_id || 'EMP-UNKNOWN',
+        workerName,
+        companyName: company,
+        partName,
+        workDate: incidentDate,
+        scheduledTime: '09:00 ~ 18:00',
+        clockInTime: c.clock_in_time || '09:20',
+        delayMinutes: Number(c.delay_minutes) || 20,
+        clarificationStatus: c.status || 'APPROVED',
+        clarificationId: c.id,
+        clarificationReason: c.reason || c.memo || '지각 사유 소명',
+        clarificationSubmittedAt: c.created_at,
+        partnerApproverName: c.partner_approver_name,
+        partnerApprovedAt: c.partner_approved_at,
+        dsApprovedAt: c.ds_approved_at || c.updated_at
+      };
+
+      if (existingIdx >= 0) {
+        map[dayNum][existingIdx] = {
+          ...map[dayNum][existingIdx],
+          ...detailObj,
+          clarificationStatus: c.status || map[dayNum][existingIdx].clarificationStatus
+        };
+      } else {
+        map[dayNum].push(detailObj);
+      }
+    });
+
+    // 4. attendance_requests 중 소명 건 (request_type === 'CLARIFICATION' | 'APPEAL' | 'LATE')도 통합
+    vacationRequests.forEach((req: any) => {
+      const isClar = req.request_type === 'CLARIFICATION' || req.request_type === 'APPEAL' || req.request_type === 'LATE' || req.type === 'CLARIFICATION';
+      if (!isClar) return;
+      const targetDate = req.target_date || req.start_date || req.work_date || '';
+      if (!targetDate || !targetDate.startsWith(monthPrefix)) return;
+      const dayNum = parseInt(targetDate.split('-')[2], 10);
+      if (isNaN(dayNum)) return;
+
+      const user = users.find(u => u.employee_id === req.employee_id || u.name === req.user_name || u.id === req.employee_id);
+      const company = req.company_name || user?.company || '유브갓';
+      const workerName = req.user_name || user?.name || '근로자';
+      const partName = user?.part || req.part_name || '상담';
+
+      if (!map[dayNum]) map[dayNum] = [];
+      const existingIdx = map[dayNum].findIndex(d => d.employeeId === req.employee_id || d.workerName === workerName);
+
+      const detailObj: LateWorkerDetail = {
+        id: req.id || `att-clar-${dayNum}-${req.employee_id}`,
+        employeeId: req.employee_id || user?.employee_id || 'EMP-UNKNOWN',
+        workerName,
+        companyName: company,
+        partName,
+        workDate: targetDate,
+        scheduledTime: '09:00 ~ 18:00',
+        clockInTime: req.clock_in_time || '09:15',
+        delayMinutes: 15,
+        clarificationStatus: req.status || 'APPROVED',
+        clarificationId: req.id,
+        clarificationReason: req.reason || '지각/공백 사유 소명',
+        clarificationSubmittedAt: req.created_at,
+        partnerApproverName: req.partner_approver_name || req.approver_name,
+        dsApprovedAt: req.ds_approver_name ? req.updated_at : undefined
+      };
+
+      if (existingIdx >= 0) {
+        map[dayNum][existingIdx] = {
+          ...map[dayNum][existingIdx],
+          ...detailObj,
+          clarificationStatus: req.status || map[dayNum][existingIdx].clarificationStatus
+        };
+      } else {
+        map[dayNum].push(detailObj);
+      }
+    });
+
     return map;
-  }, [commuteLogs, clarifications, users, manpowerRecords, monthPrefix]);
+  }, [commuteLogs, clarifications, users, manpowerRecords, vacationRequests, monthPrefix]);
 
   // 2. 일자별 휴가/공백자 매핑 (attendance_requests + pre_gap_notices)
   const vacationDataByDay = useMemo(() => {
@@ -764,6 +855,8 @@ export const DsLateAttendanceCalendar: React.FC<DsLateAttendanceCalendarProps> =
             
             const lateList = lateDataByDay[day] || [];
             const lateCount = lateList.length;
+            const approvedLateCount = lateList.filter(l => l.clarificationStatus === 'APPROVED').length;
+            const pendingLateCount = lateList.filter(l => l.clarificationStatus !== 'APPROVED').length;
 
             const vacationList = vacationDataByDay[day] || [];
             const vacCount = vacationList.length;
@@ -778,21 +871,25 @@ export const DsLateAttendanceCalendar: React.FC<DsLateAttendanceCalendarProps> =
                     ? '#EFF6FF' 
                     : isToday 
                       ? '#F0FDF4' 
-                      : lateCount > 0 
+                      : pendingLateCount > 0 
                         ? '#FFF5F5' 
-                        : vacCount > 0 
-                          ? '#F0F9FF' 
-                          : '#FFFFFF',
+                        : approvedLateCount > 0
+                          ? '#F0FDF4'
+                          : vacCount > 0 
+                            ? '#F0F9FF' 
+                            : '#FFFFFF',
                   borderRadius: '10px',
                   border: isSelected 
                     ? `2px solid ${primaryColor}` 
                     : isToday 
                       ? '1.5px solid #16A34A' 
-                      : lateCount > 0 
+                      : pendingLateCount > 0 
                         ? '1px solid #FECDD3' 
-                        : vacCount > 0 
-                          ? '1px solid #BAE6FD' 
-                          : '1px solid #E2E8F0',
+                        : approvedLateCount > 0
+                          ? '1px solid #BBF7D0'
+                          : vacCount > 0 
+                            ? '1px solid #BAE6FD' 
+                            : '1px solid #E2E8F0',
                   padding: '6px 4px',
                   display: 'flex',
                   flexDirection: 'column',
@@ -820,7 +917,25 @@ export const DsLateAttendanceCalendar: React.FC<DsLateAttendanceCalendarProps> =
 
                 {/* 지각 및 휴가 뱃지 영역 */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '100%' }}>
-                  {lateCount > 0 && (
+                  {approvedLateCount > 0 && (
+                    <div style={{
+                      background: '#DCFCE7',
+                      color: '#15803D',
+                      fontSize: '9.5px',
+                      fontWeight: 800,
+                      padding: '1.5px 3px',
+                      borderRadius: '4px',
+                      textAlign: 'center',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '2px'
+                    }}>
+                      <CheckCircle2 size={9} /> 소명승인 {approvedLateCount}명
+                    </div>
+                  )}
+
+                  {pendingLateCount > 0 && (
                     <div style={{
                       background: '#FEE2E2',
                       color: '#B91C1C',
@@ -830,7 +945,7 @@ export const DsLateAttendanceCalendar: React.FC<DsLateAttendanceCalendarProps> =
                       borderRadius: '4px',
                       textAlign: 'center'
                     }}>
-                      🚨 지각 {lateCount}명
+                      🚨 지각 {pendingLateCount}명
                     </div>
                   )}
 
