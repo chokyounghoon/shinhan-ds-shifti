@@ -14,17 +14,16 @@ export interface ScheduleEntry {
   position: string;
   workDate: string; // e.g. 2026-08-02, 2026-08-03
   dateGroupLabel: string; // e.g. 2026년 8월 2일, 일
-  totalGroupHours: string;
+  totalGroupManDays: string; // e.g. 1.0 M/D, 12.0 M/D
   isWeekend?: boolean;
-  startTime?: string;
-  endTime?: string;
+  manDays: number; // e.g. 1.0 M/D, 0.0 M/D
   vacationType?: string; // e.g. 출산전후휴가, 건강검진, 대체휴가, 부모잔치, 연차, 체력단련
   workType?: 'NORMAL' | 'VACATION' | 'OVERTIME' | 'BUSINESS_TRIP' | 'EDUCATION';
   taskSummary?: string;
   isVerified?: boolean;
 }
 
-// 8월 기본 일정 데이터 생성기 (2026년 8월 1일 ~ 31일)
+// 8월 기본 일정 데이터 생성기 (2026년 8월 1일 ~ 31일 - 노란봉투법 M/D 기반)
 const generateAugustSchedules = (currentEmpId: string, currentName: string): ScheduleEntry[] => {
   const entries: ScheduleEntry[] = [];
   const daysInMonth = 31;
@@ -62,10 +61,9 @@ const generateAugustSchedules = (currentEmpId: string, currentName: string): Sch
           position: '팀원',
           workDate: dateStr,
           dateGroupLabel: groupLabel,
-          totalGroupHours: '2시간',
+          totalGroupManDays: '0.25 M/D',
           isWeekend: true,
-          startTime: '00:00',
-          endTime: '02:00',
+          manDays: 0.25,
           workType: 'OVERTIME',
           taskSummary: '상담/카드 코어 모듈 무중단 점검',
           isVerified: true
@@ -78,24 +76,26 @@ const generateAugustSchedules = (currentEmpId: string, currentName: string): Sch
     teamMembers.forEach((member, idx) => {
       let vacType: string | undefined = undefined;
       let wType: 'NORMAL' | 'VACATION' | 'OVERTIME' | 'BUSINESS_TRIP' | 'EDUCATION' = 'NORMAL';
-      let start = '09:00';
-      let end = '18:00';
+      let md = 1.0;
 
       if (day === 3) {
-        if (member.name === '배경보') { vacType = '출산전후휴가'; wType = 'VACATION'; }
-        else if (member.name === '이재연') { vacType = '건강검진'; wType = 'VACATION'; }
-        else if (member.name === '김도현' || member.name === '윤학민' || member.name === '이종민') { vacType = '대체휴가'; wType = 'VACATION'; }
-        else if (member.name === '김윤호') { vacType = '부모잔치'; wType = 'VACATION'; }
-        else if (['강윤지', '권예림', '박남호', '정재문'].includes(member.name)) { vacType = '연차'; wType = 'VACATION'; }
+        if (member.name === '배경보') { vacType = '출산전후휴가'; wType = 'VACATION'; md = 0.0; }
+        else if (member.name === '이재연') { vacType = '건강검진'; wType = 'VACATION'; md = 0.0; }
+        else if (member.name === '김도현' || member.name === '윤학민' || member.name === '이종민') { vacType = '대체휴가'; wType = 'VACATION'; md = 0.0; }
+        else if (member.name === '김윤호') { vacType = '부모잔치'; wType = 'VACATION'; md = 0.0; }
+        else if (['강윤지', '권예림', '박남호', '정재문'].includes(member.name)) { vacType = '연차'; wType = 'VACATION'; md = 0.0; }
       } else if (day === 7 && member.name === currentName) {
         vacType = '연차';
         wType = 'VACATION';
+        md = 0.0;
       } else if (day === 14 && member.name === '김도현') {
         vacType = '체력단련';
         wType = 'VACATION';
+        md = 0.0;
       } else if (day === 19 && member.name === currentName) {
         wType = 'BUSINESS_TRIP';
         vacType = '외근/출장';
+        md = 1.0;
       }
 
       entries.push({
@@ -106,10 +106,9 @@ const generateAugustSchedules = (currentEmpId: string, currentName: string): Sch
         position: member.pos,
         workDate: dateStr,
         dateGroupLabel: groupLabel,
-        totalGroupHours: day === 3 ? '296시간 30분' : '8시간 0분',
+        totalGroupManDays: day === 3 ? '12.0 M/D' : '1.0 M/D',
         isWeekend: false,
-        startTime: start,
-        endTime: end,
+        manDays: md,
         vacationType: vacType,
         workType: wType,
         taskSummary: vacType ? `${vacType} (사전 승인 공백)` : `${member.dept} 코어 도급 SLA 완수 및 운영`,
@@ -189,11 +188,10 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
               position: r.position || '팀원',
               workDate: dateStr,
               dateGroupLabel: label,
-              totalGroupHours: '8시간 0분',
+              totalGroupManDays: '1.0 M/D',
+              manDays: r.isVacation ? 0.0 : 1.0,
               vacationType: r.vacationType || (r.isVacation ? '휴가' : undefined),
               workType: r.isVacation ? 'VACATION' : 'NORMAL',
-              startTime: '09:00',
-              endTime: '18:00',
               taskSummary: r.taskSummary || '카드 기간계 코어 도급 운영',
               isVerified: true
             };
@@ -253,11 +251,10 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                   position: '팀원',
                   workDate: dateStr,
                   dateGroupLabel: label,
-                  totalGroupHours: '8시간 0분',
+                  totalGroupManDays: '0.0 M/D',
+                  manDays: 0.0,
                   vacationType: vacType,
                   workType: 'VACATION',
-                  startTime: '09:00',
-                  endTime: '18:00',
                   taskSummary: summary,
                   isVerified: true
                 });
@@ -319,31 +316,32 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     });
   }, [schedules, viewScope, currentEmpId, currentName, selectedDayFilter, selectedWorkType, searchQuery, selectedYear, selectedMonth]);
 
-  // 날짜별 그룹핑
+  // 날짜별 그룹핑 (노란봉투법 M/D 기반 집계)
   const groupedByDate = useMemo(() => {
     return filteredEntries.reduce((acc, cur) => {
       if (!acc[cur.dateGroupLabel]) {
         acc[cur.dateGroupLabel] = {
           workDate: cur.workDate,
-          totalHours: cur.totalGroupHours,
+          totalManDays: 0,
           isWeekend: cur.isWeekend,
           items: []
         };
       }
       acc[cur.dateGroupLabel].items.push(cur);
+      acc[cur.dateGroupLabel].totalManDays += (cur.manDays ?? (cur.vacationType ? 0 : 1.0));
       return acc;
-    }, {} as Record<string, { workDate: string; totalHours: string; isWeekend?: boolean; items: ScheduleEntry[] }>);
+    }, {} as Record<string, { workDate: string; totalManDays: number; isWeekend?: boolean; items: ScheduleEntry[] }>);
   }, [filteredEntries]);
 
-  // 통계 KPI 연산
+  // 통계 KPI 연산 (노란봉투법 M/D 기반)
   const kpiStats = useMemo(() => {
     const totalItems = filteredEntries.length;
     const vacationItems = filteredEntries.filter(e => e.vacationType).length;
     const normalWorkItems = filteredEntries.filter(e => !e.vacationType && !e.isWeekend).length;
-    const totalHours = (normalWorkItems * 8.0).toFixed(1);
+    const totalManDays = normalWorkItems * 1.0;
 
     return {
-      totalHours,
+      totalManDays: `${totalManDays.toFixed(1)} M/D`,
       normalDays: normalWorkItems,
       vacationDays: vacationItems,
       totalCount: totalItems
@@ -634,7 +632,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
             ) : (
               Object.entries(groupedByDate).map(([dateLabel, group]) => (
                 <div key={dateLabel} style={{ display: 'flex', flexDirection: 'column' }}>
-                  {/* 일자 헤더 바 (스크린샷 일치: 2026년 8월 3일, 월 296시간 30분) */}
+                  {/* 일자 헤더 바 (노란봉투법 M/D 기반: 2026년 8월 3일, 월 12.0 M/D) */}
                   <div style={{
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -648,8 +646,8 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                     <span style={{ color: group.isWeekend ? '#F04438' : '#191F28' }}>
                       {dateLabel}
                     </span>
-                    <span style={{ color: '#191F28' }}>
-                      {group.totalHours}
+                    <span style={{ color: '#191F28', fontSize: '13px', fontWeight: 800 }}>
+                      {group.totalManDays.toFixed(1)} M/D
                     </span>
                   </div>
 
@@ -665,13 +663,26 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                         background: '#FFFFFF'
                       }}
                     >
-                      {/* 1) 일반 근무 항목 (민트 바 + 시간 + 사원 정보 + 체크) */}
-                      {item.startTime && !item.vacationType ? (
+                      {/* 1) 일반 근무 항목 (민트 바 + 근무 뱃지 및 1.0 M/D + 사원 정보 + 체크) */}
+                      {!item.vacationType ? (
                         <div style={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                            {/* 시간 */}
-                            <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#191F28', textAlign: 'center', minWidth: '45px', lineHeight: 1.2 }}>
-                              {item.startTime}<br />{item.endTime}
+                            {/* 근무 및 맨데이(M/D) 뱃지 (출퇴근 시간정보 제거) */}
+                            <div style={{ minWidth: '55px', textAlign: 'center' }}>
+                              <span style={{
+                                background: '#E6F9F6',
+                                color: '#00A896',
+                                padding: '3px 6px',
+                                borderRadius: '5px',
+                                fontSize: '11px',
+                                fontWeight: 800,
+                                display: 'block'
+                              }}>
+                                근무
+                              </span>
+                              <span style={{ fontSize: '11px', fontWeight: 800, color: '#4E5968', marginTop: '2px', display: 'block' }}>
+                                {item.manDays ?? 1.0} M/D
+                              </span>
                             </div>
 
                             {/* 민트 바 */}
@@ -694,14 +705,26 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                           )}
                         </div>
                       ) : (
-                        /* 2) 비행기 아이콘 휴가 항목 (스크린샷 일치) */
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <div style={{ color: '#0066FF', display: 'flex', alignItems: 'center' }}>
-                            <Plane size={18} fill="#0066FF" />
+                        /* 2) 비행기 아이콘 휴가 항목 (시간정보 제거, 휴가 및 0.0 M/D 공백 표시) */
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ color: '#0066FF', display: 'flex', alignItems: 'center' }}>
+                              <Plane size={18} fill="#0066FF" />
+                            </div>
+                            <div style={{ fontSize: '14.5px', fontWeight: 700, color: '#191F28' }}>
+                              {item.userName} / {item.vacationType || '휴가'}
+                            </div>
                           </div>
-                          <div style={{ fontSize: '14.5px', fontWeight: 700, color: '#191F28' }}>
-                            {item.userName} / {item.vacationType} {item.startTime ? `${item.startTime} - ${item.endTime}` : ''}
-                          </div>
+                          <span style={{
+                            background: '#F1F5F9',
+                            color: '#64748B',
+                            padding: '2px 8px',
+                            borderRadius: '5px',
+                            fontSize: '11.5px',
+                            fontWeight: 700
+                          }}>
+                            0.0 M/D (공백)
+                          </span>
                         </div>
                       )}
                     </div>

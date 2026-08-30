@@ -159,7 +159,7 @@ export const WeeklyScheduleCard: React.FC<WeeklyScheduleCardProps> = ({
                 ) : isWeekend ? (
                   <span>휴무</span>
                 ) : (
-                  <span>8.0h</span>
+                  <span>1.0 M/D</span>
                 )}
               </div>
             </div>
