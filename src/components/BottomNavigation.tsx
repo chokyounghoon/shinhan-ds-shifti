@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, FolderClosed, Calendar, Clock, FileCheck2, QrCode } from 'lucide-react';
+import { Home, FolderClosed, Calendar, Clock, User, QrCode } from 'lucide-react';
 
 export type TabType = 'home' | 'request' | 'schedule' | 'logs' | 'vacation';
 
@@ -63,13 +63,13 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
         <span>투입이력</span>
       </button>
 
-      {/* 5. 도급정산 */}
+      {/* 5. MY */}
       <button
         className={`nav-item ${activeTab === 'vacation' ? 'active' : ''}`}
         onClick={() => onTabChange('vacation')}
       >
-        <FileCheck2 size={22} strokeWidth={activeTab === 'vacation' ? 2.5 : 1.8} />
-        <span>도급정산</span>
+        <User size={22} strokeWidth={activeTab === 'vacation' ? 2.5 : 1.8} />
+        <span>MY</span>
       </button>
 
       {/* 플로팅 QR 스캐너 버튼 */}
