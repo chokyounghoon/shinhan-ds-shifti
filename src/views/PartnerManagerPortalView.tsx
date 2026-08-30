@@ -405,7 +405,21 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
     c.partnerCompany === selectedPartner && c.status === 'REQUESTED'
   );
 
+  // 날짜/시간 포맷 헬퍼 (YYYY-MM-DD HH:mm:ss)
+  const formatDateTimeSec = (dateStr?: string | null): string => {
+    if (!dateStr) return '-';
+    try {
+      const s = dateStr.replace('T', ' ').slice(0, 19);
+      if (s.length === 10) return `${s} 09:00:00`;
+      if (s.length === 16) return `${s}:00`;
+      return s;
+    } catch {
+      return dateStr;
+    }
+  };
+
   // 선택된 협력사 소속 인력들의 휴가/공백 신청 실시간 통합 목록 (D1 attendance_requests + pre_gap_notices + dbService)
+  // 🕒 신청일시(createdAt) 기준 최신순(내림차순) 완벽 정렬
   const myGapNotices = useMemo(() => {
     // 1) D1 attendance_requests (VACATION)
     const fromAttendance = allAttendanceRequests
@@ -428,6 +442,10 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
         gapHours: Number(r.hours) || 8,
         reason: r.reason || '소속사 휴가 신청',
         status: r.status || 'PENDING', // PENDING, PENDING_DS, APPROVED, REJECTED
+        createdAt: r.created_at || (r as any).createdAt,
+        partnerApprovedAt: r.partner_approved_at,
+        dsApprovedAt: r.ds_approved_at,
+        updatedAt: r.updated_at,
         source: 'ATTENDANCE_REQUEST'
       }));
 
@@ -443,6 +461,10 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
         gapHours: n.gapHours,
         reason: n.reason,
         status: n.status === 'ACKNOWLEDGED' ? 'APPROVED' : 'PENDING_DS',
+        createdAt: (n as any).createdAt || (n as any).created_at,
+        partnerApprovedAt: (n as any).partnerApprovedAt,
+        dsApprovedAt: (n as any).dsApprovedAt,
+        updatedAt: (n as any).updatedAt,
         source: 'GAP_NOTICE'
       }));
 
@@ -458,6 +480,10 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
         gapHours: r.hours || 8,
         reason: r.reason,
         status: r.status || 'PENDING',
+        createdAt: (r as any).createdAt || '2026-08-30 09:00:00',
+        partnerApprovedAt: (r as any).partnerApprovedAt,
+        dsApprovedAt: (r as any).dsApprovedAt,
+        updatedAt: (r as any).updatedAt,
         source: 'LOCAL'
       }));
 
@@ -474,7 +500,8 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
       }
     });
 
-    return combined;
+    // 🕒 신청일시(createdAt) 기준 최신순(내림차순) 정렬
+    return combined.sort((a, b) => (b.createdAt || b.gapPeriod || '').localeCompare(a.createdAt || a.gapPeriod || ''));
   }, [allAttendanceRequests, allGapNotices, selectedPartner, myWorkers]);
 
   // D1 소명 상태 레이블
@@ -1408,10 +1435,12 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
                         )}
                       </div>
 
-                      <div style={{ fontSize: '12.5px', color: '#475569', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span>📅 신청 일정: <strong>{n.gapPeriod}</strong></span>
-                        <span>•</span>
-                        <span>공백 공수: <strong>{n.gapHours}시간 (1 M/D)</strong></span>
+                      <div style={{ fontSize: '12.5px', color: '#475569', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                        <div>📅 신청 일정: <strong>{n.gapPeriod}</strong> • 공백 공수: <strong>{n.gapHours}시간 (1 M/D)</strong></div>
+                        <div style={{ fontSize: '11.5px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          <Clock size={12} color="#8B95A1" />
+                          <span>신청 일시: <strong style={{ color: '#1E293B' }}>{formatDateTimeSec(n.createdAt)}</strong></span>
+                        </div>
                       </div>
 
                       <div style={{
@@ -1420,9 +1449,19 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
                         background: '#F8FAFC',
                         padding: '10px 12px',
                         borderRadius: '8px',
-                        border: '1px solid #F1F5F9'
+                        border: '1px solid #F1F5F9',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px'
                       }}>
-                        <strong>신청 사유:</strong> {n.reason}
+                        <div><strong>신청 사유:</strong> {n.reason}</div>
+                        {(n.partnerApprovedAt || n.dsApprovedAt || n.status === 'REJECTED') && (
+                          <div style={{ fontSize: '11px', color: '#64748B', paddingTop: '4px', borderTop: '1px dashed #E2E8F0', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                            {n.partnerApprovedAt && <span>✓ 1차 승인: <strong style={{ color: '#059669' }}>{formatDateTimeSec(n.partnerApprovedAt)}</strong></span>}
+                            {n.dsApprovedAt && <span>✓ DS 최종 승인: <strong style={{ color: '#0052FF' }}>{formatDateTimeSec(n.dsApprovedAt)}</strong></span>}
+                            {n.status === 'REJECTED' && <span>⚠️ 반려: <strong style={{ color: '#DC2626' }}>{formatDateTimeSec(n.updatedAt)}</strong></span>}
+                          </div>
+                        )}
                       </div>
 
                       {/* 1차 결재/반려 액션 버튼 */}
@@ -2024,10 +2063,12 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
                     )}
                   </div>
 
-                  <div style={{ fontSize: '12.5px', color: '#475569', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                    <span>📅 일정: <strong>{n.gapPeriod}</strong></span>
-                    <span>•</span>
-                    <span>공백 공수: <strong>{n.gapHours}시간 (1 M/D)</strong></span>
+                  <div style={{ fontSize: '12.5px', color: '#475569', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px', marginBottom: '6px' }}>
+                    <div>📅 일정: <strong>{n.gapPeriod}</strong> • 공백 공수: <strong>{n.gapHours}시간 (1 M/D)</strong></div>
+                    <div style={{ fontSize: '11.5px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                      <Clock size={12} color="#8B95A1" />
+                      <span>신청 일시: <strong style={{ color: '#1E293B' }}>{formatDateTimeSec(n.createdAt)}</strong></span>
+                    </div>
                   </div>
 
                   <div style={{

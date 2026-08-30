@@ -196,6 +196,19 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
     }
   };
 
+  // 날짜/시간 포맷 헬퍼 (YYYY-MM-DD HH:mm:ss)
+  const formatDateTimeSec = (dateStr?: string | null): string => {
+    if (!dateStr) return '-';
+    try {
+      const s = dateStr.replace('T', ' ').slice(0, 19);
+      if (s.length === 10) return `${s} 09:00:00`;
+      if (s.length === 16) return `${s}:00`;
+      return s;
+    } catch {
+      return dateStr;
+    }
+  };
+
   const fetchPendingDsClarifications = async () => {
     try {
       // 🛡️ DS_PRINCIPAL_PM 역할로 조회: API 서버에서 PENDING_DS 상태만 필터링하여 반환
@@ -203,8 +216,11 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
       if (res.ok) {
         const json = await res.json();
         const all = json.data || [];
-        // API에서 이미 PENDING_DS 필터링되지만 이중 방어
-        setPendingDsClarifications(all.filter((c: any) => c.status === 'PENDING_DS'));
+        // 🕒 신청일시(created_at) 기준 최신순(내림차순) 정렬
+        const sorted = all
+          .filter((c: any) => c.status === 'PENDING_DS')
+          .sort((a: any, b: any) => (b.created_at || '').localeCompare(a.created_at || ''));
+        setPendingDsClarifications(sorted);
       }
     } catch (e) {
       console.warn('DS 소명 조회 실패:', e);
@@ -239,7 +255,8 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
           hours: r.hours || 8,
           reason: r.reason,
           status: 'PENDING_DS',
-          approver_name: r.partnerApproverName || '유브갓 현장대리인'
+          approver_name: r.partnerApproverName || '유브갓 현장대리인',
+          created_at: (r as any).createdAt || '2026-08-30 09:00:00'
         }));
 
       const combined = [...d1Vacations];
@@ -248,6 +265,9 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
           combined.unshift(l);
         }
       });
+
+      // 🕒 신청일시(created_at) 기준 최신순(내림차순) 정렬
+      combined.sort((a, b) => (b.created_at || b.target_date || '').localeCompare(a.created_at || a.target_date || ''));
 
       setPendingDsVacations(combined);
     } catch (e) {
@@ -1362,10 +1382,12 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
                       <span style={{ color: '#94A3B8', fontWeight: 600 }}>③ 최종 정산 확정</span>
                     </div>
 
-                    <div style={{ fontSize: '12.5px', color: '#475569', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span>📅 공백 기간: <strong>{vac.target_date}</strong></span>
-                      <span>•</span>
-                      <span>공백 공수: <strong>{vac.hours || 8}시간 (1 M/D)</strong></span>
+                    <div style={{ fontSize: '12.5px', color: '#475569', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                      <div>📅 공백 기간: <strong>{vac.target_date}</strong> • 공백 공수: <strong>{vac.hours || 8}시간 (1 M/D)</strong></div>
+                      <div style={{ fontSize: '11.5px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <Clock size={12} color="#8B95A1" />
+                        <span>신청 일시: <strong style={{ color: '#1E293B' }}>{formatDateTimeSec(vac.created_at)}</strong></span>
+                      </div>
                     </div>
 
                     <div style={{
@@ -1386,9 +1408,17 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
                         background: '#ECFDF5',
                         padding: '6px 10px',
                         borderRadius: '6px',
-                        border: '1px solid #D1FAE5'
+                        border: '1px solid #D1FAE5',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
                       }}>
-                        <strong>협력사 관리인:</strong> {vac.approver_name} 1차 승인 완료 (공정 공백 사전 통보 접수)
+                        <span>🏢 1차 결재자: <strong>{vac.approver_name}</strong></span>
+                        {vac.partner_approved_at && (
+                          <span style={{ fontSize: '11px', color: '#047857' }}>
+                            1차 승인: {formatDateTimeSec(vac.partner_approved_at)}
+                          </span>
+                        )}
                       </div>
                     )}
 
