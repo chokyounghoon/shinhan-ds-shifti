@@ -119,6 +119,7 @@ export function App() {
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [isVacationModalOpen, setIsVacationModalOpen] = useState(false);
   const [selectedVacationType, setSelectedVacationType] = useState<string>('연차');
+  const [selectedVacationDate, setSelectedVacationDate] = useState<string | undefined>(undefined);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [selectedDaySchedule, setSelectedDaySchedule] = useState<DaySchedule | null>(null);
 
@@ -880,14 +881,19 @@ export function App() {
             {/* 소속사 휴가 신청 모달 (D1 DB attendance_requests 연동) */}
             <VacationRegistrationModal
               isOpen={isVacationModalOpen}
-              onClose={() => setIsVacationModalOpen(false)}
+              onClose={() => {
+                setIsVacationModalOpen(false);
+                setSelectedVacationDate(undefined);
+              }}
               onSuccess={(type, dateRange) => {
                 setIsVacationModalOpen(false);
+                setSelectedVacationDate(undefined);
                 refreshData();
               }}
               currentUser={currentUser}
               isManagerMode={currentUser.role === 'PARTNER_PART_LEADER' || (currentUser as any).isPartnerManager}
               initialType={selectedVacationType}
+              initialDate={selectedVacationDate}
               themeMode={themeMode}
             />
 

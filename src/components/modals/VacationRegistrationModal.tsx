@@ -11,6 +11,7 @@ interface VacationRegistrationModalProps {
   currentUser?: User;
   isManagerMode?: boolean; // true: 협력사 관리자 (원청 통보 모드), false: 협력사 개인 (소속사 신청 모드)
   initialType?: string;
+  initialDate?: string; // 선택된 특정 날짜 기본값 (YYYY-MM-DD)
   themeMode: 'ddangyo' | 'shinhan';
 }
 
@@ -21,6 +22,7 @@ export const VacationRegistrationModal: React.FC<VacationRegistrationModalProps>
   currentUser = dbService.getCurrentUser(),
   isManagerMode = false,
   initialType,
+  initialDate,
   themeMode
 }) => {
   const isManager = Boolean(isManagerMode);
@@ -57,24 +59,27 @@ export const VacationRegistrationModal: React.FC<VacationRegistrationModalProps>
     return `${yyyy}-${mm}-${dd}`;
   };
 
-  const defaultBizDay = getNextBusinessDay(1); // 다음 영업일 (2026-08-31 월요일)
+  const defaultBizDay = initialDate || getNextBusinessDay(1);
 
   const [vacationType, setVacationType] = useState<string>(initialType || '연차');
   const [startDate, setStartDate] = useState<string>(defaultBizDay);
   const [endDate, setEndDate] = useState<string>(defaultBizDay);
   const [reason, setReason] = useState<string>('협력사 복무규정에 따른 하계 정기 연차 휴가 사용');
 
-  // 모달이 열릴 때마다 다음 영업일 및 사용자 이름으로 갱신
+  // 모달이 열릴 때마다 선택된 날짜(initialDate) 또는 다음 영업일 및 사용자 이름으로 갱신
   React.useEffect(() => {
     if (isOpen) {
-      const bizDay = getNextBusinessDay(1);
+      const bizDay = initialDate || getNextBusinessDay(1);
       setStartDate(bizDay);
       setEndDate(bizDay);
+      if (initialType) {
+        setVacationType(initialType);
+      }
       if (!isManager) {
         setSelectedWorkerName(currentUser.name);
       }
     }
-  }, [isOpen, isManager, currentUser.name]);
+  }, [isOpen, initialDate, initialType, isManager, currentUser.name]);
 
   if (!isOpen) return null;
 

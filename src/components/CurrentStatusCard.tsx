@@ -529,6 +529,7 @@ export const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
       {/* 🌟 선택한 날짜 기준 휴가 신청 모달 */}
       <VacationRegistrationModal
         isOpen={isVacationModalOpen}
+        initialDate={`${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`}
         onClose={() => setIsVacationModalOpen(false)}
         themeMode={themeMode}
         onSuccess={() => {
