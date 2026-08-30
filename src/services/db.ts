@@ -1148,15 +1148,8 @@ export class PureDatabaseEngine {
           linkUrl: row.link_url
         }));
 
-        // 기존 로컬 알림 중 아직 D1에 없는 알림 보존
-        const merged = [...d1Notis];
-        this.notifications.forEach(localNoti => {
-          if (!merged.some(m => m.id === localNoti.id)) {
-            merged.unshift(localNoti);
-          }
-        });
-
-        this.notifications = merged;
+        // D1 알림 데이터로 실시간 동기화 (역할별 격리 보장)
+        this.notifications = d1Notis;
         return [...this.notifications];
       }
     } catch (err) {

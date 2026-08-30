@@ -3055,12 +3055,16 @@ app.get('/notifications', async (c) => {
 
     if (role && role !== 'ALL') {
       if (role === 'PARTNER_MANAGER' || role === 'PARTNER_PART_LEADER' || role === 'PARTNER_SITE_MANAGER') {
-        query += " AND (target_role = 'PARTNER_MANAGER' OR target_role = 'PARTNER_PART_LEADER' OR target_role = 'ALL' OR target_role IS NULL)";
+        // 협력사 관리인: 1차 결재 요청(APPROVAL_REQUEST) 및 협력사 관리자 대상 알림만 수신 (원청 2차 검수 요청 INSPECTION_REQUEST 절대 차단)
+        query += " AND (target_role = 'PARTNER_MANAGER' OR target_role = 'PARTNER_PART_LEADER' OR (target_role = 'ALL' AND type != 'INSPECTION_REQUEST'))";
       } else if (role === 'DS_PRINCIPAL_PM' || role === 'DS_PM' || role === 'PRINCIPAL_INSPECTOR' || role === 'DS_DIRECTOR') {
-        // 🛡️ DS PM에게는 협력사 1차 결재(APPROVAL_REQUEST)나 PARTNER_MANAGER 대상 알림 절대 차단
-        query += " AND (target_role = 'DS_PRINCIPAL_PM' OR target_role = 'DS_PM' OR (target_role = 'ALL' AND type != 'APPROVAL_REQUEST'))";
+        // 🛡️ 신한DS 현장대리인: 협력사 관리인이 1차 승인 완료하여 상신된 검수 요청(INSPECTION_REQUEST, SLA_ALERT 등)만 수신
+        // ❌ 1차 결재 요청(APPROVAL_REQUEST), 소명 접수 알림은 절대 노출 금지
+        query += " AND (target_role = 'DS_PRINCIPAL_PM' OR target_role = 'DS_PM' OR (target_role = 'ALL' AND type NOT IN ('APPROVAL_REQUEST') AND title NOT LIKE '%[결재 요청]%' AND title NOT LIKE '%[소명 접수]%'))";
+        query += " AND type != 'APPROVAL_REQUEST' AND title NOT LIKE '%[결재 요청]%' AND title NOT LIKE '%[소명 접수]%'";
       } else if (role === 'PARTNER_WORKER' || role === 'PARTNER_EMPLOYEE') {
-        query += " AND (target_role = 'PARTNER_WORKER' OR target_role = 'PARTNER_EMPLOYEE' OR (target_role = 'ALL' AND type != 'APPROVAL_REQUEST' AND type != 'INSPECTION_REQUEST'))";
+        // 일반 근로자: 본인 결과 통보(APPROVAL_COMPLETED, REJECTION, 공지)만 수신 (관리자용 결재요청/검수요청 절대 차단)
+        query += " AND (target_role = 'PARTNER_WORKER' OR target_role = 'PARTNER_EMPLOYEE' OR (target_role = 'ALL' AND type NOT IN ('APPROVAL_REQUEST', 'INSPECTION_REQUEST')))";
       } else {
         query += " AND (target_role = ? OR target_role = 'ALL')";
         params.push(role);

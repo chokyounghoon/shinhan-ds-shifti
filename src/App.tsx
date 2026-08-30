@@ -143,11 +143,16 @@ export function App() {
       if (n.type === 'INSPECTION_REQUEST') return false;
       return targetRole === 'PARTNER_MANAGER' || targetRole === 'PARTNER_PART_LEADER' || targetRole === 'ALL';
     } else if (role === 'DS_PRINCIPAL_PM' || role === 'PRINCIPAL_INSPECTOR' || role === 'DS_DIRECTOR') {
-      // 🛡️ 신한DS PM은 협력사 1차 승인이 완료되어 올라온 2차 검수 요청(INSPECTION_REQUEST)만 수신 (1차 결재 요청은 절대 차단)
+      // 🛡️ 신한DS PM: 협력사 관리인이 1차 승인 완료하여 올라온 검수 요청(INSPECTION_REQUEST) 및 SLA/정산 알림만 수신
+      // ❌ 협력사 내부 1차 결재 요청, 소명 접수 알림은 절대 차단
       if (targetRole === 'PARTNER_MANAGER' || targetRole === 'PARTNER_PART_LEADER' || targetRole === 'PARTNER_WORKER') return false;
       if (n.type === 'APPROVAL_REQUEST') return false;
-      if (n.title?.includes('[결재 요청]') || n.content?.includes('1차 결재')) return false;
-      return targetRole === 'DS_PRINCIPAL_PM' || targetRole === 'ALL';
+      if (n.title?.includes('[결재 요청]') || n.content?.includes('1차 결재') || n.title?.includes('[소명 접수]')) return false;
+      if (targetRole === 'DS_PRINCIPAL_PM' || targetRole === 'DS_PM') return true;
+      if (targetRole === 'ALL') {
+        return n.type === 'INSPECTION_REQUEST' || n.type === 'SLA_ALERT' || n.type === 'CONTRACT_SETTLE' || n.type === 'APPROVAL_COMPLETED';
+      }
+      return false;
     }
     return true;
   });
