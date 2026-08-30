@@ -144,10 +144,10 @@ export function App() {
         if (n.type === 'INSPECTION_REQUEST') return false;
         return targetRole === 'PARTNER_MANAGER' || targetRole === 'PARTNER_PART_LEADER' || targetRole === 'ALL';
       } else if (userRole === 'DS_PRINCIPAL_PM' || userRole === 'PRINCIPAL_INSPECTOR' || userRole === 'DS_DIRECTOR' || userRole === 'DS_PM') {
-        // 🛡️ 신한DS 현장대리인(PM): 협력사 관리인이 1차 승인 완료하여 상신된 2차 검수 요청(INSPECTION_REQUEST) 및 SLA/정산 알림만 수신
-        // ❌ 직원이 협력사 관리인에게 상신한 1차 휴가 신청, 근태 신청, 소명 접수 알림은 절대 차단 (법적 지휘명령 분리)
-        if (targetRole === 'PARTNER_MANAGER' || targetRole === 'PARTNER_PART_LEADER' || targetRole === 'PARTNER_WORKER' || targetRole === 'PARTNER_SITE_MANAGER') return false;
-        if (n.type === 'APPROVAL_REQUEST' || n.type === 'GAP_NOTICE') return false;
+        // 🛡️ 신한DS 현장대리인(PM): 협력사 관리인이 1차 승인 완료하여 상신된 2차 검수 요청(INSPECTION_REQUEST) 및 SLA/정산 알림 정상 수신
+        // ❌ 직원이 협력사 관리인에게 상신한 미승인 1차 결재 요청(APPROVAL_REQUEST)만 격리 차단 (법적 지휘명령 분리)
+        if (targetRole === 'PARTNER_MANAGER' || targetRole === 'PARTNER_PART_LEADER' || targetRole === 'PARTNER_WORKER') return false;
+        if (n.type === 'APPROVAL_REQUEST') return false;
         if (
           n.title?.includes('[결재 요청]') || 
           n.title?.includes('[근태 신청]') || 
@@ -155,9 +155,8 @@ export function App() {
           n.title?.includes('[소명 접수]') || 
           n.title?.includes('[휴가 변경/수정]') ||
           n.title?.includes('[소명 재상신]') ||
-          n.content?.includes('1차 결재') || 
           n.content?.includes('1차 승인이 필요') ||
-          n.content?.includes('협력사 관리인')
+          n.content?.includes('1차 결재가 필요')
         ) return false;
         
         // 오직 협력사 1차 승인 완료된 2차 검수 요청(INSPECTION_REQUEST) 또는 공정 SLA/정산/최종결과만 통과
@@ -287,7 +286,7 @@ export function App() {
     }
 
     // 4. [원청 상신/검수] 협력사 1차 승인 완료 ➔ 신한DS PM [승인관리] 탭
-    if (title.includes('SLA 소명 상신') || title.includes('공백 사전 통보') || title.includes('원청') || type === 'PENDING_DS' || type === 'INSPECTION_REQUEST') {
+    if (title.includes('SLA 소명 상신') || title.includes('공백 사전 통보') || title.includes('공정 검수') || title.includes('소명 검수') || title.includes('원청') || type === 'PENDING_DS' || type === 'INSPECTION_REQUEST') {
       handleSwitchUser('DS_PM');
       setPrincipalPortalTab('approvals');
       setCurrentPage('principal_portal');

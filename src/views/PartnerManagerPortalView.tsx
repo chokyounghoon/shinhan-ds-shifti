@@ -218,6 +218,11 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
         targetRole: 'DS_PRINCIPAL_PM'
       });
 
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('notification_updated'));
+        window.dispatchEvent(new CustomEvent('attendance_request_updated'));
+      }
+
       fetchD1Clarifications();
     } catch (e) {
       alert('승인 처리 중 오류가 발생했습니다.');
@@ -323,6 +328,7 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
       });
       fetchRemoteData();
       if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('notification_updated'));
         window.dispatchEvent(new CustomEvent('attendance_request_updated'));
       }
     } catch (e) {

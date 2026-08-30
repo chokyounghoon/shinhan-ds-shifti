@@ -3294,10 +3294,10 @@ app.get('/notifications', async (c) => {
         // 협력사 관리인: 1차 결재 요청(APPROVAL_REQUEST) 및 협력사 관리자 대상 알림만 수신 (원청 2차 검수 요청 INSPECTION_REQUEST 절대 차단)
         query += " AND (target_role = 'PARTNER_MANAGER' OR target_role = 'PARTNER_PART_LEADER' OR (target_role = 'ALL' AND type != 'INSPECTION_REQUEST'))";
       } else if (role === 'DS_PRINCIPAL_PM' || role === 'DS_PM' || role === 'PRINCIPAL_INSPECTOR' || role === 'DS_DIRECTOR') {
-        // 🛡️ 신한DS 현장대리인: 협력사 관리인이 1차 승인 완료하여 상신된 2차 검수 요청(INSPECTION_REQUEST, SLA_ALERT 등)만 수신
-        // ❌ 직원의 1차 휴가/근태 신청 및 소명 접수 알림은 절대 노출 금지
-        query += " AND (target_role = 'DS_PRINCIPAL_PM' OR target_role = 'DS_PM' OR (target_role = 'ALL' AND type IN ('INSPECTION_REQUEST', 'SLA_ALERT', 'CONTRACT_SETTLE', 'APPROVAL_COMPLETED')))";
-        query += " AND type NOT IN ('APPROVAL_REQUEST', 'GAP_NOTICE') AND title NOT LIKE '%[결재 요청]%' AND title NOT LIKE '%[근태 신청]%' AND title NOT LIKE '%[휴가 신청]%' AND title NOT LIKE '%[소명 접수]%' AND title NOT LIKE '%1차%'";
+        // 🛡️ 신한DS 현장대리인: 협력사 관리인이 1차 승인 완료하여 상신된 2차 검수 요청(INSPECTION_REQUEST, SLA_ALERT, CONTRACT_SETTLE 등) 정상 수신
+        // ❌ 직원이 협력사 관리인에게 상신한 미승인 1차 신청(APPROVAL_REQUEST)만 격리 차단
+        query += " AND (target_role = 'DS_PRINCIPAL_PM' OR target_role = 'DS_PM' OR type = 'INSPECTION_REQUEST' OR (target_role = 'ALL' AND type IN ('SLA_ALERT', 'CONTRACT_SETTLE', 'APPROVAL_COMPLETED')))";
+        query += " AND type != 'APPROVAL_REQUEST' AND target_role != 'PARTNER_MANAGER'";
       } else if (role === 'PARTNER_WORKER' || role === 'PARTNER_EMPLOYEE') {
         // 일반 근로자: 본인 결과 통보(APPROVAL_COMPLETED, REJECTION, 공지)만 수신 (관리자용 결재요청/검수요청 절대 차단)
         query += " AND (target_role = 'PARTNER_WORKER' OR target_role = 'PARTNER_EMPLOYEE' OR (target_role = 'ALL' AND type NOT IN ('APPROVAL_REQUEST', 'INSPECTION_REQUEST')))";
