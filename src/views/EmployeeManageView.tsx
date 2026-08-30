@@ -1013,26 +1013,29 @@ export const EmployeeManageView: React.FC<EmployeeManageViewProps> = ({
                 </div>
               </div>
 
-              {/* 5. 직책 & 연락처 */}
+              {/* 5. 직급 & 연락처 */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '4px' }}>
-                    직책
+                    직급 / 직책 *
                   </label>
-                  <input
-                    type="text"
-                    value={editingEmp.position}
+                  <select
+                    value={editingEmp.position || (editingEmp.role === 'PARTNER_MANAGER' ? '대표이사' : editingEmp.role === 'DS_PM' ? '부장' : '사원')}
                     onChange={e => setEditingEmp({ ...editingEmp, position: e.target.value })}
-                    placeholder="예: 사원 / 대리 / 과장 / 수석"
                     style={{
                       width: '100%',
                       padding: '8px 10px',
                       borderRadius: '8px',
                       border: '1px solid #CBD5E1',
                       fontSize: '13px',
+                      background: '#FFFFFF',
                       boxSizing: 'border-box'
                     }}
-                  />
+                  >
+                    {['사원', '대리', '과장', '차장', '부부장', '부장', '이사', '대표이사'].map(pos => (
+                      <option key={pos} value={pos}>{pos}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

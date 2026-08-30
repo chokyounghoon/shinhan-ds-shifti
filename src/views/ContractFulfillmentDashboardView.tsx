@@ -2769,15 +2769,19 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
                   <label style={{ fontSize: '11.5px', color: '#90A4AE', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
-                    직급 / 직책
+                    직급 / 직책 *
                   </label>
-                  <input
-                    type="text"
-                    placeholder={registerEmployeeForm.role === 'PARTNER_MANAGER' ? '예: 대표, 총괄PM' : '예: 선임, 책임'}
-                    value={registerEmployeeForm.position}
+                  <select
+                    value={registerEmployeeForm.position || (registerEmployeeForm.role === 'PARTNER_MANAGER' ? '대표이사' : registerEmployeeForm.role === 'DS_PM' ? '부장' : '사원')}
                     onChange={e => setRegisterEmployeeForm({ ...registerEmployeeForm, position: e.target.value })}
                     style={formInputStyle}
-                  />
+                  >
+                    {['사원', '대리', '과장', '차장', '부부장', '부장', '이사', '대표이사'].map(pos => (
+                      <option key={pos} value={pos} style={{ background: '#0D1726', color: '#FFFFFF' }}>
+                        {pos}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label style={{ fontSize: '11.5px', color: '#90A4AE', display: 'block', marginBottom: '4px', fontWeight: 700 }}>
