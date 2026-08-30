@@ -582,91 +582,63 @@ export const ContractFulfillmentDashboardView: React.FC<ContractFulfillmentDashb
             ))}
           </div>
 
-          {/* ⚡ DS 현장대리인 핵심 기능 퀵 액션 바 (직원 등록 / 전체 관리 / AI 통계) */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: onOpenEmployees ? '1.2fr 1fr 1fr' : '1fr',
-            gap: '8px',
-            marginTop: '12px'
-          }}>
-            <button
-              type="button"
-              onClick={() => {
-                setRegisterEmployeeForm(prev => ({
-                  ...prev,
-                  part: activePart,
-                  company: currentPartInfo?.partnerCompany || '유브갓'
-                }));
-                setIsRegisterEmployeeModalOpen(true);
-              }}
-              style={{
-                padding: '10px 14px',
-                borderRadius: '10px',
-                background: 'linear-gradient(135deg, #0052FF 0%, #00C6FF 100%)',
-                color: '#FFFFFF',
-                border: 'none',
-                fontSize: '12.5px',
-                fontWeight: 800,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                boxShadow: '0 3px 12px rgba(0, 82, 255, 0.4)'
-              }}
-            >
-              <UserPlus size={15} />
-              <span>+ 신규 직원/인력 등록</span>
-            </button>
+          {/* ⚡ DS 현장대리인 퀵 액션 바 (전체 관리 / AI 통계) */}
+          {(onOpenEmployees || onOpenAiStats) && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: (onOpenEmployees && onOpenAiStats) ? '1fr 1fr' : '1fr',
+              gap: '8px',
+              marginTop: '12px'
+            }}>
+              {onOpenEmployees && (
+                <button
+                  type="button"
+                  onClick={onOpenEmployees}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: '10px',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    border: '1px solid rgba(0, 229, 255, 0.3)',
+                    color: '#E0F7FA',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Users size={15} color="#00E5FF" />
+                  <span>직원 관리 화면</span>
+                </button>
+              )}
 
-            {onOpenEmployees && (
-              <button
-                type="button"
-                onClick={onOpenEmployees}
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: '10px',
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  border: '1px solid rgba(0, 229, 255, 0.3)',
-                  color: '#E0F7FA',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px'
-                }}
-              >
-                <Users size={15} color="#00E5FF" />
-                <span>직원 관리 화면</span>
-              </button>
-            )}
-
-            {onOpenAiStats && (
-              <button
-                type="button"
-                onClick={onOpenAiStats}
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: '10px',
-                  background: 'rgba(67, 56, 202, 0.3)',
-                  border: '1px solid #818CF8',
-                  color: '#C7D2FE',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px'
-                }}
-              >
-                <Sparkles size={15} color="#A5B4FC" />
-                <span>AI 통계 & 정산</span>
-              </button>
-            )}
-          </div>
+              {onOpenAiStats && (
+                <button
+                  type="button"
+                  onClick={onOpenAiStats}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: '10px',
+                    background: 'rgba(67, 56, 202, 0.3)',
+                    border: '1px solid #818CF8',
+                    color: '#C7D2FE',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Sparkles size={15} color="#A5B4FC" />
+                  <span>AI 분석/이상징후</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
       <div style={{ padding: '14px 16px 8px 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
