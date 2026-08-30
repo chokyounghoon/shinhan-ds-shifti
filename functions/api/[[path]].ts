@@ -1062,36 +1062,48 @@ app.post('/commute/punch', async (c) => {
 // =========================================================================
 
 const ensureClarificationTable = async (db: D1Database) => {
-  await db.prepare(`
-    CREATE TABLE IF NOT EXISTS clarification_requests (
-      id TEXT PRIMARY KEY,
-      employee_id TEXT NOT NULL,
-      employee_name TEXT NOT NULL,
-      company_name TEXT NOT NULL,
-      incident_type TEXT NOT NULL,
-      incident_date TEXT NOT NULL,
-      scheduled_time TEXT,
-      actual_time TEXT,
-      delay_minutes INTEGER DEFAULT 0,
-      reason_text TEXT NOT NULL,
-      category TEXT DEFAULT 'OTHER',
-      has_attachment INTEGER DEFAULT 0,
-      status TEXT NOT NULL DEFAULT 'PENDING_PARTNER',
-      partner_approver_id TEXT,
-      partner_approver_name TEXT,
-      partner_approved_at TEXT,
-      partner_approval_memo TEXT,
-      ds_approver_id TEXT,
-      ds_approver_name TEXT,
-      ds_approved_at TEXT,
-      ds_approval_memo TEXT,
-      ai_tag TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      created_by TEXT DEFAULT 'SYSTEM',
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_by TEXT DEFAULT 'SYSTEM'
-    )
-  `).run();
+  try {
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS clarification_requests (
+        id TEXT PRIMARY KEY,
+        employee_id TEXT NOT NULL,
+        employee_name TEXT NOT NULL,
+        company_name TEXT NOT NULL,
+        incident_type TEXT NOT NULL,
+        incident_date TEXT NOT NULL,
+        scheduled_time TEXT,
+        actual_time TEXT,
+        delay_minutes INTEGER DEFAULT 0,
+        reason_text TEXT NOT NULL,
+        category TEXT DEFAULT 'OTHER',
+        has_attachment INTEGER DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'PENDING_PARTNER',
+        partner_approver_id TEXT,
+        partner_approver_name TEXT,
+        partner_approved_at TEXT,
+        partner_approval_memo TEXT,
+        ds_approver_id TEXT,
+        ds_approver_name TEXT,
+        ds_approved_at TEXT,
+        ds_approval_memo TEXT,
+        ai_tag TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_by TEXT DEFAULT 'SYSTEM',
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_by TEXT DEFAULT 'SYSTEM'
+      )
+    `).run();
+
+    // 기존 테이블 컬럼 마이그레이션 자가치유
+    const cols = ['ai_tag', 'partner_approver_id', 'partner_approver_name', 'partner_approved_at', 'partner_approval_memo', 'ds_approver_id', 'ds_approver_name', 'ds_approved_at', 'ds_approval_memo', 'created_at', 'created_by', 'updated_at', 'updated_by'];
+    for (const col of cols) {
+      try {
+        await db.prepare(`ALTER TABLE clarification_requests ADD COLUMN ${col} TEXT`).run();
+      } catch (ignored) {}
+    }
+  } catch (e) {
+    console.warn('ensureClarificationTable error:', e);
+  }
 };
 
 // 소명 목록 조회 (역할별 필터링)
@@ -1335,7 +1347,7 @@ app.post('/clarification-requests', async (c) => {
       body.incident_date || now.slice(0, 10),
       body.scheduled_time || '09:00',
       body.actual_time || '',
-      body.delay_minutes || 0,
+      Number(body.delay_minutes) || 0,
       body.reason_text || '',
       body.category || 'OTHER',
       body.has_attachment ? 1 : 0,
@@ -1346,8 +1358,26 @@ app.post('/clarification-requests', async (c) => {
       empName
     ).run();
 
+    // 🔔 1단계 알림: 협력사 관리인 앞 소명 접수 알림 생성
+    try {
+      const notiId = `noti-clar-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      await db.prepare(`
+        INSERT INTO app_notifications
+        (id, type, title, content, target_role, part_name, is_read, created_at, updated_at, created_by, updated_by)
+        VALUES (?, 'APPROVAL_REQUEST', ?, ?, 'PARTNER_MANAGER', '상담', 0, ?, ?, ?, ?)
+      `).bind(
+        notiId,
+        `📢 [소명 접수] ${empName}님 ${body.incident_type === 'LATE' ? '지각' : '출근 누락'} 소명`,
+        `${empName}님이 ${body.incident_date || now.slice(0, 10)} 결손 소명서를 상신했습니다. 협력사 관리인 1차 승인이 필요합니다.`,
+        now, now, empName, empName
+      ).run();
+    } catch (ne) {
+      console.warn('Clarification noti notice:', ne);
+    }
+
     return c.json({ success: true, id, message: '소명서가 협력사 현장대리인에게 상신되었습니다.' });
   } catch (err: any) {
+    console.error('Clarification error detail:', err);
     return c.json({ success: false, detail: err.message }, 500);
   }
 });
