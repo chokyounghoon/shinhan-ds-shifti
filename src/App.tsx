@@ -183,7 +183,7 @@ export function App() {
     const interval = setInterval(loadD1Data, 15000);
 
     const handleNotiUpdate = () => {
-      setNotifications([...dbService.getNotifications()]);
+      loadD1Data();
     };
     window.addEventListener('notification_updated', handleNotiUpdate);
     window.addEventListener('attendance_request_updated', handleNotiUpdate);

@@ -27,15 +27,10 @@ export const getKstTodayString = (): string => {
 export const formatKstDateTime = (dateStr?: string | null): string => {
   if (!dateStr) return '-';
   try {
-    const raw = String(dateStr).trim();
+    let raw = String(dateStr).trim();
     if (!raw) return '-';
 
-    // 1) 이미 'YYYY-MM-DD HH:mm:ss' 포맷인 경우 (서버에서 KST로 생성된 경우)
-    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw)) {
-      return raw;
-    }
-
-    // 2) ISO 포맷 ('T', 'Z' 포함) 또는 타임스탬프인 경우 KST(+9) 변환
+    // 1) ISO 포맷 ('T', 'Z' 포함) 또는 타임스탬프인 경우 KST(+9) 변환
     if (raw.includes('T') || raw.includes('Z') || raw.includes('+')) {
       const d = new Date(raw);
       if (!isNaN(d.getTime())) {
@@ -50,12 +45,34 @@ export const formatKstDateTime = (dateStr?: string | null): string => {
       }
     }
 
+    // 2) 'YYYY-MM-DD HH:mm:ss' 포맷인 경우
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw)) {
+      const [ymd, hms] = raw.split(' ');
+      const hour = parseInt(hms.split(':')[0], 10);
+      
+      // 만약 00시~08시 사이로 저장된 UTC 생성 흔적(9시간 이전 시각)인 경우 한국 시간대로 +9시간 보정
+      if (hour < 9) {
+        const utcDate = new Date(`${ymd}T${hms}Z`);
+        if (!isNaN(utcDate.getTime())) {
+          const kstDate = new Date(utcDate.getTime() + 9 * 3600000);
+          const yyyy = kstDate.getUTCFullYear();
+          const mm = String(kstDate.getUTCMonth() + 1).padStart(2, '0');
+          const dd = String(kstDate.getUTCDate()).padStart(2, '0');
+          const hh = String(kstDate.getUTCHours()).padStart(2, '0');
+          const min = String(kstDate.getUTCMinutes()).padStart(2, '0');
+          const ss = String(kstDate.getUTCSeconds()).padStart(2, '0');
+          return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+        }
+      }
+      return raw;
+    }
+
     // 3) 'YYYY-MM-DD' 또는 'YYYY-MM-DD HH:mm' 인 경우
     const s = raw.replace('T', ' ').slice(0, 19);
     if (s.length === 10) return `${s} 09:00:00`;
     if (s.length === 16) return `${s}:00`;
     return s;
   } catch {
-    return dateStr;
+    return String(dateStr);
   }
 };
