@@ -167,7 +167,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
 
   const pendingCount = unifiedRequests.filter(r => r.isPending).length;
   const completedCount = unifiedRequests.filter(r => r.isCompleted).length;
-  const totalMyCount = unifiedRequests.length;
+  const activeMyCount = pendingCount; // 완료된 요청은 내 요청 탭에서 제외 (완료 탭으로 이동)
 
   // D1에 이미 소명이 제출된 일자 목록
   const clarifiedDates = new Set(d1Clarifications.map(c => c.incident_date));
@@ -347,7 +347,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
       <div style={{ display: 'flex', borderBottom: '1px solid #ECEFF2', background: '#FFFFFF' }}>
         {[
           { id: 'pending', label: '대기중', count: pendingCount },
-          { id: 'my', label: '내 요청', count: totalMyCount },
+          { id: 'my', label: '내 요청', count: activeMyCount },
           { id: 'completed', label: '완료', count: completedCount },
           { id: 'ref', label: '참조', count: 0 }
         ].map(tab => {
@@ -553,7 +553,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
               {activeTab === 'pending'
                 ? `검수 대기중인 소명/신청 (${pendingCount}건)`
                 : activeTab === 'my'
-                ? `내가 등록한 전체 소명/신청 (${totalMyCount}건)`
+                ? `진행중인 내 소명/신청 (${activeMyCount}건)`
                 : activeTab === 'completed'
                 ? `최종 처리 완료된 내역 (${completedCount}건)`
                 : '참조 및 공람 내역 (0건)'}
@@ -563,12 +563,12 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
             </button>
           </div>
 
-          {/* D1 실시간 통합 목록 필터링 */}
+          {/* D1 실시간 통합 목록 필터링 (완료된 요청은 [내 요청]에서 제외되고 [완료] 탭에만 표시) */}
           {unifiedRequests
             .filter(req => {
               if (activeTab === 'pending') return req.isPending;
               if (activeTab === 'completed') return req.isCompleted;
-              if (activeTab === 'my') return true;
+              if (activeTab === 'my') return req.isPending; // 완료된 요청은 '내 요청'에서 제외
               return false;
             })
             .filter(req => {
@@ -704,12 +704,18 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
             })}
 
           {((activeTab === 'pending' && pendingCount === 0) ||
-            (activeTab === 'my' && totalMyCount === 0) ||
+            (activeTab === 'my' && activeMyCount === 0) ||
             (activeTab === 'completed' && completedCount === 0) ||
             (activeTab === 'ref')) && (
             <div style={{ textAlign: 'center', padding: '40px 0', color: '#94A3B8', fontSize: '13px' }}>
               <CheckCircle2 size={36} color="#10B981" style={{ margin: '0 auto 8px auto', display: 'block' }} />
-              {activeTab === 'pending' ? '대기중인 소명/휴가 신청 건이 없습니다.' : activeTab === 'completed' ? '처리 완료된 내역이 없습니다.' : activeTab === 'ref' ? '참조된 내역이 없습니다.' : '등록된 내 요청 건이 없습니다.'}
+              {activeTab === 'pending'
+                ? '대기중인 소명/휴가 신청 건이 없습니다.'
+                : activeTab === 'my'
+                ? '현재 진행 중인 요청 건이 없습니다. (완료된 내역은 [완료] 탭에서 확인 가능)'
+                : activeTab === 'completed'
+                ? '처리 완료된 내역이 없습니다.'
+                : '참조된 내역이 없습니다.'}
             </div>
           )}
         </div>
