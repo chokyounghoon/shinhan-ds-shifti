@@ -2038,40 +2038,59 @@ app.put('/attendance/requests/:id/partner-approve', async (c) => {
     await db.prepare(`
       UPDATE attendance_requests
       SET status = 'PENDING_DS',
+          partner_approved_at = ?,
           approver_name = ?,
           review_comment = ?,
           reviewed_at = ?,
           updated_at = ?,
           updated_by = ?
       WHERE id = ?
-    `).bind(approverName, memo, now, now, approverName, id).run();
+    `).bind(now, approverName, memo, now, now, approverName, id).run();
 
-    // 🔔 2단계: [협력사 1차 승인 완료 시에만] 신한DS PM 앞 투입 공백 통보 알림 생성
     if (existing) {
-      const notiId = `noti-ds-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+      const vacTitle = existing.vacation_type || existing.request_type || '휴가';
+      const targetDate = existing.target_date || '';
+
+      // 🔔 1) [원청] 신한DS PM 앞 2차 공정 투입 공백 검수 요청 알림 생성
       try {
         await db.prepare(`
           INSERT INTO app_notifications
           (id, type, title, content, target_role, part_name, is_read, created_at, updated_at, created_by, updated_by)
           VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
         `).bind(
-          notiId,
+          `noti-ds-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
           'INSPECTION_REQUEST',
           `📢 [공백 사전 통보] ${existing.user_name}님 1차 승인 완료`,
-          `${existing.company_name || '협력사'} 현장관리인이 ${existing.user_name}님의 ${existing.request_type || '휴가'}(${existing.target_date})를 1차 승인하였습니다. 신한DS PM의 투입 공백 확인(검수)이 필요합니다.`,
+          `${existing.company_name || '협력사'} 현장관리인이 ${existing.user_name}님의 ${vacTitle}(${targetDate})를 1차 승인하였습니다. 신한DS PM의 투입 공백 최종 검수가 필요합니다.`,
           'DS_PRINCIPAL_PM',
           '상담',
-          now,
-          now,
-          approverName,
-          approverName
+          now, now, approverName, approverName
         ).run();
       } catch (ne) {
-        console.warn('DS PM notification insert notice:', ne);
+        console.warn('DS PM notification insert error:', ne);
+      }
+
+      // 🔔 2) [신청자] 근로자 본인 앞 1차 결재 완료 통보 알림 생성
+      try {
+        await db.prepare(`
+          INSERT INTO app_notifications
+          (id, type, title, content, target_role, part_name, is_read, created_at, updated_at, created_by, updated_by)
+          VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
+        `).bind(
+          `noti-worker-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          'APPROVAL_STEP',
+          `✅ [1차 승인 완료] ${existing.user_name}님 ${vacTitle} 1차 승인`,
+          `협력사 현장관리인이 ${targetDate} ${vacTitle} 신청을 1차 승인하였습니다. 현재 신한DS 현장대리인(PM)의 2차 최종 공정 검수가 진행 중입니다.`,
+          'PARTNER_WORKER',
+          '상담',
+          now, now, approverName, approverName
+        ).run();
+      } catch (ne) {
+        console.warn('Worker notification insert error:', ne);
       }
     }
 
-    return c.json({ success: true, message: '협력사 1차 결재가 완료되어 신한DS PM에게 공백이 공식 통보되었습니다.' });
+    return c.json({ success: true, message: '협력사 1차 결재가 완료되어 신한DS PM과 신청 근로자에게 알림이 동시 전송되었습니다.' });
   } catch (err: any) {
     return c.json({ success: false, detail: err.message }, 500);
   }
@@ -2088,6 +2107,8 @@ app.put('/attendance/requests/:id/partner-reject', async (c) => {
     const approverName = body.approver_name || '협력사 현장관리인';
     const memo = body.memo || '소속사 사정으로 인한 휴가 보완요청(반려)';
 
+    const existing: any = await db.prepare('SELECT * FROM attendance_requests WHERE id = ?').bind(id).first();
+
     await db.prepare(`
       UPDATE attendance_requests
       SET status = 'REJECTED',
@@ -2098,6 +2119,26 @@ app.put('/attendance/requests/:id/partner-reject', async (c) => {
           updated_by = ?
       WHERE id = ?
     `).bind(approverName, memo, now, now, approverName, id).run();
+
+    if (existing) {
+      const vacTitle = existing.vacation_type || existing.request_type || '휴가';
+      // 🔔 근로자 앞 반려/보완 통보 알림
+      try {
+        await db.prepare(`
+          INSERT INTO app_notifications
+          (id, type, title, content, target_role, part_name, is_read, created_at, updated_at, created_by, updated_by)
+          VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
+        `).bind(
+          `noti-rej-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          'APPROVAL_STEP',
+          `❌ [휴가 보완요청] ${existing.user_name}님 ${vacTitle} 반려`,
+          `협력사 현장관리인에 의해 ${existing.target_date} ${vacTitle} 신청이 반려(보완요청)되었습니다. (사유: ${memo})`,
+          'PARTNER_WORKER',
+          '상담',
+          now, now, approverName, approverName
+        ).run();
+      } catch (_) {}
+    }
 
     return c.json({ success: true, message: '소속사에서 휴가 신청이 보완요청(반려)되었습니다. 직원이 보완 후 재상신할 수 있습니다.' });
   } catch (err: any) {
@@ -2154,18 +2195,64 @@ app.put('/attendance/requests/:id/ds-approve', async (c) => {
     const approverName = body.approver_name || '조경훈 수석PM (신한DS)';
     const memo = body.memo || '신한DS PM 도급 계약 공정 투입 공백 확인 및 검수 완료';
 
+    const existing: any = await db.prepare('SELECT * FROM attendance_requests WHERE id = ?').bind(id).first();
+
     await db.prepare(`
       UPDATE attendance_requests
       SET status = 'APPROVED',
+          ds_approved_at = ?,
           approver_name = ?,
           review_comment = ?,
           reviewed_at = ?,
           updated_at = ?,
           updated_by = ?
       WHERE id = ?
-    `).bind(approverName, memo, now, now, approverName, id).run();
+    `).bind(now, approverName, memo, now, now, approverName, id).run();
 
-    return c.json({ success: true, message: '신한DS PM의 공정 공백 검수가 최종 승인 완료되었습니다.' });
+    if (existing) {
+      const vacTitle = existing.vacation_type || existing.request_type || '휴가';
+      const targetDate = existing.target_date || '';
+
+      // 🔔 1) [신청자] 근로자 앞 최종 승인 통보 알림
+      try {
+        await db.prepare(`
+          INSERT INTO app_notifications
+          (id, type, title, content, target_role, part_name, is_read, created_at, updated_at, created_by, updated_by)
+          VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
+        `).bind(
+          `noti-fin-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          'APPROVAL_COMPLETED',
+          `🎉 [최종 승인 완료] ${existing.user_name}님 ${vacTitle} 승인`,
+          `신한DS 현장대리인(PM)의 최종 공정 공백 검수가 승인 완료되었습니다. (${targetDate} ${vacTitle}, 당월 계약 공수 정상 인정)`,
+          'PARTNER_WORKER',
+          '상담',
+          now, now, approverName, approverName
+        ).run();
+      } catch (ne) {
+        console.warn('Worker final noti error:', ne);
+      }
+
+      // 🔔 2) [협력사 관리자] 앞 최종 승인 통보 알림
+      try {
+        await db.prepare(`
+          INSERT INTO app_notifications
+          (id, type, title, content, target_role, part_name, is_read, created_at, updated_at, created_by, updated_by)
+          VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
+        `).bind(
+          `noti-pfin-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          'APPROVAL_COMPLETED',
+          `✅ [공백 검수 완료] ${existing.user_name}님 ${vacTitle} 최종 승인`,
+          `신한DS 현장대리인(PM)이 ${existing.user_name}님의 ${targetDate} ${vacTitle} 공백 검수를 최종 승인 완료하였습니다.`,
+          'PARTNER_MANAGER',
+          '상담',
+          now, now, approverName, approverName
+        ).run();
+      } catch (ne) {
+        console.warn('Partner final noti error:', ne);
+      }
+    }
+
+    return c.json({ success: true, message: '신한DS PM의 공정 공백 검수가 최종 승인 완료되어 신청 근로자 및 협력사 관리자에게 알림이 동시 전송되었습니다.' });
   } catch (err: any) {
     return c.json({ success: false, detail: err.message }, 500);
   }
@@ -2182,6 +2269,8 @@ app.put('/attendance/requests/:id/ds-reject', async (c) => {
     const approverName = body.approver_name || '조경훈 수석PM (신한DS)';
     const memo = body.memo || '공정 차질 우려로 인한 공백 미승인 (협력사 대체인력 투입 요망)';
 
+    const existing: any = await db.prepare('SELECT * FROM attendance_requests WHERE id = ?').bind(id).first();
+
     await db.prepare(`
       UPDATE attendance_requests
       SET status = 'REJECTED',
@@ -2193,7 +2282,44 @@ app.put('/attendance/requests/:id/ds-reject', async (c) => {
       WHERE id = ?
     `).bind(approverName, memo, now, now, approverName, id).run();
 
-    return c.json({ success: true, message: '신한DS PM에 의해 공정 공백이 반려되었습니다.' });
+    if (existing) {
+      const vacTitle = existing.vacation_type || existing.request_type || '휴가';
+      // 🔔 1) 신청 근로자 앞 알림
+      try {
+        await db.prepare(`
+          INSERT INTO app_notifications
+          (id, type, title, content, target_role, part_name, is_read, created_at, updated_at, created_by, updated_by)
+          VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
+        `).bind(
+          `noti-dsrej-w-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          'APPROVAL_STEP',
+          `❌ [공백 검수 반려] 신한DS PM 공백 검수 미승인`,
+          `신한DS 현장대리인에 의해 ${existing.target_date} ${vacTitle} 공백이 미승인(반려)되었습니다. (사유: ${memo})`,
+          'PARTNER_WORKER',
+          '상담',
+          now, now, approverName, approverName
+        ).run();
+      } catch (_) {}
+
+      // 🔔 2) 협력사 관리자 앞 알림
+      try {
+        await db.prepare(`
+          INSERT INTO app_notifications
+          (id, type, title, content, target_role, part_name, is_read, created_at, updated_at, created_by, updated_by)
+          VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
+        `).bind(
+          `noti-dsrej-p-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          'APPROVAL_STEP',
+          `⚠️ [공백 검수 반려] ${existing.user_name}님 공백 미승인`,
+          `신한DS 현장대리인이 ${existing.user_name}님의 ${existing.target_date} ${vacTitle} 공백을 미승인하였습니다. 대체인력 투입이 필요합니다. (사유: ${memo})`,
+          'PARTNER_MANAGER',
+          '상담',
+          now, now, approverName, approverName
+        ).run();
+      } catch (_) {}
+    }
+
+    return c.json({ success: true, message: '신한DS PM에 의해 공정 공백이 반려되어 관련 담당자에게 통보되었습니다.' });
   } catch (err: any) {
     return c.json({ success: false, detail: err.message }, 500);
   }

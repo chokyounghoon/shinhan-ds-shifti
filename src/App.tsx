@@ -28,6 +28,7 @@ import { OrganizationManageView, defaultOrgUnits, OrgUnit } from './views/Organi
 import { OrganizationDetailView } from './views/OrganizationDetailView';
 import { EmployeeManageView, EmployeeItem } from './views/EmployeeManageView';
 import { ScheduleTemplateManageView, defaultScheduleTemplates, ScheduleTemplateItem } from './views/ScheduleTemplateManageView';
+import { requestPushPermission, sendWebPushNotification } from './utils/pushNotification';
 import { AttendanceReportView } from './views/AttendanceReportView';
 import { MissedPunchRecordsView } from './views/MissedPunchRecordsView';
 import { CurrentWorkStatusDetailView } from './views/CurrentWorkStatusDetailView';
@@ -163,8 +164,13 @@ export function App() {
   const unreadNotificationCount = filteredNotifications.filter(n => !n.isRead).length;
   const unreadMessageCount = messagesList.filter(m => !m.isRead).length;
 
-  // D1 DB 실시간 데이터 로드 & 폴링 동기화
+  // D1 DB 실시간 데이터 로드 & 폴링 동기화 & 웹 푸시 발송
+  const prevNotiIdsRef = React.useRef<Set<string>>(new Set());
+
   useEffect(() => {
+    // 앱 진입 시 브라우저 푸시 권한 요청
+    requestPushPermission();
+
     const loadD1Data = async () => {
       const part = currentUser?.partName || '상담';
       const role = currentUser?.role || 'DS_PRINCIPAL_PM';
@@ -174,6 +180,19 @@ export function App() {
         dbService.fetchUsersFromD1(),
         dbService.fetchManpowerFromD1(part)
       ]);
+
+      // 🔔 새롭게 수신된 미확인 알림이 있는 경우 웹 푸시(Web Push) 발송
+      if (prevNotiIdsRef.current.size > 0) {
+        const newlyArrived = notis.filter(n => !n.isRead && !prevNotiIdsRef.current.has(n.id));
+        newlyArrived.forEach(noti => {
+          sendWebPushNotification(noti.title, {
+            body: noti.content,
+            tag: noti.id
+          });
+        });
+      }
+
+      prevNotiIdsRef.current = new Set(notis.map(n => n.id));
       setNotifications(notis);
       setMessagesList(msgs);
     };
