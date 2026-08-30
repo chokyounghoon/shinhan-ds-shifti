@@ -104,14 +104,8 @@ export const RequestModal: React.FC<RequestModalProps> = ({
         createdAt: getKstNowString()
       });
 
-      // 3. 🔔 알림센터에 미확인 알림 푸시
-      dbService.addNotification({
-        type: 'APPROVAL_REQUEST',
-        title: `📢 [근태 신청] ${workerName}님 ${typeLabels[requestType]} 신청`,
-        content: `${workerName}님이 ${typeLabels[requestType]} (${targetDate}) 결재를 요청했습니다. (${approverName} 앞)`,
-        targetRole: 'PARTNER_MANAGER',
-        partName: currentUser?.partName || '상담'
-      });
+      // 백엔드(/api/attendance/requests)에서 D1 app_notifications에 알림이 자동 생성되므로
+      // 프론트엔드에서의 중복 addNotification 호출을 생략합니다.
 
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('attendance_request_updated'));

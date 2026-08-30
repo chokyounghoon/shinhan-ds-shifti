@@ -184,24 +184,8 @@ export const VacationRegistrationModal: React.FC<VacationRegistrationModalProps>
         console.warn('D1 vacation request sync error:', e);
       }
 
-      // 🔔 알림센터에 미확인 알림 푸시 (협력사 관리인 앞)
-      if (isUpdate) {
-        dbService.addNotification({
-          type: 'APPROVAL_REQUEST',
-          title: `🔄 [휴가 변경/수정] ${targetWorker}님 ${vacationType} 신청 내용 변경`,
-          content: `${targetWorker}님이 ${dateRange} 휴가 신청을 '${vacationType}' (${hours}시간)으로 수정했습니다. 협력사 관리인의 1차 결재가 필요합니다.`,
-          targetRole: 'PARTNER_MANAGER',
-          partName: currentUser.partName || '상담'
-        });
-      } else {
-        dbService.addNotification({
-          type: 'APPROVAL_REQUEST',
-          title: `📢 [결재 요청] ${targetWorker}님 ${vacationType} 신청`,
-          content: `${targetWorker}님이 ${vacationType} (${dateRange}) 결재를 요청했습니다. 협력사 관리인의 1차 승인이 필요합니다.`,
-          targetRole: 'PARTNER_MANAGER',
-          partName: currentUser.partName || '상담'
-        });
-      }
+      // 백엔드(/api/attendance/requests)에서 D1 app_notifications에 알림이 자동 생성되므로
+      // 프론트엔드에서의 중복 addNotification 호출을 생략합니다.
 
       // 화면 전역 실시간 갱신 이벤트 발행
       if (typeof window !== 'undefined') {

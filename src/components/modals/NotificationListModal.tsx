@@ -26,19 +26,30 @@ export const NotificationListModal: React.FC<NotificationListModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  // 🔔 알림 목록 최신순 (생성일시 기준 내림차순) 정렬 및 중복 제거
+  const sortedNotifications = [...notifications]
+    .sort((a, b) => {
+      const timeA = a.createdAt || '';
+      const timeB = b.createdAt || '';
+      return timeB.localeCompare(timeA);
+    })
+    .filter((noti, idx, arr) => {
+      // 동일한 제목 및 분 단위 생성 시점의 중복 알림 배제
+      const notiTitle = (noti.title || '').trim().replace(/\s+/g, ' ');
+      const notiTime = (noti.createdAt || '').slice(0, 16);
+      return idx === arr.findIndex(item => {
+        const itemTitle = (item.title || '').trim().replace(/\s+/g, ' ');
+        const itemTime = (item.createdAt || '').slice(0, 16);
+        return itemTitle === notiTitle && itemTime === notiTime;
+      });
+    });
+
+  const unreadCount = sortedNotifications.filter(n => !n.isRead).length;
 
   // 날짜/시간 포맷 헬퍼 (한국 표준시 KST YYYY-MM-DD HH:mm:ss)
   const formatDateTimeSec = (dateStr?: string | null): string => {
     return formatKstDateTime(dateStr);
   };
-
-  // 🔔 알림 목록 최신순 (생성일시 기준 내림차순) 정렬
-  const sortedNotifications = [...notifications].sort((a, b) => {
-    const timeA = a.createdAt || '';
-    const timeB = b.createdAt || '';
-    return timeB.localeCompare(timeA);
-  });
 
   const getIcon = (type: string) => {
     switch (type) {

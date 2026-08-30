@@ -3314,7 +3314,26 @@ app.get('/notifications', async (c) => {
 
     const stmt = db.prepare(query);
     const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
-    return c.json({ success: true, data: results || [] });
+    
+    // 🛡️ 중복 알림(동일한 제목 + 대상역할 + 1분 이내 동시 등록건) 방어적 중복 제거
+    const rawList = results || [];
+    const dedupedMap = new Map<string, any>();
+    const filteredResults: any[] = [];
+
+    for (const item of rawList) {
+      // 키: 제목 + 대상역할 + 분단위 시각(YYYY-MM-DD HH:mm)
+      const timeKey = (item.created_at || '').slice(0, 16);
+      const titleKey = (item.title || '').trim().replace(/\s+/g, ' ');
+      // 또는 결재 요청의 경우 신청자명 추출
+      const compositeKey = `${titleKey}__${item.target_role || ''}__${timeKey}`;
+
+      if (!dedupedMap.has(compositeKey)) {
+        dedupedMap.set(compositeKey, true);
+        filteredResults.push(item);
+      }
+    }
+
+    return c.json({ success: true, data: filteredResults });
   } catch (err: any) {
     console.warn('[Notifications Query Notice]:', err?.message || err);
     return c.json({ success: true, data: [] });
