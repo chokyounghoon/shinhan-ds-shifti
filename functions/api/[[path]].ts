@@ -2217,6 +2217,26 @@ app.put('/attendance/requests/:id/ds-approve', async (c) => {
     if (existing) {
       const vacTitle = existing.vacation_type || existing.request_type || '휴가';
       const targetDate = existing.target_date || '';
+      const empId = existing.employee_id || existing.user_id || 'S01832';
+      const schedType = vacTitle.includes('오전반차') ? 'HALF_AM_LEAVE' 
+        : vacTitle.includes('오후반차') ? 'HALF_PM_LEAVE'
+        : vacTitle.includes('체력단련') ? 'FITNESS_LEAVE'
+        : 'ANNUAL_LEAVE';
+      const manDays = vacTitle.includes('반차') ? '0.5' : '1.0';
+
+      // 🔄 work_schedules 테이블 실시간 동기화 (D1)
+      try {
+        await db.prepare(`
+          INSERT OR REPLACE INTO work_schedules
+          (id, user_id, employee_id, schedule_date, schedule_type, title, is_vacation, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+        `).bind(
+          `sch-${empId}-${targetDate.replace(/-/g, '')}`,
+          empId, empId, targetDate, schedType, `${vacTitle} (${manDays} M/D 공수인정)`, now, now
+        ).run();
+      } catch (we) {
+        console.warn('work_schedules sync error:', we);
+      }
 
       // 🔔 1) [신청자] 근로자 앞 최종 승인 통보 알림
       try {
@@ -2471,6 +2491,58 @@ app.post('/schedules', async (c) => {
     ).run();
 
     return c.json({ success: true, message: '근무 일정이 D1 DB에 정상 반영되었습니다.', id });
+  } catch (err: any) {
+    return c.json({ success: false, detail: err.message }, 500);
+  }
+});
+
+// 3) 주간 52시간 근태 통계 (weekly_work_stats) D1 실시간 조회 및 집계 API
+app.get('/weekly-stats', async (c) => {
+  try {
+    const db = c.env.DB;
+    const employeeId = c.req.query('employee_id') || 'S01832';
+    const now = getKst();
+
+    // D1 weekly_work_stats 조회
+    const result: any = await db.prepare(`
+      SELECT * FROM weekly_work_stats
+      WHERE employee_id = ?
+      ORDER BY week_start_date DESC
+      LIMIT 10
+    `).bind(employeeId).all();
+
+    const rows = result.results || [];
+    return c.json({ success: true, data: rows });
+  } catch (err: any) {
+    return c.json({ success: false, detail: err.message }, 500);
+  }
+});
+
+// 4) 주간 52시간 통계 등록/갱신 (POST)
+app.post('/weekly-stats', async (c) => {
+  try {
+    const body = await c.req.json();
+    const db = c.env.DB;
+    const now = getKst();
+
+    const empId = body.employee_id || 'S01832';
+    const start = body.week_start_date || '2026-08-24';
+    const end = body.week_end_date || '2026-08-30';
+    const regMin = Number(body.regular_work_minutes) || 2400; // 40시간
+    const otMin = Number(body.overtime_minutes) || 0;
+    const totMin = regMin + otMin;
+    const remMin = Math.max(0, 3120 - totMin);
+    const id = body.id || `stat-${empId}-${start.replace(/-/g, '')}`;
+
+    await db.prepare(`
+      INSERT OR REPLACE INTO weekly_work_stats
+      (id, employee_id, week_start_date, week_end_date, regular_work_minutes, overtime_minutes, night_minutes, holiday_minutes, total_work_minutes, remaining_limit_minutes, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?)
+    `).bind(
+      id, empId, start, end, regMin, otMin, totMin, remMin, now, now
+    ).run();
+
+    return c.json({ success: true, message: '주간 근태 통계가 D1 DB에 정상 기록되었습니다.', id });
   } catch (err: any) {
     return c.json({ success: false, detail: err.message }, 500);
   }
