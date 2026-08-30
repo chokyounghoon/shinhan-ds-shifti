@@ -762,12 +762,13 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
       )}
 
       {/* ========================================================================= */}
-      {/* 탭 0-1 전용 화면: 📅 지각자 현황 및 소명 이행 캘린더 (일자별 지각/소명/테이블) */}
+      {/* 탭 0-1 전용 화면: 📅 지각자 현황 및 소명 이행 캘린더 (일자별 지각/휴가/소명/테이블) */}
       {/* ========================================================================= */}
       {mainTab === 'calendar' && (
         <DsLateAttendanceCalendar
           themeMode={themeMode}
           onApproveClarification={handleDsApprove}
+          onApproveVacation={handleDsApproveVacation}
           onDemandClarification={(worker) => {
             setSelectedWorkerForDemand({
               name: worker.name,
