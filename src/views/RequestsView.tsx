@@ -42,12 +42,11 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
   const fetchClarifications = async () => {
     setIsLoadingClarifications(true);
     try {
-      // employee_id 대소문자 불일치 방어: 대문자 및 소문자 모두 시도
       const empIdUpper = (empId || '').toUpperCase().trim();
       const empIdLower = (empId || '').toLowerCase().trim();
 
-      const [clarRes, vacRes, vacResLower, logsRes] = await Promise.all([
-        fetch(`/api/clarification-requests?role=PARTNER_WORKER&employee_id=${encodeURIComponent(empIdUpper)}`),
+      const [clarAllRes, vacRes, vacResLower, logsRes] = await Promise.all([
+        fetch(`/api/clarification-requests`),
         fetch(`/api/attendance/requests?employee_id=${encodeURIComponent(empIdUpper)}`),
         fetch(`/api/attendance/requests?employee_id=${encodeURIComponent(empIdLower)}`),
         fetch(`/api/commute/logs?employee_id=${encodeURIComponent(empIdUpper)}`)
@@ -55,17 +54,22 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
       
       let clarData: any[] = [];
       let vacData: any[] = [];
-      let commuteLogs: any[] = [];
 
-      if (clarRes.ok) {
-        const json = await clarRes.json();
-        clarData = json.data || [];
+      if (clarAllRes.ok) {
+        const json = await clarAllRes.json();
+        const allClars: any[] = json.data || [];
+        // 본인 건 (employee_id 일치 또는 employee_name 일치 또는 created_by 일치)
+        clarData = allClars.filter((c: any) => {
+          const cEmp = (c.employee_id || '').toUpperCase().trim();
+          const cName = (c.employee_name || c.created_by || '').trim();
+          return (
+            cEmp === empIdUpper || 
+            cEmp === empIdLower || 
+            (currentUserName && cName === currentUserName) ||
+            (currentUser?.id && (c.employee_id === currentUser.id || c.user_id === currentUser.id))
+          );
+        });
         setD1Clarifications(clarData);
-      }
-
-      if (logsRes.ok) {
-        const j = await logsRes.json();
-        commuteLogs = j.data || [];
       }
       
       // 대문자 결과와 소문자 결과 병합 (중복 제거)
@@ -106,7 +110,6 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
     };
   }, [empId]);
 
-  // 날짜/시간 포맷 헬퍼 (YYYY-MM-DD HH:mm:ss 년월일 시분초 보장)
   // 날짜/시간 포맷 헬퍼 (한국 표준시 KST YYYY-MM-DD HH:mm:ss)
   const formatDateTimeSec = (dateStr?: string | null): string => {
     return formatKstDateTime(dateStr);
@@ -118,10 +121,10 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
       id: `clar-${c.id}`,
       originalId: c.id,
       itemCategory: 'CLARIFICATION' as const,
-      typeLabel: c.incident_type === 'LATE' ? '🚨 지각 투입 소명' : c.incident_type === 'MISSING_PUNCH' ? '🚨 출근 누락 소명' : '소명 신청',
-      targetDate: c.incident_date,
-      scheduledTime: c.scheduled_time,
-      reason: c.reason_text,
+      typeLabel: c.incident_type === 'LATE' ? '🚨 지각 투입 소명' : c.incident_type === 'MISSING_PUNCH' ? '🚨 출근 누락 소명' : '🚨 지각/공백 사유 소명',
+      targetDate: c.incident_date || c.target_date || c.work_date || (c.created_at ? c.created_at.slice(0, 10) : ''),
+      scheduledTime: c.scheduled_time || '09:00 ~ 18:00',
+      reason: c.reason_text || c.reason || c.memo || '지각 사유 소명',
       status: c.status || 'PENDING_PARTNER',
       isPending: c.status !== 'APPROVED' && c.status !== 'REJECTED' && c.status !== 'REJECTED_PARTNER' && c.status !== 'REJECTED_DS',
       isCompleted: c.status === 'APPROVED' || c.status === 'REJECTED' || c.status === 'REJECTED_PARTNER' || c.status === 'REJECTED_DS',
@@ -139,11 +142,17 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
     ...d1Vacations.map((v: any) => ({
       id: `vac-${v.id}`,
       originalId: v.id,
-      itemCategory: 'VACATION' as const,
-      typeLabel: v.request_type === 'VACATION' ? '🏖️ 휴가 신청 (사전 공백 통보)' : v.request_type === 'OVERTIME' ? '⏱️ 연장 투입' : '📅 근무 일정',
-      targetDate: v.target_date,
+      itemCategory: (v.request_type === 'CLARIFICATION' || v.request_type === 'APPEAL' || v.request_type === 'LATE') ? ('CLARIFICATION' as const) : ('VACATION' as const),
+      typeLabel: (v.request_type === 'CLARIFICATION' || v.request_type === 'APPEAL' || v.request_type === 'LATE')
+        ? '🚨 지각/공백 사유 소명'
+        : v.request_type === 'VACATION' 
+        ? '🏖️ 휴가 신청 (사전 공백 통보)' 
+        : v.request_type === 'OVERTIME' 
+        ? '⏱️ 연장 투입' 
+        : '📅 근무 일정',
+      targetDate: v.target_date || v.start_date || v.work_date || (v.created_at ? v.created_at.slice(0, 10) : ''),
       scheduledTime: v.start_time ? `${v.start_time} ~ ${v.end_time || ''}` : undefined,
-      reason: v.reason,
+      reason: v.reason || '사유 미기재',
       status: v.status || 'PENDING',
       isPending: v.status !== 'APPROVED' && v.status !== 'REJECTED' && v.status !== 'REJECTED_PARTNER' && v.status !== 'REJECTED_DS',
       isCompleted: v.status === 'APPROVED' || v.status === 'REJECTED' || v.status === 'REJECTED_PARTNER' || v.status === 'REJECTED_DS',
@@ -160,14 +169,13 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
     }))
   ].sort((a, b) => (b.createdAt || b.targetDate || '').localeCompare(a.createdAt || a.targetDate || ''))
    .filter((item, idx, arr) => {
-     // 동일 일자 + 동일 카테고리(휴가/소명) 건은 가장 최신(첫 번째) 1건만 노출
-     const key = `${item.itemCategory}_${(item.targetDate || '').trim()}`;
-     return arr.findIndex(x => `${x.itemCategory}_${(x.targetDate || '').trim()}` === key) === idx;
+     const key = `${item.itemCategory}_${(item.targetDate || '').trim()}_${item.originalId}`;
+     return arr.findIndex(x => `${x.itemCategory}_${(x.targetDate || '').trim()}_${x.originalId}` === key) === idx;
    });
 
   const pendingCount = unifiedRequests.filter(r => r.isPending).length;
   const completedCount = unifiedRequests.filter(r => r.isCompleted).length;
-  const activeMyCount = pendingCount; // 완료된 요청은 내 요청 탭에서 제외 (완료 탭으로 이동)
+  const totalMyCount = unifiedRequests.length;
 
   // D1에 이미 소명이 제출된 일자 목록
   const clarifiedDates = new Set(d1Clarifications.map(c => c.incident_date));
@@ -347,7 +355,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
       <div style={{ display: 'flex', borderBottom: '1px solid #ECEFF2', background: '#FFFFFF' }}>
         {[
           { id: 'pending', label: '대기중', count: pendingCount },
-          { id: 'my', label: '내 요청', count: activeMyCount },
+          { id: 'my', label: '내 요청', count: totalMyCount },
           { id: 'completed', label: '완료', count: completedCount },
           { id: 'ref', label: '참조', count: 0 }
         ].map(tab => {
@@ -553,7 +561,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
               {activeTab === 'pending'
                 ? `검수 대기중인 소명/신청 (${pendingCount}건)`
                 : activeTab === 'my'
-                ? `진행중인 내 소명/신청 (${activeMyCount}건)`
+                ? `내가 신청한 소명/휴가 전체 이력 (${totalMyCount}건)`
                 : activeTab === 'completed'
                 ? `최종 처리 완료된 내역 (${completedCount}건)`
                 : '참조 및 공람 내역 (0건)'}
@@ -563,12 +571,12 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
             </button>
           </div>
 
-          {/* D1 실시간 통합 목록 필터링 (완료된 요청은 [내 요청]에서 제외되고 [완료] 탭에만 표시) */}
+          {/* D1 실시간 통합 목록 필터링 */}
           {unifiedRequests
             .filter(req => {
               if (activeTab === 'pending') return req.isPending;
               if (activeTab === 'completed') return req.isCompleted;
-              if (activeTab === 'my') return req.isPending; // 완료된 요청은 '내 요청'에서 제외
+              if (activeTab === 'my') return true; // 내 요청 탭에서는 본인이 올린 전체 내역(진행중 + 승인완료) 표시
               return false;
             })
             .filter(req => {
@@ -704,7 +712,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
             })}
 
           {((activeTab === 'pending' && pendingCount === 0) ||
-            (activeTab === 'my' && activeMyCount === 0) ||
+            (activeTab === 'my' && totalMyCount === 0) ||
             (activeTab === 'completed' && completedCount === 0) ||
             (activeTab === 'ref')) && (
             <div style={{ textAlign: 'center', padding: '40px 0', color: '#94A3B8', fontSize: '13px' }}>
@@ -712,7 +720,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
               {activeTab === 'pending'
                 ? '대기중인 소명/휴가 신청 건이 없습니다.'
                 : activeTab === 'my'
-                ? '현재 진행 중인 요청 건이 없습니다. (완료된 내역은 [완료] 탭에서 확인 가능)'
+                ? '신청한 소명 또는 휴가 내역이 없습니다.'
                 : activeTab === 'completed'
                 ? '처리 완료된 내역이 없습니다.'
                 : '참조된 내역이 없습니다.'}
