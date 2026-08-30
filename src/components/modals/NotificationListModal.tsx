@@ -30,6 +30,26 @@ export const NotificationListModal: React.FC<NotificationListModalProps> = ({
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
+  // 날짜/시간 포맷 헬퍼 (YYYY-MM-DD HH:mm:ss)
+  const formatDateTimeSec = (dateStr?: string | null): string => {
+    if (!dateStr) return '-';
+    try {
+      const s = dateStr.replace('T', ' ').slice(0, 19);
+      if (s.length === 10) return `${s} 09:00:00`;
+      if (s.length === 16) return `${s}:00`;
+      return s;
+    } catch {
+      return dateStr;
+    }
+  };
+
+  // 🔔 알림 목록 최신순 (생성일시 기준 내림차순) 정렬
+  const sortedNotifications = [...notifications].sort((a, b) => {
+    const timeA = a.createdAt || '';
+    const timeB = b.createdAt || '';
+    return timeB.localeCompare(timeA);
+  });
+
   const getIcon = (type: string) => {
     switch (type) {
       case 'SLA_ALERT':
@@ -226,13 +246,13 @@ export const NotificationListModal: React.FC<NotificationListModalProps> = ({
               </div>
             </div>
 
-            {notifications.length === 0 ? (
+            {sortedNotifications.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '40px 0', color: '#94A3B8' }}>
                 <Bell size={36} strokeWidth={1.5} style={{ margin: '0 auto 10px', display: 'block', opacity: 0.5 }} />
                 <p style={{ margin: 0, fontSize: '13px', fontWeight: 600 }}>수신된 알림이 없습니다.</p>
               </div>
             ) : (
-              notifications.map((noti) => (
+              sortedNotifications.map((noti) => (
                 <div
                   key={noti.id}
                   onClick={() => handleItemClick(noti)}
@@ -255,7 +275,7 @@ export const NotificationListModal: React.FC<NotificationListModalProps> = ({
                         <span style={{ fontSize: '11px', fontWeight: 700, color: noti.isRead ? '#64748B' : '#0052FF' }}>
                           [{noti.partName || '도급 관리'} 파트]
                         </span>
-                        <span style={{ fontSize: '10.5px', color: '#94A3B8' }}>{noti.createdAt}</span>
+                        <span style={{ fontSize: '10.5px', color: '#94A3B8', fontWeight: 600 }}>{formatDateTimeSec(noti.createdAt)}</span>
                       </div>
                       <h4 style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 800, color: '#0F172A' }}>
                         {noti.title}

@@ -3077,7 +3077,7 @@ app.get('/notifications', async (c) => {
       query += " AND (part_name = ? OR part_name IS NULL OR part_name = '' OR part_name = '전체')";
       params.push(part);
     }
-    query += " ORDER BY created_at DESC LIMIT 50";
+    query += " ORDER BY created_at DESC, id DESC LIMIT 50";
 
     const stmt = db.prepare(query);
     const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();

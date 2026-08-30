@@ -155,7 +155,7 @@ export function App() {
       return false;
     }
     return true;
-  });
+  }).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
   const unreadNotificationCount = filteredNotifications.filter(n => !n.isRead).length;
   const unreadMessageCount = messagesList.filter(m => !m.isRead).length;
