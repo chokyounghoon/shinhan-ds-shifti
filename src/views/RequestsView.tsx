@@ -100,6 +100,19 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
     };
   }, [empId]);
 
+  // 날짜/시간 포맷 헬퍼 (YYYY-MM-DD HH:mm:ss 년월일 시분초 보장)
+  const formatDateTimeSec = (dateStr?: string | null): string => {
+    if (!dateStr) return '-';
+    try {
+      const s = dateStr.replace('T', ' ').slice(0, 19);
+      if (s.length === 10) return `${s} 09:00:00`;
+      if (s.length === 16) return `${s}:00`;
+      return s;
+    } catch {
+      return dateStr;
+    }
+  };
+
   // D1 통합 요청 항목 리스트 (소명 + 휴가)
   const unifiedRequests = [
     ...d1Clarifications.map((c: any) => ({
@@ -111,11 +124,18 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
       scheduledTime: c.scheduled_time,
       reason: c.reason_text,
       status: c.status || 'PENDING_PARTNER',
-      isPending: c.status !== 'APPROVED' && c.status !== 'REJECTED',
-      isCompleted: c.status === 'APPROVED' || c.status === 'REJECTED',
+      isPending: c.status !== 'APPROVED' && c.status !== 'REJECTED' && c.status !== 'REJECTED_PARTNER' && c.status !== 'REJECTED_DS',
+      isCompleted: c.status === 'APPROVED' || c.status === 'REJECTED' || c.status === 'REJECTED_PARTNER' || c.status === 'REJECTED_DS',
       partnerApproved: !!(c.partner_approved_at || c.status === 'PENDING_DS' || c.status === 'APPROVED'),
       dsApproved: !!(c.ds_approved_at || c.status === 'APPROVED'),
-      createdAt: c.created_at
+      createdAt: c.created_at,
+      partnerApprovedAt: c.partner_approved_at,
+      partnerApprovalMemo: c.partner_approval_memo,
+      partnerApproverName: c.partner_approver_name || '협력사 현장관리인',
+      dsApprovedAt: c.ds_approved_at,
+      dsApprovalMemo: c.ds_approval_memo,
+      dsApproverName: c.ds_approver_name || '신한DS 현장대리인(PM)',
+      updatedAt: c.updated_at
     })),
     ...d1Vacations.map((v: any) => ({
       id: `vac-${v.id}`,
@@ -126,13 +146,20 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
       scheduledTime: v.start_time ? `${v.start_time} ~ ${v.end_time || ''}` : undefined,
       reason: v.reason,
       status: v.status || 'PENDING',
-      isPending: v.status !== 'APPROVED' && v.status !== 'REJECTED',
-      isCompleted: v.status === 'APPROVED' || v.status === 'REJECTED',
-      partnerApproved: v.status === 'PENDING_DS' || v.status === 'APPROVED',
-      dsApproved: v.status === 'APPROVED',
-      createdAt: v.created_at
+      isPending: v.status !== 'APPROVED' && v.status !== 'REJECTED' && v.status !== 'REJECTED_PARTNER' && v.status !== 'REJECTED_DS',
+      isCompleted: v.status === 'APPROVED' || v.status === 'REJECTED' || v.status === 'REJECTED_PARTNER' || v.status === 'REJECTED_DS',
+      partnerApproved: v.status === 'PENDING_DS' || v.status === 'APPROVED' || !!v.partner_approved_at,
+      dsApproved: v.status === 'APPROVED' || !!v.ds_approved_at,
+      createdAt: v.created_at,
+      partnerApprovedAt: v.partner_approved_at,
+      partnerApprovalMemo: v.partner_approval_memo,
+      partnerApproverName: v.approver_name || '협력사 현장관리인',
+      dsApprovedAt: v.ds_approved_at,
+      dsApprovalMemo: v.ds_approval_memo,
+      dsApproverName: '신한DS 현장대리인(PM)',
+      updatedAt: v.updated_at
     }))
-  ].sort((a, b) => (b.targetDate || '').localeCompare(a.targetDate || ''));
+  ].sort((a, b) => (b.createdAt || b.targetDate || '').localeCompare(a.createdAt || a.targetDate || ''));
 
   const pendingCount = unifiedRequests.filter(r => r.isPending).length;
   const completedCount = unifiedRequests.filter(r => r.isCompleted).length;
@@ -586,11 +613,15 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
                       {st.label}
                     </span>
                   </div>
-                  <div style={{ fontSize: '12.5px', color: '#475569', marginBottom: '4px' }}>
-                    대상 일자: <strong>{req.targetDate}</strong> {req.scheduledTime ? `(${req.scheduledTime})` : ''}
+                  <div style={{ fontSize: '12.5px', color: '#475569', marginBottom: '4px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px' }}>
+                    <div>대상 일자: <strong style={{ color: '#0F172A' }}>{req.targetDate}</strong> {req.scheduledTime ? `(${req.scheduledTime})` : ''}</div>
+                    <div style={{ fontSize: '11.5px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Clock size={12} color="#8B95A1" />
+                      <span>신청일시: <strong style={{ color: '#334155' }}>{formatDateTimeSec(req.createdAt)}</strong></span>
+                    </div>
                   </div>
-                  <div style={{ fontSize: '12px', color: '#64748B', background: '#F8FAFC', padding: '6px 10px', borderRadius: '6px', marginBottom: '8px' }}>
-                    <strong>신청 사유:</strong> {req.reason}
+                  <div style={{ fontSize: '12px', color: '#64748B', background: '#F8FAFC', padding: '8px 10px', borderRadius: '6px', marginBottom: '10px', border: '1px solid #EEF2F6' }}>
+                    <strong style={{ color: '#334155' }}>신청 사유:</strong> {req.reason}
                   </div>
 
                   {/* 반려/보완 요청 사유 및 재상신 버튼 */}
@@ -602,8 +633,11 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
                       padding: '10px 12px',
                       marginBottom: '10px'
                     }}>
-                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#991B1B', marginBottom: '6px' }}>
-                        ⚠️ 보완 요청 사유: 관리자 검토 결과 사유 또는 증빙이 보완되어야 합니다.
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#991B1B', marginBottom: '4px' }}>
+                        ⚠️ 보완 요청 사유 ({formatDateTimeSec(req.updatedAt)}):
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#7F1D1D', marginBottom: '8px', background: '#FFFFFF', padding: '6px 8px', borderRadius: '4px', border: '1px solid #FECACA' }}>
+                        {req.dsApprovalMemo || req.partnerApprovalMemo || '관리자 검토 결과 사유 또는 증빙이 보완되어야 합니다.'}
                       </div>
                       <button
                         onClick={() => handleOpenResubmitModal(req)}
@@ -629,27 +663,60 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
                     </div>
                   )}
                   
-                  {/* 2단계 결재 진행 게이지 */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
-                    <span style={{
-                      padding: '3px 8px',
-                      borderRadius: '4px',
-                      fontWeight: 700,
-                      background: req.partnerApproved ? '#ECFDF5' : isRejected ? '#FEE2E2' : '#FEF3C7',
-                      color: req.partnerApproved ? '#059669' : isRejected ? '#DC2626' : '#B45309'
-                    }}>
-                      ① 협력사 검수 {req.partnerApproved ? '✓완료' : isRejected ? '보완요청' : '대기중'}
-                    </span>
-                    <span style={{ color: '#CBD5E1' }}>›</span>
-                    <span style={{
-                      padding: '3px 8px',
-                      borderRadius: '4px',
-                      fontWeight: 700,
-                      background: req.dsApproved ? '#ECFDF5' : req.status === 'PENDING_DS' ? '#EFF6FF' : '#F8FAFC',
-                      color: req.dsApproved ? '#059669' : req.status === 'PENDING_DS' ? '#2563EB' : '#94A3B8'
-                    }}>
-                      ② DS 최종 승인 {req.dsApproved ? '✓완료' : '대기중'}
-                    </span>
+                  {/* 🛡️ 결재 단계별 상세 진행 타임라인 (년월일 시분초 표시) */}
+                  <div style={{
+                    background: '#F8FAFC',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '8px',
+                    padding: '10px 12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px',
+                    fontSize: '11.5px'
+                  }}>
+                    {/* 1단계: 협력사 1차 결재 */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <span style={{
+                          padding: '2px 7px',
+                          borderRadius: '4px',
+                          fontWeight: 800,
+                          fontSize: '10.5px',
+                          background: req.partnerApproved ? '#DCFCE7' : req.status === 'REJECTED_PARTNER' ? '#FEE2E2' : '#FEF3C7',
+                          color: req.partnerApproved ? '#15803D' : req.status === 'REJECTED_PARTNER' ? '#DC2626' : '#B45309'
+                        }}>
+                          1단계 협력사
+                        </span>
+                        <span style={{ fontWeight: 700, color: req.partnerApproved ? '#15803D' : '#475569' }}>
+                          {req.partnerApproved ? `✓ 1차 승인 완료 (${req.partnerApproverName})` : req.status === 'REJECTED_PARTNER' ? '⚠️ 보완 요청 (반려)' : '⏳ 1차 검토 대기중'}
+                        </span>
+                      </div>
+                      <span style={{ color: '#64748B', fontSize: '11px', fontWeight: 600 }}>
+                        {req.partnerApprovedAt ? formatDateTimeSec(req.partnerApprovedAt) : (req.status === 'REJECTED_PARTNER' ? formatDateTimeSec(req.updatedAt) : '대기중')}
+                      </span>
+                    </div>
+
+                    {/* 2단계: 신한DS 최종 승인 */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px', paddingTop: '4px', borderTop: '1px dashed #E2E8F0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <span style={{
+                          padding: '2px 7px',
+                          borderRadius: '4px',
+                          fontWeight: 800,
+                          fontSize: '10.5px',
+                          background: req.dsApproved ? '#DCFCE7' : req.status === 'PENDING_DS' ? '#EFF6FF' : req.status === 'REJECTED_DS' ? '#FEE2E2' : '#F1F5F9',
+                          color: req.dsApproved ? '#15803D' : req.status === 'PENDING_DS' ? '#2563EB' : req.status === 'REJECTED_DS' ? '#DC2626' : '#94A3B8'
+                        }}>
+                          2단계 신한DS
+                        </span>
+                        <span style={{ fontWeight: 700, color: req.dsApproved ? '#15803D' : req.status === 'PENDING_DS' ? '#2563EB' : '#64748B' }}>
+                          {req.dsApproved ? `✓ 최종 승인 완료 (${req.dsApproverName})` : req.status === 'PENDING_DS' ? '⏳ PM 최종 검수 진행중' : req.status === 'REJECTED_DS' ? '⚠️ DS PM 보완요청' : '1차 승인 후 검수 대기'}
+                        </span>
+                      </div>
+                      <span style={{ color: '#64748B', fontSize: '11px', fontWeight: 600 }}>
+                        {req.dsApprovedAt ? formatDateTimeSec(req.dsApprovedAt) : (req.status === 'APPROVED' ? formatDateTimeSec(req.updatedAt) : req.status === 'PENDING_DS' ? '검수 진행중' : '-')}
+                      </span>
+                    </div>
                   </div>
                 </div>
               );

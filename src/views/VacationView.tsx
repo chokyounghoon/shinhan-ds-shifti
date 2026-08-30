@@ -32,6 +32,11 @@ export interface VacationItem {
   timeRange: string;
   memo: string;
   status: string;
+  createdAt?: string;
+  partnerApprovedAt?: string;
+  dsApprovedAt?: string;
+  updatedAt?: string;
+  approverName?: string;
 }
 
 interface VacationViewProps {
@@ -48,15 +53,30 @@ export const VacationView: React.FC<VacationViewProps> = ({
   themeMode
 }) => {
   const [activeTab, setActiveTab] = useState<'my' | 'all'>('my');
+  const [selectedYear, setSelectedYear] = useState<number>(2026);
   const [searchQuery, setSearchQuery] = useState('');
   const [isFabOpen, setIsFabOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [vacationList, setVacationList] = useState<VacationItem[]>([]);
   const [balances, setBalances] = useState<VacationBalanceItem[]>([
-    { name: '01.연차휴가', total: '18', used: '0', remaining: '18' },
-    { name: '02.여름휴가', total: '5', used: '0', remaining: '5' },
-    { name: '08.청원휴가(최대3일)', total: '3', used: '0', remaining: '3' },
+    { name: '연차', total: '15.0', used: '1.0', remaining: '14.0' },
+    { name: '체력단련', total: '2.0', used: '0.0', remaining: '2.0' },
+    { name: '보상휴가', total: '0.0', used: '0.0', remaining: '0.0' },
+    { name: '청원휴가', total: '-', used: '0.0', remaining: '-' }
   ]);
+
+  // 년월일 시분초 헬퍼
+  const formatDateTimeSec = (dateStr?: string | null): string => {
+    if (!dateStr) return '-';
+    try {
+      const s = dateStr.replace('T', ' ').slice(0, 19);
+      if (s.length === 10) return `${s} 09:00:00`;
+      if (s.length === 16) return `${s}:00`;
+      return s;
+    } catch {
+      return dateStr;
+    }
+  };
 
   const empId = user?.employeeId || (user as any)?.id || 'S01832';
   const primaryColor = themeMode === 'ddangyo' ? '#FF462D' : '#0046FF';
@@ -84,7 +104,7 @@ export const VacationView: React.FC<VacationViewProps> = ({
             dateLabel = `${mm}/${dd}\n${dow}요일`;
           } catch (_) {}
 
-          let vacType = '연차';
+          let vacType = item.vacation_type || '연차';
           const r = (item.reason || '').toLowerCase();
           if (r.includes('체력단련')) vacType = '체력단련휴가';
           else if (r.includes('반차')) vacType = '반차';
@@ -97,7 +117,12 @@ export const VacationView: React.FC<VacationViewProps> = ({
             vacationType: vacType,
             timeRange: '09:00 - 18:00',
             memo: item.reason || '소속사 휴가 사용',
-            status: item.status || 'APPROVED'
+            status: item.status || 'PENDING',
+            createdAt: item.created_at,
+            partnerApprovedAt: item.partner_approved_at,
+            dsApprovedAt: item.ds_approved_at,
+            updatedAt: item.updated_at,
+            approverName: item.approver_name
           };
         });
       }
@@ -130,7 +155,8 @@ export const VacationView: React.FC<VacationViewProps> = ({
             vacationType: loc.reason.includes('체력단련') ? '체력단련휴가' : '연차',
             timeRange: loc.timeRange || '09:00 - 18:00',
             memo: loc.reason,
-            status: loc.status
+            status: loc.status,
+            createdAt: (loc as any).createdAt
           });
         }
       });
@@ -539,6 +565,42 @@ export const VacationView: React.FC<VacationViewProps> = ({
                       <span style={{ color: '#DC2626', fontWeight: 700 }}>
                         ❌ 휴가 신청이 반려되었습니다. 사유를 확인 후 다시 상신해 주세요.
                       </span>
+                    )}
+                  </div>
+
+                  {/* 🕒 모든 이벤트 년월일시분초 타임스탬프 박스 */}
+                  <div style={{
+                    background: '#FFFFFF',
+                    border: '1px dashed #CBD5E1',
+                    borderRadius: '6px',
+                    padding: '6px 8px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    fontSize: '11px',
+                    color: '#64748B'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>📌 신청(상신) 일시:</span>
+                      <strong style={{ color: '#1E293B' }}>{formatDateTimeSec(item.createdAt)}</strong>
+                    </div>
+                    {(isPendingDs || isApproved || item.partnerApprovedAt) && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>🏢 1차 협력사 승인 일시:</span>
+                        <strong style={{ color: '#059669' }}>{formatDateTimeSec(item.partnerApprovedAt || item.updatedAt)}</strong>
+                      </div>
+                    )}
+                    {(isApproved || item.dsApprovedAt) && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>🛡️ 2차 신한DS 승인 일시:</span>
+                        <strong style={{ color: '#0052FF' }}>{formatDateTimeSec(item.dsApprovedAt || item.updatedAt)}</strong>
+                      </div>
+                    )}
+                    {isRejected && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>⚠️ 반려 처리 일시:</span>
+                        <strong style={{ color: '#DC2626' }}>{formatDateTimeSec(item.updatedAt)}</strong>
+                      </div>
                     )}
                   </div>
                 </div>
