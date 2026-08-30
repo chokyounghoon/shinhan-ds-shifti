@@ -28,12 +28,14 @@ import { AiAnomalyRadarModal } from '../components/modals/AiAnomalyRadarModal';
 import { AiLaborInspectorSimulatorModal } from '../components/modals/AiLaborInspectorSimulatorModal';
 import { DsDemandClarificationModal } from '../components/modals/DsDemandClarificationModal';
 import { YellowEnvelopeComplianceModal } from '../components/modals/YellowEnvelopeComplianceModal';
+import { DsLateAttendanceCalendar } from '../components/DsLateAttendanceCalendar';
+import { Calendar as CalendarNavIcon } from 'lucide-react';
 import { AttendanceReportView } from './AttendanceReportView';
 import { ContractFulfillmentDashboardView } from './ContractFulfillmentDashboardView';
 
 interface PrincipalInspectionPortalViewProps {
   themeMode: 'ddangyo' | 'shinhan';
-  initialTab?: 'monitoring' | 'roster' | 'dashboard' | 'report' | 'approvals' | 'evidences';
+  initialTab?: 'monitoring' | 'roster' | 'dashboard' | 'calendar' | 'report' | 'approvals' | 'evidences';
 }
 
 interface MasterWorkerItem {
@@ -100,7 +102,7 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
   const isDirector = currentRole === 'DS_DIRECTOR';
   const [signerName, setSignerName] = useState<string>(isDirector ? '조경훈 총괄부서장 (신한DS IT도급총괄)' : '조경훈 수석PM (신한DS)');
 
-  const [mainTab, setMainTab] = useState<'monitoring' | 'roster' | 'dashboard' | 'report' | 'approvals' | 'evidences'>(initialTab);
+  const [mainTab, setMainTab] = useState<'monitoring' | 'roster' | 'dashboard' | 'calendar' | 'report' | 'approvals' | 'evidences'>(initialTab);
 
   React.useEffect(() => {
     dbService.fetchInspectionsFromD1().then(data => setInspections(data));
@@ -526,10 +528,10 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
         </div>
       </div>
 
-      {/* 🌟 1. 신한DS 포털 5대 상단 메뉴 탭 바 (투입현황 / 검수포털 / 실적리포트 / 승인관리 / 법적증빙) */}
+      {/* 🌟 1. 신한DS 포털 6대 상단 메뉴 탭 바 (파트관제 / 캘린더 / 투입현황 / 검수포털 / 실적리포트 / 승인관리) */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(5, 1fr)',
+        gridTemplateColumns: 'repeat(6, 1fr)',
         background: '#FFFFFF',
         borderBottom: '1px solid #E2E8F0',
         borderRadius: '12px',
@@ -559,7 +561,30 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
           <span>파트관제</span>
         </button>
 
-        {/* 메뉴 2: 🌟 소속 인력 투입 현황 (일별 / 주별 / 월별) */}
+        {/* 메뉴 2: 📅 지각/소명 캘린더 (일자별 지각자 및 소명 이행 현황) */}
+        <button
+          type="button"
+          onClick={() => setMainTab('calendar')}
+          style={{
+            padding: '14px 0',
+            background: 'none',
+            border: 'none',
+            borderBottom: mainTab === 'calendar' ? '3px solid #0046FF' : '3px solid transparent',
+            color: mainTab === 'calendar' ? '#0046FF' : '#64748B',
+            fontSize: '12px',
+            fontWeight: mainTab === 'calendar' ? 900 : 600,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '3px',
+            cursor: 'pointer'
+          }}
+        >
+          <CalendarNavIcon size={13} />
+          <span>지각·소명 캘린더</span>
+        </button>
+
+        {/* 메뉴 3: 🌟 소속 인력 투입 현황 (일별 / 주별 / 월별) */}
         <button
           type="button"
           onClick={() => setMainTab('roster')}
@@ -733,6 +758,27 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
         <ContractFulfillmentDashboardView
           currentUser={dbService.getCurrentUser()}
           themeMode={themeMode}
+        />
+      )}
+
+      {/* ========================================================================= */}
+      {/* 탭 0-1 전용 화면: 📅 지각자 현황 및 소명 이행 캘린더 (일자별 지각/소명/테이블) */}
+      {/* ========================================================================= */}
+      {mainTab === 'calendar' && (
+        <DsLateAttendanceCalendar
+          themeMode={themeMode}
+          onApproveClarification={handleDsApprove}
+          onDemandClarification={(worker) => {
+            setSelectedWorkerForDemand({
+              name: worker.name,
+              id: worker.employee_id,
+              company: worker.company,
+              date: worker.workDate,
+              varianceMinutes: worker.delayMinutes,
+              clockIn: worker.clockIn
+            });
+            setIsDemandClarificationModalOpen(true);
+          }}
         />
       )}
 

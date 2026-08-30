@@ -853,6 +853,7 @@ app.get('/commute/logs', async (c) => {
   try {
     const empId = c.req.query('employee_id');
     const workDate = c.req.query('work_date');
+    const month = c.req.query('month');
     const db = c.env.DB;
 
     let query = "SELECT * FROM commute_logs WHERE 1=1";
@@ -866,7 +867,11 @@ app.get('/commute/logs', async (c) => {
       query += " AND work_date = ?";
       params.push(workDate);
     }
-    query += " ORDER BY work_date DESC, created_at DESC LIMIT 100";
+    if (month) {
+      query += " AND work_date LIKE ?";
+      params.push(`${month}%`);
+    }
+    query += " ORDER BY work_date DESC, created_at DESC LIMIT 500";
 
     const stmt = db.prepare(query);
     const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
