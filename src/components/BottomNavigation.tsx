@@ -50,26 +50,8 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
         className={`nav-item ${activeTab === 'schedule' ? 'active' : ''}`}
         onClick={() => onTabChange('schedule')}
       >
-        <div style={{ position: 'relative' }}>
-          <Calendar size={22} strokeWidth={activeTab === 'schedule' ? 2.5 : 1.8} />
-          <span style={{
-            position: 'absolute',
-            bottom: '-12px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            background: 'rgba(0, 0, 0, 0.75)',
-            color: '#FFFFFF',
-            fontSize: '8.5px',
-            fontWeight: 700,
-            padding: '1px 4px',
-            borderRadius: '4px',
-            whiteSpace: 'nowrap',
-            border: '0.5px solid rgba(255, 255, 255, 0.2)'
-          }}>
-            약정
-          </span>
-        </div>
-        <span style={{ marginTop: '2px' }}>투입계획</span>
+        <Calendar size={22} strokeWidth={activeTab === 'schedule' ? 2.5 : 1.8} />
+        <span>투입계획</span>
       </button>
 
       {/* 4. 투입이력 */}
