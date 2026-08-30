@@ -11,6 +11,7 @@ import {
   LegalDefenseReport,
   ExceptionType
 } from '../types';
+import { getKstNowString } from '../utils/dateUtils';
 
 // =========================================================================
 // 1. 10인 PM 체제 파트 마스터 정의 (10-PM Partition Structure)
@@ -973,7 +974,7 @@ export class PureDatabaseEngine {
       hours: Number(req.hours) || 8,
       reason: req.reason || '근태 신청',
       status: req.status || 'PENDING',
-      createdAt: req.createdAt || new Date().toISOString().replace('T', ' ').substring(0, 16),
+      createdAt: req.createdAt || getKstNowString(),
       approvalMemo: req.approvalMemo
     };
     this.requests.unshift(fullReq);
@@ -1182,7 +1183,7 @@ export class PureDatabaseEngine {
       targetRole: noti.targetRole || 'ALL',
       partName: noti.partName || '카드개발팀',
       isRead: false,
-      createdAt: new Date().toISOString(),
+      createdAt: getKstNowString(),
       linkUrl: noti.linkUrl
     };
     this.notifications.unshift(newNoti);
@@ -1284,7 +1285,7 @@ export class PureDatabaseEngine {
       item.isRead = true;
       item.replyStatus = 'COMPLETED';
       item.replyContent = replyContent;
-      item.repliedAt = new Date().toISOString().replace('T', ' ').substring(0, 19);
+      item.repliedAt = getKstNowString();
     }
     try {
       await fetch(`${this.API_BASE}/messages/${id}/reply`, {

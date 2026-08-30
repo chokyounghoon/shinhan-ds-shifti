@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { User, AttendanceRequest } from '../types';
 import { dbService } from '../services/db';
+import { formatKstDateTime } from '../utils/dateUtils';
 
 export interface VacationBalanceItem {
   name: string;
@@ -65,17 +66,9 @@ export const VacationView: React.FC<VacationViewProps> = ({
     { name: '청원휴가', total: '-', used: '0.0', remaining: '-' }
   ]);
 
-  // 년월일 시분초 헬퍼
+  // 년월일 시분초 헬퍼 (한국 표준시 KST YYYY-MM-DD HH:mm:ss)
   const formatDateTimeSec = (dateStr?: string | null): string => {
-    if (!dateStr) return '-';
-    try {
-      const s = dateStr.replace('T', ' ').slice(0, 19);
-      if (s.length === 10) return `${s} 09:00:00`;
-      if (s.length === 16) return `${s}:00`;
-      return s;
-    } catch {
-      return dateStr;
-    }
+    return formatKstDateTime(dateStr);
   };
 
   const empId = user?.employeeId || (user as any)?.id || 'S01832';

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { AttendanceRequest } from '../types';
 import { dbService } from '../services/db';
+import { formatKstDateTime } from '../utils/dateUtils';
 import { RequestTypeSelectActionSheetModal, RequestCategoryType } from '../components/modals/RequestTypeSelectActionSheetModal';
 import { SubmitClarificationModal, UnclarifiedIncident } from '../components/modals/SubmitClarificationModal';
 
@@ -101,16 +102,9 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
   }, [empId]);
 
   // 날짜/시간 포맷 헬퍼 (YYYY-MM-DD HH:mm:ss 년월일 시분초 보장)
+  // 날짜/시간 포맷 헬퍼 (한국 표준시 KST YYYY-MM-DD HH:mm:ss)
   const formatDateTimeSec = (dateStr?: string | null): string => {
-    if (!dateStr) return '-';
-    try {
-      const s = dateStr.replace('T', ' ').slice(0, 19);
-      if (s.length === 10) return `${s} 09:00:00`;
-      if (s.length === 16) return `${s}:00`;
-      return s;
-    } catch {
-      return dateStr;
-    }
+    return formatKstDateTime(dateStr);
   };
 
   // D1 통합 요청 항목 리스트 (소명 + 휴가)

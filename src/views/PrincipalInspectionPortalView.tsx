@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { dbService } from '../services/db';
 import { ServiceDeliveryInspection } from '../types';
+import { formatKstDateTime } from '../utils/dateUtils';
 import { ElectronicSignatureModal } from '../components/modals/ElectronicSignatureModal';
 import { LegalComplianceAuditReportModal } from '../components/modals/LegalComplianceAuditReportModal';
 import { AiClarificationAuditModal } from '../components/modals/AiClarificationAuditModal';
@@ -196,17 +197,9 @@ export const PrincipalInspectionPortalView: React.FC<PrincipalInspectionPortalVi
     }
   };
 
-  // 날짜/시간 포맷 헬퍼 (YYYY-MM-DD HH:mm:ss)
+  // 날짜/시간 포맷 헬퍼 (한국 표준시 KST YYYY-MM-DD HH:mm:ss)
   const formatDateTimeSec = (dateStr?: string | null): string => {
-    if (!dateStr) return '-';
-    try {
-      const s = dateStr.replace('T', ' ').slice(0, 19);
-      if (s.length === 10) return `${s} 09:00:00`;
-      if (s.length === 16) return `${s}:00`;
-      return s;
-    } catch {
-      return dateStr;
-    }
+    return formatKstDateTime(dateStr);
   };
 
   const fetchPendingDsClarifications = async () => {

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Bell, AlertTriangle, Calendar, CheckCircle2, ChevronRight, Check, Scale, ShieldCheck } from 'lucide-react';
 import { DbAppNotification } from '../../services/db';
 import { YellowEnvelopeComplianceModal } from './YellowEnvelopeComplianceModal';
+import { formatKstDateTime } from '../../utils/dateUtils';
 
 interface NotificationListModalProps {
   isOpen: boolean;
@@ -30,17 +31,9 @@ export const NotificationListModal: React.FC<NotificationListModalProps> = ({
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  // 날짜/시간 포맷 헬퍼 (YYYY-MM-DD HH:mm:ss)
+  // 날짜/시간 포맷 헬퍼 (한국 표준시 KST YYYY-MM-DD HH:mm:ss)
   const formatDateTimeSec = (dateStr?: string | null): string => {
-    if (!dateStr) return '-';
-    try {
-      const s = dateStr.replace('T', ' ').slice(0, 19);
-      if (s.length === 10) return `${s} 09:00:00`;
-      if (s.length === 16) return `${s}:00`;
-      return s;
-    } catch {
-      return dateStr;
-    }
+    return formatKstDateTime(dateStr);
   };
 
   // 🔔 알림 목록 최신순 (생성일시 기준 내림차순) 정렬

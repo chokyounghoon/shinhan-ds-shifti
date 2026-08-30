@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Calendar, ShieldCheck, Megaphone, CheckCircle2, Building2, Clock, AlertCircle, Send, UserCheck, FileText } from 'lucide-react';
 import { dbService } from '../../services/db';
 import { User } from '../../types';
+import { getKstNowString } from '../../utils/dateUtils';
 
 interface VacationRegistrationModalProps {
   isOpen: boolean;
@@ -146,8 +147,8 @@ export const VacationRegistrationModal: React.FC<VacationRegistrationModalProps>
         timeRange: vacationType.includes('반차') ? '0.5 M/D' : '전일 (1.0 M/D)',
         hours: hours,
         reason: reason,
-        status: 'PENDING', // 1단계: 협력사 현장관리인 1차 결재 대기
-        createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        status: 'PENDING',
+        createdAt: getKstNowString(),
         approvalMemo: `협력사(${partnerCompany}) 내부 복무 신청 접수 (1차 결재 대기)`
       });
 

@@ -23,6 +23,7 @@ import {
 import { dbService, DbSlaClarification, DbPreGapNotice } from '../services/db';
 import { aiAnalyticsService } from '../services/aiAnalyticsService';
 import { User } from '../types';
+import { formatKstDateTime } from '../utils/dateUtils';
 import { VacationRegistrationModal } from '../components/modals/VacationRegistrationModal';
 
 interface PartnerManagerPortalViewProps {
@@ -405,17 +406,9 @@ export const PartnerManagerPortalView: React.FC<PartnerManagerPortalViewProps> =
     c.partnerCompany === selectedPartner && c.status === 'REQUESTED'
   );
 
-  // 날짜/시간 포맷 헬퍼 (YYYY-MM-DD HH:mm:ss)
+  // 날짜/시간 포맷 헬퍼 (한국 표준시 KST YYYY-MM-DD HH:mm:ss)
   const formatDateTimeSec = (dateStr?: string | null): string => {
-    if (!dateStr) return '-';
-    try {
-      const s = dateStr.replace('T', ' ').slice(0, 19);
-      if (s.length === 10) return `${s} 09:00:00`;
-      if (s.length === 16) return `${s}:00`;
-      return s;
-    } catch {
-      return dateStr;
-    }
+    return formatKstDateTime(dateStr);
   };
 
   // 선택된 협력사 소속 인력들의 휴가/공백 신청 실시간 통합 목록 (D1 attendance_requests + pre_gap_notices + dbService)

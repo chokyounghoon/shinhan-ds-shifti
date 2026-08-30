@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Send, Calendar, Clock, ShieldCheck, UserCheck } from 'lucide-react';
 import { dbService } from '../../services/db';
+import { getKstNowString } from '../../utils/dateUtils';
 
 interface RequestModalProps {
   isOpen: boolean;
@@ -99,7 +100,8 @@ export const RequestModal: React.FC<RequestModalProps> = ({
         startTime: requestType === 'OVERTIME' ? startTime : undefined,
         endTime: requestType === 'OVERTIME' ? endTime : undefined,
         reason,
-        status: 'PENDING'
+        status: 'PENDING',
+        createdAt: getKstNowString()
       });
 
       // 3. 🔔 알림센터에 미확인 알림 푸시

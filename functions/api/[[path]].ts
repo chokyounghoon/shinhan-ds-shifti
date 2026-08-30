@@ -20,12 +20,16 @@ app.use('*', async (c, next) => {
 
 app.options('*', (c) => c.text('', 204));
 
-// 한국 표준시 (KST) 생성 유틸 - YYYY-MM-DD HH:mm:ss
+// 한국 표준시 (KST, UTC+9) 생성 유틸 - YYYY-MM-DD HH:mm:ss
 const getKst = () => {
-  const now = new Date();
-  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-  const kst = new Date(utc + (9 * 3600000));
-  return kst.toISOString().replace('T', ' ').slice(0, 19);
+  const d = new Date(Date.now() + (9 * 3600000));
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const hh = String(d.getUTCHours()).padStart(2, '0');
+  const min = String(d.getUTCMinutes()).padStart(2, '0');
+  const ss = String(d.getUTCSeconds()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
 };
 
 // 🌟 D1 전 테이블 4대 표준 감사(Audit) 필드 (created_at, updated_at, created_by, updated_by) 자가 치유 마이그레이션
